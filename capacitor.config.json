@@ -1,0 +1,13 @@
+{
+  "appId": "com.thelittleguy.hashmark",
+  "appName": "Hashmark",
+  "webDir": "www",
+  "backgroundColor": "#0B0F14",
+  "ios": {
+    "backgroundColor": "#0B0F14",
+    "contentInset": "always"
+  },
+  "android": {
+    "backgroundColor": "#0B0F14"
+  }
+}

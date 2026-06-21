@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hashmark</string>
+    <string name="title_activity_main">Hashmark</string>
+    <string name="package_name">com.thelittleguy.hashmark</string>
+    <string name="custom_url_scheme">com.thelittleguy.hashmark</string>
+</resources>

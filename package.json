@@ -1,0 +1,21 @@
+{
+  "name": "hashmark",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hashmark — independent, gambling-free college football analytics (web + native shell)",
+  "scripts": {
+    "copyweb": "rm -rf www && mkdir -p www && cp index.html manifest.webmanifest sw.js www/ && cp -r icons www/",
+    "sync": "npm run copyweb && cap sync",
+    "ios": "npm run sync && cap open ios",
+    "android": "npm run sync && cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0"
+  }
+}
