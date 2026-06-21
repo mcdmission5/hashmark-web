@@ -1,0 +1,1080 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Hashmark — College Football Ratings</title>
+<meta name="description" content="Hashmark — independent, gambling-free college football analytics: opponent-adjusted 2026 team & unit ratings, matchup projections, and official 2025 records, scores and schedules." />
+<!-- PWA: installable as a full-screen app on iOS/Android. Relative paths so it works under the GitHub Pages project subpath. -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0B0F14" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Hashmark" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0F14; --surface:#141A22; --surface2:#1C2530; --line:#2A3542;
+    --text:#E8EEF4; --text2:#9AA8B6; --amber:#F6B43C; --teal:#56C2C0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Hanken Grotesk",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:460px;margin:0 auto;min-height:100vh;
+    background:linear-gradient(180deg,#0B0F14 0%,#0c1117 100%);
+    border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  header{position:sticky;top:0;z-index:5;padding:18px 18px 0;
+    background:rgba(11,15,20,.9);backdrop-filter:blur(10px)}
+  .wordmark{font-family:"Archivo",sans-serif;font-weight:800;font-size:26px;letter-spacing:-.5px}
+  .wordmark .dot{color:var(--amber)}
+  /* season toggle */
+  .toggle{display:flex;gap:6px;margin:14px 0 10px;background:var(--surface);
+    border:1px solid var(--line);border-radius:12px;padding:4px}
+  .toggle button{flex:1;background:transparent;border:0;color:var(--text2);
+    font-family:"Hanken Grotesk";font-weight:700;font-size:13px;padding:9px 6px;
+    border-radius:9px;cursor:pointer;line-height:1.2}
+  .toggle button small{display:block;font-weight:500;font-size:10px;opacity:.8;margin-top:2px}
+  .toggle button.on{background:var(--amber);color:#10130c}
+  .toggle button.on small{opacity:.75}
+  .subtitle{color:var(--text2);font-size:12.5px;margin:2px 0 12px}
+  .subtitle b{color:var(--text);font-weight:600}
+  .fdline{height:2px;background:var(--amber);box-shadow:0 0 12px rgba(246,180,60,.5);border-radius:2px}
+  .list{padding:6px 12px 90px}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 8px;border-bottom:1px solid var(--line)}
+  .rank{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:15px;
+    color:var(--text2);width:26px;text-align:right;flex:none}
+  .row.top .rank{color:var(--amber)}
+  .crest{width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;letter-spacing:.3px;
+    border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 -8px 14px rgba(0,0,0,.28)}
+  .meta{flex:1;min-width:0}
+  .team{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .conf{color:var(--text2);font-size:12px;margin-top:2px}
+  .rating{text-align:right;flex:none}
+  .rval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:17px;
+    border-bottom:2px solid var(--amber);padding-bottom:1px}
+  .rlbl{color:var(--text2);font-size:10px;letter-spacing:.4px;margin-top:3px;text-transform:uppercase}
+  .splits{display:flex;gap:8px;justify-content:flex-end;margin-top:5px}
+  .chip{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text2)}
+  .chip b{color:var(--teal);font-weight:700}
+  .chip.d b{color:#7CA8FF}
+  .note{color:var(--text2);font-size:11px;line-height:1.5;padding:16px 20px 30px;border-top:1px solid var(--line)}
+  .loading,.err{color:var(--text2);text-align:center;padding:50px 20px;font-family:"JetBrains Mono",monospace;font-size:13px}
+  .err{color:#E5705C}
+  [data-tip]{cursor:help}
+  .tip{position:fixed;z-index:60;max-width:264px;background:var(--surface2);
+    border:1px solid var(--amber);color:var(--text);font-size:12.5px;line-height:1.5;
+    padding:11px 13px;border-radius:11px;box-shadow:0 10px 28px rgba(0,0,0,.55);
+    pointer-events:none;opacity:0;transform:translateY(5px);transition:opacity .12s,transform .12s}
+  .tip.show{opacity:1;transform:translateY(0)}
+  .hint{color:var(--text2);font-size:11px;text-align:center;padding:10px 0 2px}
+  .row{cursor:pointer}
+  .chev{color:var(--text2);font-size:20px;flex:none;width:10px;text-align:center;opacity:.7}
+  /* ---- team detail page ---- */
+  .detail{padding:0 0 96px}
+  .dtop{display:flex;align-items:center;gap:12px;padding:14px 16px 4px;position:sticky;top:0;z-index:5;
+    background:rgba(11,15,20,.92);backdrop-filter:blur(10px)}
+  .back{background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:10px;
+    width:38px;height:38px;font-size:20px;cursor:pointer;flex:none;display:grid;place-items:center;line-height:1}
+  .dtop .wordmark{font-size:20px}
+  .dhead{display:flex;align-items:center;gap:14px;padding:8px 18px 4px}
+  .dcrest{width:60px;height:60px;border-radius:16px;flex:none;display:grid;place-items:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:19px;letter-spacing:.3px;
+    border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 -10px 18px rgba(0,0,0,.3)}
+  .dschool{font-family:"Archivo",sans-serif;font-weight:800;font-size:23px;letter-spacing:-.3px;line-height:1.1}
+  .dconf{color:var(--text2);font-size:13px;margin-top:4px}
+  .dconf .rk{color:var(--amber);font-weight:700}
+  .drating{text-align:center;padding:10px 18px 18px}
+  .dbig{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:46px;line-height:1;
+    border-bottom:3px solid var(--amber);display:inline-block;padding-bottom:5px}
+  .dlbl{color:var(--text2);font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;margin-top:9px}
+  .od{display:flex;gap:12px;padding:6px 18px 14px}
+  .odcard{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 14px;text-align:center}
+  .odk{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text2)}
+  .odv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;margin-top:4px}
+  .odcard.o .odv{color:var(--teal)} .odcard.d .odv{color:#7CA8FF}
+  .sec{padding:4px 18px}
+  .sectitle{font-family:"Archivo",sans-serif;font-weight:700;font-size:15px;margin:16px 0 2px}
+  .secsub{color:var(--text2);font-size:11.5px;margin-bottom:8px;line-height:1.5}
+  .driver{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .dvk{width:84px;flex:none;font-weight:600;font-size:13px}
+  .dvbar{flex:1;height:9px;background:var(--surface2);border-radius:6px;position:relative}
+  .dvbar i{position:absolute;top:0;bottom:0;border-radius:6px}
+  .dvbar i.pos{background:var(--amber)} .dvbar i.neg{background:#5C6B7A}
+  .dvbar .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line)}
+  .dvv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;width:54px;text-align:right;flex:none}
+  .ctx{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:4px 0;
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 10px}
+  .ctxcol{text-align:center;flex:1}
+  .ctxcol .y{color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .ctxcol .v{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:17px;margin-top:4px}
+  .ctxcol .vs{font-size:11px;color:var(--text2);font-weight:500;margin-top:2px}
+  .ctxarrow{color:var(--amber);font-size:22px;flex:none}
+  .prem{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin-bottom:11px;overflow:hidden}
+  .prem .ptitle{font-weight:700;font-size:13.5px;margin-bottom:9px;display:flex;align-items:center;gap:7px}
+  .prem .ptitle .ic{opacity:.85}
+  .prem .blur{filter:blur(5px);opacity:.45;pointer-events:none;user-select:none}
+  .prem .fakebar{height:9px;background:var(--surface2);border-radius:6px;margin:8px 0}
+  .prem .lock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:5px;background:linear-gradient(180deg,rgba(20,26,34,.15),rgba(20,26,34,.78))}
+  .lockbadge{background:var(--amber);color:#10130c;font-weight:700;font-size:10.5px;
+    padding:3px 10px;border-radius:20px;letter-spacing:.5px}
+  .lock .lt{font-size:12.5px;color:var(--text);font-weight:600;text-align:center;padding:0 20px}
+  /* ---- leaderboards (overall / offense / defense + conference) ---- */
+  .bnav{display:flex;gap:6px;margin:0 0 9px;background:var(--surface);
+    border:1px solid var(--line);border-radius:11px;padding:4px}
+  .bnav button{flex:1;background:transparent;border:0;color:var(--text2);
+    font-family:"Hanken Grotesk";font-weight:700;font-size:12.5px;padding:8px 4px;
+    border-radius:8px;cursor:pointer;line-height:1.1}
+  .bnav button.on{background:var(--surface2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+  .bnav button.on.off{color:var(--teal)} .bnav button.on.def{color:#7CA8FF}
+  .confbar{display:flex;gap:7px;overflow-x:auto;padding:1px 0 10px;scrollbar-width:none}
+  .confbar::-webkit-scrollbar{display:none}
+  .confpill{flex:none;background:var(--surface);border:1px solid var(--line);color:var(--text2);
+    font-family:"Hanken Grotesk";font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;
+    cursor:pointer;white-space:nowrap}
+  .confpill.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
+  .cstr{margin:2px 0 4px}
+  .cstrtitle{font-family:"Archivo",sans-serif;font-weight:700;font-size:12.5px;color:var(--text2);
+    text-transform:uppercase;letter-spacing:.4px;margin:2px 2px 6px}
+  .cstrrow{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+  .cstrrow .ci{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12px;color:var(--text2);width:18px;text-align:right;flex:none}
+  .cstrrow .cn{flex:none;width:108px;font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cstrrow .cn small{color:var(--text2);font-weight:500;font-size:10px}
+  .cstrrow .cbar{flex:1;height:8px;background:var(--surface2);border-radius:5px;position:relative;overflow:hidden}
+  .cstrrow .cbar i{position:absolute;top:0;bottom:0;border-radius:5px}
+  .cstrrow .cbar i.neg{background:#5C6B7A;opacity:.8}
+  .cstrrow .cvv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12px;width:54px;text-align:right;flex:none}
+  .csum{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 15px;margin:0 0 8px}
+  .csum .ch{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .csum .cnm{font-family:"Archivo",sans-serif;font-weight:800;font-size:18px;line-height:1.1}
+  .csum .crk{color:var(--amber);font-weight:700;font-size:12px;flex:none}
+  .csum .cv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:16px;margin-top:7px}
+  .csum .csub{color:var(--text2);font-size:11.5px;margin-top:2px;line-height:1.4}
+  /* ---- compare affordances (rankings + team detail) ---- */
+  .cmpcta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    background:var(--surface);border:1px solid var(--amber);color:var(--amber);
+    font-family:"Hanken Grotesk";font-weight:700;font-size:13px;padding:11px;border-radius:12px;
+    cursor:pointer;margin:0 0 8px}
+  .cmpcta .ar{font-size:15px;line-height:1}
+  .cmpcta:hover{background:rgba(246,180,60,.08)}
+  /* ---- compare screen ---- */
+  .cmp{padding:0 0 96px}
+  .cmptop{display:flex;align-items:center;gap:12px;padding:14px 16px 4px;position:sticky;top:0;z-index:5;
+    background:rgba(11,15,20,.92);backdrop-filter:blur(10px)}
+  .cmptop .wordmark{font-size:20px}
+  .cmptag{font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;color:var(--text2);
+    margin-left:auto;letter-spacing:.4px;text-transform:uppercase}
+  /* team pickers */
+  .pickrow{display:flex;align-items:stretch;gap:9px;padding:12px 14px 4px}
+  .pick{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:13px 8px 11px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;text-align:center}
+  .pick:hover{border-color:var(--amber)}
+  .pick .pcrest{width:54px;height:54px;border-radius:15px;display:grid;place-items:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:16px;letter-spacing:.3px;
+    border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 -9px 15px rgba(0,0,0,.28)}
+  .pick .pname{font-weight:700;font-size:14.5px;line-height:1.15;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .pick .pconf{color:var(--text2);font-size:11px}
+  .pick .pchg{color:var(--amber);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+    border:1px solid var(--line);border-radius:20px;padding:2px 9px;margin-top:1px}
+  .pickvs{align-self:center;font-family:"Archivo",sans-serif;font-weight:800;color:var(--text2);font-size:13px;flex:none}
+  /* venue toggle (reuses .toggle) */
+  .venue{margin:6px 14px 2px}
+  .venuesub{text-align:center;color:var(--text2);font-size:11.5px;margin:3px 0 4px;line-height:1.4}
+  .venuesub b{color:var(--text);font-weight:600}
+  /* headline */
+  .headcard{margin:9px 14px 4px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px 15px 14px}
+  .hl{font-family:"Archivo",sans-serif;font-weight:800;font-size:19px;line-height:1.25;text-align:center}
+  .hl .by{color:var(--amber)}
+  .hlsub{text-align:center;color:var(--text2);font-size:12px;margin-top:5px}
+  .hlsub b{color:var(--text)}
+  .wpbar{display:flex;height:30px;border-radius:9px;overflow:hidden;margin-top:13px;border:1px solid var(--line)}
+  .wpbar .seg{display:flex;align-items:center;font-family:"JetBrains Mono",monospace;font-weight:700;
+    font-size:12.5px;padding:0 10px;min-width:0;overflow:hidden;white-space:nowrap}
+  .wpbar .seg.b{justify-content:flex-end}
+  .wplbl{display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:var(--text2)}
+  .wplbl b{color:var(--text);font-weight:600}
+  /* compare rows (ratings + components) */
+  .cmpsec{padding:4px 16px}
+  .cmprow{padding:10px 2px;border-bottom:1px solid var(--line)}
+  .cmpk{text-align:center;font-size:11px;color:var(--text2);font-weight:700;margin-bottom:7px;
+    text-transform:uppercase;letter-spacing:.5px}
+  .cmpgrid{display:grid;grid-template-columns:54px 1fr 1fr 54px;align-items:center;gap:6px}
+  .cmpval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12.5px;color:var(--text2);letter-spacing:-.4px}
+  .cmpval.a{text-align:right} .cmpval.b{text-align:left}
+  .cmpval.win{color:var(--amber)}
+  .cmptrk{height:10px;background:var(--surface2);border-radius:6px;position:relative;overflow:hidden}
+  .cmptrk i{position:absolute;top:0;bottom:0;border-radius:6px}
+  .cmptrk.l i{right:0} .cmptrk.r i{left:0}
+  .cmptrk i.neg{background:#5C6B7A !important;opacity:.7}
+  .cmprow.big .cmpk{font-size:12.5px;color:var(--text);font-family:"Archivo",sans-serif}
+  .cmprow.big .cmpval{font-size:14.5px}
+  .cmprow.big .cmptrk{height:12px}
+  /* team-picker overlay */
+  .pickov{position:fixed;inset:0;z-index:80;background:rgba(8,11,15,.74);
+    backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center}
+  .picksheet{width:100%;max-width:460px;max-height:84vh;background:var(--surface);
+    border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0;
+    display:flex;flex-direction:column;overflow:hidden}
+  .pickhd{display:flex;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
+  .picksearch{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;
+    color:var(--text);font-family:"Hanken Grotesk";font-size:14px;padding:11px 12px;outline:none}
+  .picksearch:focus{border-color:var(--amber)}
+  .pickx{background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:10px;
+    width:42px;font-size:15px;cursor:pointer;flex:none}
+  .picklist{overflow:auto;padding:4px 8px 20px}
+  .pitem{display:flex;align-items:center;gap:11px;padding:9px 8px;border-bottom:1px solid var(--line);
+    cursor:pointer;border-radius:8px}
+  .pitem:hover{background:var(--surface2)}
+  .pitem.dis{opacity:.32;pointer-events:none}
+  .pitem .prk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12px;
+    color:var(--text2);width:24px;text-align:right;flex:none}
+  .pitem .pcr{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:11px;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14)}
+  .pitem .pnm{font-weight:600;font-size:14px}
+  .pitem .pcf{color:var(--text2);font-size:11px;margin-top:1px}
+  .pitem .pov{margin-left:auto;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;color:var(--text2)}
+  /* ---- preview mode (Hashmark ratings hidden) ---- */
+  .previewbar{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:11px 13px;font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 8px}
+  .previewbar b{color:var(--text);font-weight:600}
+  .pb-badge{display:inline-block;background:var(--amber);color:#10130c;font-weight:700;font-size:9.5px;
+    letter-spacing:.5px;padding:2px 7px;border-radius:20px;margin-right:7px;vertical-align:1px}
+  .soon{display:flex;flex-direction:column;align-items:center;text-align:center;padding:40px 26px 30px}
+  .soonmark{width:84px;height:84px;border-radius:22px;display:grid;place-items:center;
+    background:linear-gradient(160deg,#1b2430,#141a22);border:1px solid var(--line);
+    box-shadow:inset 0 -10px 22px rgba(0,0,0,.35);margin-bottom:18px}
+  .soonmark span{font-family:"Archivo",sans-serif;font-weight:800;font-size:34px;color:var(--amber)}
+  .soonmark span .dot{color:var(--amber)}
+  .soonbadge{background:rgba(246,180,60,.14);color:var(--amber);border:1px solid rgba(246,180,60,.4);
+    font-weight:700;font-size:10px;letter-spacing:.6px;padding:4px 11px;border-radius:20px;margin-bottom:13px}
+  .soontitle{font-family:"Archivo",sans-serif;font-weight:800;font-size:22px;letter-spacing:-.3px;line-height:1.2}
+  .soontext{color:var(--text2);font-size:13px;line-height:1.6;margin-top:10px;max-width:330px}
+  .soonbtn{margin-top:20px;background:var(--amber);color:#10130c;border:0;border-radius:11px;
+    font-family:"Hanken Grotesk";font-weight:700;font-size:13.5px;padding:12px 20px;cursor:pointer}
+  .soondiv{height:1px;background:var(--line);width:100%;max-width:300px;margin:24px 0 0}
+  .soonfoot{color:var(--text2);font-size:11px;margin-top:14px;max-width:330px;line-height:1.55}
+  .soonfoot b{color:var(--text)}
+  /* team-detail factual info (preview) */
+  .apstand{margin:10px 18px 4px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;text-align:center}
+  .apstand .apnum{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:30px}
+  .apstand .apnum.nr{font-size:20px;color:var(--text2)}
+  .apstand .aplbl{color:var(--text2);font-size:11px;letter-spacing:.4px;text-transform:uppercase;margin-top:6px}
+  .infocard{display:flex;gap:10px;padding:8px 18px 4px}
+  .infocell{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 12px;text-align:center;min-width:0}
+  .infocell .ik{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text2)}
+  .infocell .iv{font-weight:700;font-size:14px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* ---- official record + schedule ---- */
+  .recordcard{margin:10px 16px 2px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .recline{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+  .recbig{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:30px;line-height:1}
+  .recctx{color:var(--text2);font-size:12.5px;line-height:1.5}
+  .recctx b{color:var(--text);font-weight:600}
+  .recctx .ap{color:var(--amber);font-weight:700}
+  .recstats{display:flex;gap:9px;margin-top:13px}
+  .recstat{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:9px 8px;text-align:center}
+  .recstat .rk{font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:var(--text2)}
+  .recstat .rv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:16px;margin-top:3px}
+  .schedrow{display:flex;align-items:center;gap:11px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+  .schedrow.bowl{background:rgba(246,180,60,.05)}
+  .schedres{width:22px;flex:none;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;text-align:center}
+  .schedres.w{color:#5BD39A} .schedres.l{color:#E5705C} .schedres.wk{color:var(--text2);font-size:12px;font-weight:600}
+  .schedcr{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:"Archivo",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14)}
+  .schedopp{flex:1;min-width:0}
+  .schedopp .ha{color:var(--text2);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px}
+  .schedopp .on{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .schedsc{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;flex:none;color:var(--text2);text-align:right}
+  .schedsc b{color:var(--text)}
+  .schedsc .up{font-size:11px;color:var(--text2);font-weight:500}
+  /* scoreboard rows (scores/schedule view) */
+  .scgame{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 12px 8px;margin:7px 0}
+  .scgame .gm{display:flex;justify-content:space-between;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:0 0 3px}
+  .scteam{display:flex;align-items:center;gap:9px;padding:5px 0;cursor:pointer}
+  .scteam .scc{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;border:1px solid rgba(255,255,255,.14)}
+  .scteam .nm{flex:1;font-weight:600;font-size:14px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .scteam .pts{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:17px;color:var(--text2);flex:none}
+  .scteam.win .nm,.scteam.win .pts{color:var(--text)}
+  .scteam.win .pts{position:relative}
+  .scteam.win .pts::after{content:"◂";color:var(--amber);font-size:11px;position:absolute;right:-13px;top:3px}
+  .scvs{color:var(--text2);font-size:11px;text-align:center;padding:3px 0 1px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading">Loading Hashmark…</div></div>
+
+<script>
+const SUPABASE_URL = "https://oojuelfcnprrgetwevux.supabase.co";
+const KEY = "sb_publishable_3zRtup_n7j9E3aNxcmBsCw_TyZGUhTl"; // browser-safe (RLS-gated)
+const app = document.getElementById("app");
+
+// Universal brand/legal disclaimer — one source of truth, appended to every screen's note.
+// Names & stats only (no team logos, no player photos, no implied endorsement); gambling-free
+// (no betting lines, spreads, or wagering advice); independent of every official body.
+const BRAND_LINE = "Independent analytics — team &amp; player names and statistics only; no team " +
+  "logos, no player photos, no implied endorsement. Gambling-free: no betting lines, spreads, or " +
+  "wagering advice. Not affiliated with or endorsed by any school, conference, the NCAA, or the AP.";
+// RATINGS VISIBILITY — single switch. When false (preview), every Hashmark-derived number — the
+// 2026 projection board, the offense/defense/conference leaderboards, the team-detail rating
+// breakdown, and the Compare projection — is hidden behind this flag, showing only official info
+// (the final 2025 AP Top 25) + factual team info with a "coming soon" placeholder. TRUE = the
+// full ratings experience is LIVE (launch). The preview-only code below stays intact and gated.
+const SHOW_HASHMARK_RATINGS = true;
+let view = "2026";            // launch: lead with the Hashmark 2026 projection board
+let boardMode = "overall";   // 2026 leaderboard: overall | offense | defense
+let confFilter = null;        // null = all FBS, else a conference name
+
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+const f3 = n => (n>=0?"+":"") + Number(n).toFixed(3);
+function monogram(school){
+  const w = school.replace(/[^A-Za-z ]/g,"").trim().split(/\s+/);
+  return (w.length>=2 ? w.map(x=>x[0]).join("") : school.slice(0,3)).slice(0,3).toUpperCase();
+}
+const hx = c => !c ? "#384455" : (c[0]==="#"?c:"#"+c);
+function textOn(bg){const h=hx(bg).replace("#","");if(h.length<6)return"#fff";
+  const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return (0.299*r+0.587*g+0.114*b)>150?"#10130c":"#fff";}
+
+async function api(q){
+  const res = await fetch(SUPABASE_URL+"/rest/v1/"+q, {headers:{apikey:KEY,Authorization:"Bearer "+KEY}});
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  return res.json();
+}
+
+// ---------- official games + records (FACTUAL — render in preview AND full mode) ----------
+const SEASON_RESULTS = 2025, SEASON_SCHED = 2026;
+const GAME_SEL = "season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed";
+let teamMeta = null;        // {id: {school, color, conference}}
+const scoresCache = {};     // season -> [games]
+async function ensureTeamMeta(){
+  if(teamMeta) return teamMeta;
+  teamMeta = {};
+  (await api("teams?select=id,school,color,alt_color,conference")).forEach(t=>teamMeta[t.id]=t);
+  return teamMeta;
+}
+const fetchTeamSeason = async id =>
+  (await api(`team_season?select=*&season=eq.${SEASON_RESULTS}&team_id=eq.${id}`))[0]||null;
+const fetchTeamGames = async id =>
+  api(`games?select=${GAME_SEL}&or=(home_team_id.eq.${id},away_team_id.eq.${id})&order=season.asc,week.asc`);
+async function fetchSeasonGames(season){
+  if(!scoresCache[season]) scoresCache[season] = await api(`games?select=${GAME_SEL}&season=eq.${season}&order=week.asc&limit=2000`);
+  return scoresCache[season];
+}
+const stOrder = st => st==="postseason" ? 100 : 0;   // regular weeks before bowls/CFP
+const oppColor = id => (teamMeta&&teamMeta[id]) ? hx(teamMeta[id].color) : "#384455";
+
+function gameView(g, teamId){
+  const home = String(g.home_team_id)===String(teamId);
+  const ms = home?g.home_points:g.away_points, os = home?g.away_points:g.home_points;
+  const done = g.completed && ms!=null && os!=null;
+  return {home, oppName:(home?g.away_team:g.home_team), oppId:(home?g.away_team_id:g.home_team_id),
+    ms, os, done, won:done&&ms>os, neutral:g.neutral_site, week:g.week, bowl:g.season_type==="postseason"};
+}
+function crestEl(cls, name, color){
+  return `<div class="${cls}" style="background:${color};color:${textOn(color)}">${monogram(name||"?")}</div>`;
+}
+function schedRow(g, teamId){
+  const v = gameView(g, teamId);
+  const ha = v.neutral?"Neutral":(v.home?"vs":"at");
+  const res = v.done ? `<div class="schedres ${v.won?"w":"l"}">${v.won?"W":"L"}</div>`
+                     : `<div class="schedres wk">${v.bowl?"PS":("W"+v.week)}</div>`;
+  const score = v.done ? `<div class="schedsc"><b>${v.ms}</b>–${v.os}</div>`
+                       : `<div class="schedsc"><span class="up">${v.home?"home":v.neutral?"neutral":"away"}</span></div>`;
+  const tap = v.oppId?` data-team="${v.oppId}"`:"";
+  return `<div class="schedrow${v.bowl?" bowl":""}"${tap}>${res}
+    ${crestEl("schedcr", v.oppName, oppColor(v.oppId))}
+    <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}</div><div class="on">${esc(v.oppName||"TBD")}</div></div>
+    ${score}</div>`;
+}
+function recordCard(ts, ap){
+  if(!ts) return "";
+  const apTxt = (ap&&ap.rank) ? `<span class="ap">#${ap.rank} AP</span> · `
+              : (ts.ap_rank ? `<span class="ap">#${ts.ap_rank} AP</span> · ` : "");
+  const conf = ts.conf_wins!=null ? `${esc(ts.conference||"")} ${ts.conf_wins}–${ts.conf_losses}` : esc(ts.conference||"");
+  const stats = ts.ppg_for!=null ? `<div class="recstats">
+      <div class="recstat"><div class="rk">PPG For</div><div class="rv">${ts.ppg_for}</div></div>
+      <div class="recstat"><div class="rk">PPG Allowed</div><div class="rv">${ts.ppg_against}</div></div>
+      <div class="recstat"><div class="rk">Games</div><div class="rv">${ts.games_played}</div></div></div>` : "";
+  return `<div class="recordcard">
+    <div class="recline"><div class="recbig">${ts.wins}–${ts.losses}</div>
+      <div class="recctx">${apTxt}<b>2025</b> · ${conf}</div></div>${stats}</div>`;
+}
+function scheduleSection(games, teamId){
+  const sort = a => a.slice().sort((x,y)=>(stOrder(x.season_type)-stOrder(y.season_type))||(x.week-y.week));
+  const r25 = sort(games.filter(g=>g.season===SEASON_RESULTS));
+  const r26 = sort(games.filter(g=>g.season===SEASON_SCHED));
+  let h = "";
+  if(r25.length){ h+=`<div class="sec"><div class="sectitle">2025 results</div>
+    <div class="secsub">Final scores — official. Tap an opponent to open it.</div>`;
+    r25.forEach(g=>h+=schedRow(g,teamId)); h+=`</div>`; }
+  if(r26.length){ h+=`<div class="sec"><div class="sectitle">2026 schedule</div>
+    <div class="secsub">Upcoming opponents — official schedule.</div>`;
+    r26.forEach(g=>h+=schedRow(g,teamId)); h+=`</div>`; }
+  return h;
+}
+
+// ---------- scores / schedule view (browse official games by week) ----------
+let scoresSeason = SEASON_RESULTS, scoresWeek = null;
+function scGameRow(g){
+  const done = g.completed && g.home_points!=null && g.away_points!=null;
+  const hw = done && g.home_points>g.away_points, aw = done && g.away_points>g.home_points;
+  const meta = g.neutral_site ? "Neutral site" : "";
+  const teamLine = (name,id,score,win)=>`<div class="scteam${win?" win":""}"${id?` data-team="${id}"`:""}>
+      ${crestEl("scc", name, oppColor(id))}<div class="nm">${esc(name||"TBD")}</div>
+      <div class="pts">${done?score:""}</div></div>`;
+  return `<div class="scgame">
+    ${meta?`<div class="gm"><span>${meta}</span><span></span></div>`:""}
+    ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
+    ${done?"":`<div class="scvs">${g.neutral_site?"vs":"at"}</div>`}
+    ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}</div>`;
+}
+async function openScores(){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading scores…</div>`;
+  try{ await ensureTeamMeta(); scoresWeek=null; await drawScores(); }
+  catch(e){ app.innerHTML = `<div class="cmptop"><button class="back">←</button>
+    <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="err">Couldn't load scores: ${e.message}</div>`; document.querySelector(".back").onclick=load; }
+}
+async function drawScores(){
+  const games = await fetchSeasonGames(scoresSeason);
+  const regWeeks = [...new Set(games.filter(g=>g.season_type!=="postseason").map(g=>g.week))].sort((a,b)=>a-b);
+  const hasPost = games.some(g=>g.season_type==="postseason");
+  const keys = regWeeks.map(w=>({key:"R"+w, label:""+w, f:g=>g.season_type!=="postseason"&&g.week===w}))
+    .concat(hasPost?[{key:"PS", label:"Bowls / CFP", f:g=>g.season_type==="postseason"}]:[]);
+  if(!scoresWeek || !keys.find(k=>k.key===scoresWeek)) scoresWeek = keys.length?keys[0].key:null;
+  const active = keys.find(k=>k.key===scoresWeek);
+  const list = (active?games.filter(active.f):[]).slice()
+    .sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
+
+  let h = `<div class="cmp">
+    <div class="cmptop"><button class="back">←</button>
+      <div class="wordmark">Hashmark<span class="dot">.</span></div>
+      <div class="cmptag">Scores</div></div>
+    <div class="venue"><div class="toggle">
+      <button data-ss="${SEASON_RESULTS}" class="${scoresSeason===SEASON_RESULTS?"on":""}">2025<small>Final scores</small></button>
+      <button data-ss="${SEASON_SCHED}" class="${scoresSeason===SEASON_SCHED?"on":""}">2026<small>Schedule</small></button>
+    </div></div>
+    <div class="list" style="padding-top:4px">
+    <div class="confbar">`;
+  keys.forEach(k=>{ h+=`<button class="confpill ${scoresWeek===k.key?"on":""}" data-wk="${k.key}">${k.label}</button>`; });
+  h += `</div>
+    <div class="secsub" style="padding:0 2px 4px">${scoresSeason===SEASON_RESULTS
+      ? "Official final scores — winner marked. Tap a team to open it."
+      : "Official 2026 schedule — kickoffs to come. Tap a team to open it."}</div>`;
+  list.forEach(g=>h+=scGameRow(g));
+  if(!list.length) h+=`<div class="loading" style="padding:30px">No games.</div>`;
+  h += `<div class="note"><b>Official ${scoresSeason} ${scoresSeason===SEASON_RESULTS?"results":"schedule"}.</b> Source: CFBD game data. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML = h;
+  document.querySelector(".back").onclick = load;
+  document.querySelectorAll("[data-ss]").forEach(b=>b.onclick=()=>{ const s=+b.dataset.ss;
+    if(s!==scoresSeason){ scoresSeason=s; scoresWeek=null; drawScores(); window.scrollTo(0,0); } });
+  document.querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>{ if(b.dataset.wk!==scoresWeek){
+    scoresWeek=b.dataset.wk; drawScores(); window.scrollTo(0,0); } });
+}
+
+function header(){
+  const sub = view==="2025"
+    ? "Official <b>AP Top 25</b>, final poll after the national championship."
+    : !SHOW_HASHMARK_RATINGS
+      ? "Hashmark ratings are in <b>preview</b> — coming soon."
+      : boardMode==="offense"
+        ? "Best <b>offenses</b> — opponent-adjusted offensive unit quality (finishing + success rate + efficiency)."
+        : boardMode==="defense"
+          ? "Best <b>defenses</b> — opponent-adjusted defensive unit quality (what each unit suppresses)."
+          : "Our <b>way-too-early</b> projection — last season's opponent-adjusted rating, recruited talent, and proven coaching.";
+  const v26small = SHOW_HASHMARK_RATINGS ? "Preseason · Hashmark" : "In preview";
+  return `<header>
+    <div class="wordmark">Hashmark<span class="dot">.</span></div>
+    <div class="toggle">
+      <button data-v="2025" class="${view==="2025"?"on":""}">2025<small>Final · AP</small></button>
+      <button data-v="2026" class="${view==="2026"?"on":""}">2026<small>${v26small}</small></button>
+    </div>
+    <div class="subtitle">${sub}</div>
+    <div class="fdline"></div></header>`;
+}
+// shared top of the scrolling list: the Compare CTA (live) or a preview banner (ratings hidden),
+// then a Scores & schedule entry (official — available in both modes).
+function listTop(hint){
+  const top = SHOW_HASHMARK_RATINGS
+    ? `<div class="cmpcta" id="cmpcta"><span class="ar">⇄</span>Compare two teams — projected matchup</div>`
+    : `<div class="previewbar"><span class="pb-badge">PREVIEW</span>Hashmark's homegrown ratings are being fine-tuned — <b>coming soon</b>. For now, official 2025 results &amp; the 2026 schedule.</div>`;
+  return `<div class="list">${top}
+    <div class="cmpcta" id="scorescta"><span class="ar">📅</span>Scores &amp; schedule — 2025 results · 2026</div>
+    ${hint?`<div class="hint">${hint}</div>`:""}`;
+}
+
+async function load(){
+  app.innerHTML = `<div class="loading">Loading ${view}…</div>`;
+  try{
+    if(view==="2025") return renderPoll(await api(
+      "poll_rankings?select=rank,points,team_id,teams(school,conference,color,alt_color)&season=eq.2025&poll=eq.AP%20Top%2025&order=rank.asc"));
+    if(!SHOW_HASHMARK_RATINGS) return renderComingSoon();   // preview: hide the 2026 board/leaderboards
+    await ensureUnits();
+    renderLeaderboard();
+  }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
+}
+
+// preview placeholder shown where the 2026 Hashmark board + leaderboards used to be
+function renderComingSoon(){
+  app.innerHTML = header() + `<div class="list">
+    <div class="soon">
+      <div class="soonmark"><span>H<span class="dot">.</span></span></div>
+      <div class="soonbadge">IN PREVIEW</div>
+      <div class="soontitle">Hashmark ratings —<br>coming soon</div>
+      <div class="soontext">Our homegrown power ratings, offense &amp; defense unit grades, and matchup projections are being fine-tuned. They'll appear here the moment they're solid.</div>
+      <button class="soonbtn" id="soonap">View the official AP Top 25</button>
+      <div class="soondiv"></div>
+      <div class="soonfoot"><b>2026 Preseason — Hashmark.</b> Independent analytics, in preview. Not affiliated with or endorsed by any school, conference, or the NCAA.</div>
+    </div></div>`;
+  wireToggle();
+  const b=document.getElementById("soonap"); if(b) b.onclick=()=>{ view="2025"; load(); };
+}
+
+function rowHTML(i, t, mainHTML, teamId){
+  const c=hx(t.color);
+  return `<div class="row ${i<3?'top':''}" data-team="${teamId}">
+    <div class="rank">${i+1}</div>
+    <div class="crest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+    <div class="meta"><div class="team">${esc(t.school)}</div><div class="conf">${esc(t.conference||"")}</div></div>
+    <div class="rating">${mainHTML}</div>
+    <div class="chev">›</div></div>`;
+}
+
+function renderPoll(rows){
+  rows = rows.filter(r=>r.teams);
+  let h = header() + listTop("Hover or tap any number to see what it means");
+  rows.forEach((r,i)=>{
+    const pts = r.points!=null ? `<div class="rval" data-tip="AP voters' points — ${esc(r.teams.school)} got ${r.points} points in the final AP poll. Rank #${r.rank} of 25.">${r.points}</div><div class="rlbl">AP pts</div>`
+                               : `<div class="rval">#${r.rank}</div>`;
+    h += rowHTML(i, r.teams, pts, r.team_id);
+  });
+  h += `</div><div class="note"><b>2025 Final — AP Top 25.</b> The Associated Press writers' poll released after the national championship: the official end-of-season ranking. ${BRAND_LINE}</div>`;
+  app.innerHTML = h; wireToggle();
+}
+
+// ---------- 2026 leaderboards: overall / offense / defense + conference ----------
+const CONF_SHORT = {"American Athletic":"American","Mid-American":"MAC","Mountain West":"Mtn West",
+  "Conference USA":"C-USA","FBS Independents":"Independent","Pac-12":"Pac-12","Sun Belt":"Sun Belt"};
+const shortConf = c => CONF_SHORT[c] || c;
+const mean = a => a.reduce((s,x)=>s+x,0)/(a.length||1);
+const OVERALL_TIP = "Hashmark Rating — the full results-aware blend: opponent-adjusted efficiency shrunk toward recruited talent, an Elo + résumé/head-to-head results signal, projected QB, returning production & portal, and coaching (including a scheme-defining coach taking his unit with him).";
+const MODES = {
+  overall:{short:"Overall", noun:"team",    metric:r=>r.overall, lbl:"proj rating", accent:"var(--amber)",
+    tip:(r,rk,n)=>`${OVERALL_TIP} ${esc(r.t.school)} ${f3(r.overall)}, #${rk} of ${n}. Higher is better.`},
+  offense:{short:"Offense", noun:"offense", metric:r=>r.off, lbl:"off rtg", accent:"var(--teal)",
+    tip:(r,rk,n)=>`Offense rating — ${esc(r.t.school)}'s opponent-adjusted offensive unit quality: points/yards-per-drive (finishing) + success rate + efficiency, garbage time removed, with the offensive coordinator's track record where the staff changed. ${f3(r.off)}, #${rk} best offense of ${n}. Higher is better.`},
+  defense:{short:"Defense", noun:"defense", metric:r=>r.def, lbl:"def rtg", accent:"#7CA8FF",
+    tip:(r,rk,n)=>`Defense rating — ${esc(r.t.school)}'s opponent-adjusted defensive unit quality: how much it suppresses opponents' scoring/efficiency per drive, garbage time removed, with the defensive coordinator's track record where the staff changed. ${f3(r.def)}, #${rk} best defense of ${n}. Higher is better.`},
+};
+
+let unitRows = null;   // [{team_id, t, overall, off, def}] for all 2026 FBS teams
+async function ensureUnits(){
+  if(unitRows) return unitRows;
+  await ensureBoard();
+  // ONE canonical unit rating per team — the opponent-adjusted, talent-shrunk off/def ratings
+  // the model stores in power_ratings.off/def (not the tiny attribution contributions).
+  unitRows = board2026.filter(b=>b.teams).map(b=>(
+    {team_id:b.team_id, t:b.teams, overall:Number(b.overall),
+      off:(b.off!=null?Number(b.off):null), def:(b.def!=null?Number(b.def):null)}));
+  return unitRows;
+}
+
+function renderLeaderboard(){
+  const mode = MODES[boardMode], val = mode.metric;
+  const rows = unitRows.filter(r=>val(r)!=null);
+  const n = rows.length;
+  // national rank for the current metric
+  const ranked = rows.slice().sort((a,b)=>val(b)-val(a));
+  const rankOf = {}; ranked.forEach((r,i)=>rankOf[r.team_id]=i+1);
+  // conference strengths for the current metric (avg of member teams)
+  const byConf = {};
+  rows.forEach(r=>{ const c=r.t.conference||"Independent"; (byConf[c]=byConf[c]||[]).push(val(r)); });
+  const confStr = Object.keys(byConf).map(c=>({conf:c, avg:mean(byConf[c]), n:byConf[c].length}))
+    .sort((a,b)=>b.avg-a.avg);
+  // Rank only real conferences (>=4 FBS teams) for STRENGTH: a 2-team catch-all like FBS
+  // Independents (essentially just Notre Dame) shouldn't masquerade as the #1 "conference" on a
+  // small-sample average. Independents stay available as a filter pill, just not strength-ranked.
+  const RANKABLE = confStr.filter(c=>c.n>=4);
+  const confRankOf = {}; RANKABLE.forEach((c,i)=>confRankOf[c.conf]=i+1);
+  const cmax = Math.max(0.0001, ...RANKABLE.map(c=>Math.abs(c.avg)));
+
+  let h = header() + listTop();
+  // board-type nav
+  h += `<div class="bnav">`;
+  ["overall","offense","defense"].forEach(k=>{
+    const on = boardMode===k ? " on "+(k==="offense"?"off":k==="defense"?"def":"") : "";
+    h += `<button data-mode="${k}" class="${on}">${MODES[k].short}</button>`;
+  });
+  h += `</div>`;
+  // conference filter pills
+  h += `<div class="confbar"><button class="confpill ${confFilter?"":"on"}" data-conf="">All FBS</button>`;
+  confStr.forEach(c=>{ h += `<button class="confpill ${confFilter===c.conf?"on":""}" data-conf="${esc(c.conf)}">${esc(shortConf(c.conf))}</button>`; });
+  h += `</div>`;
+
+  if(confFilter){
+    // selected-conference strength summary
+    const cs = confStr.find(c=>c.conf===confFilter) || {avg:0,n:0};
+    h += `<div class="csum">
+      <div class="ch"><div class="cnm">${esc(confFilter)}</div>
+        <div class="crk">${confRankOf[confFilter]?`#${confRankOf[confFilter]} of ${RANKABLE.length} leagues`:`${cs.n}-team independent group`}</div></div>
+      <div class="cv" style="color:${mode.accent}">${f3(cs.avg)}</div>
+      <div class="csub">average <b>${mode.short.toLowerCase()}</b> rating across its ${cs.n} FBS teams · tap a team for its full breakdown</div></div>`;
+  } else {
+    // conference-strength comparison (tap a row to filter)
+    h += `<div class="cstr"><div class="cstrtitle">Conference strength · avg ${mode.short.toLowerCase()} rating</div>`;
+    RANKABLE.forEach((c,i)=>{
+      const w = Math.abs(c.avg)/cmax*100, neg = c.avg<0;
+      h += `<div class="cstrrow" data-conf="${esc(c.conf)}">
+        <div class="ci">${i+1}</div>
+        <div class="cn">${esc(shortConf(c.conf))} <small>${c.n}</small></div>
+        <div class="cbar"><i class="${neg?"neg":""}" style="width:${w}%;${neg?"":"background:"+mode.accent}"></i></div>
+        <div class="cvv">${f3(c.avg)}</div></div>`;
+    });
+    h += `</div>`;
+  }
+
+  // team leaderboard
+  const teamRows = (confFilter ? rows.filter(r=>(r.t.conference||"Independent")===confFilter) : rows)
+    .sort((a,b)=>val(b)-val(a));
+  h += `<div class="cstrtitle" style="margin-top:8px">${confFilter?esc(confFilter)+" — by "+mode.short.toLowerCase():"Best "+(boardMode==="overall"?"teams":mode.noun+"s")} · 2026</div>`;
+  teamRows.forEach(r=>{
+    const rk = rankOf[r.team_id];
+    const main = `<div class="rval" style="border-color:${mode.accent}" data-tip="${esc(mode.tip(r,rk,n))}">${f3(val(r))}</div><div class="rlbl">${mode.lbl}</div>`;
+    h += rowHTML(rk-1, r.t, main, r.team_id);
+  });
+  h += `</div><div class="note"><b>2026 Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings — a validated blend of finishing (points per drive), success rate and efficiency, with each unit's coordinator track record folded in where the staff changed. Conference strength is the simple average of a league's member teams. Free to browse. Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer. ${BRAND_LINE}</div>`;
+  app.innerHTML = h; wireToggle();
+}
+
+function wireToggle(){
+  document.querySelectorAll(".toggle button").forEach(b=>{
+    b.onclick = ()=>{ if(b.dataset.v!==view){ view=b.dataset.v; load(); } };
+  });
+  const cta=document.getElementById("cmpcta");
+  if(cta) cta.onclick = ()=> openCompare();
+  const scta=document.getElementById("scorescta");
+  if(scta) scta.onclick = ()=> openScores();
+  // leaderboard controls (re-render from cached data; no refetch)
+  document.querySelectorAll(".bnav button").forEach(b=>{
+    b.onclick = ()=>{ if(boardMode!==b.dataset.mode){ boardMode=b.dataset.mode; renderLeaderboard(); window.scrollTo(0,0); } };
+  });
+  document.querySelectorAll("[data-conf]").forEach(el=>{
+    el.onclick = ()=>{ const c=el.dataset.conf||null; if(confFilter!==c){ confFilter=c; renderLeaderboard(); window.scrollTo(0,0); } };
+  });
+}
+
+// ---------- team detail page ----------
+const CORDER = ["results","off_eff","def_eff","talent","qb","coaching","returning"];
+const CMETA = {
+  results:{name:"Results",     tip:"credit for winning games beyond what raw efficiency predicts — close wins, upsets and head-to-head count, not just blowout margin."},
+  off_eff:{name:"Offense",     tip:"opponent-adjusted offensive unit rating — finishing (points per drive) + success rate + efficiency, garbage time removed, shrunk toward the level the team's talent and schedule support, with the offensive coordinator's track record where the staff changed. Higher is better."},
+  def_eff:{name:"Defense",     tip:"opponent-adjusted defensive unit rating — how much the unit suppresses opponents per drive, garbage time removed, shrunk toward the level the team's talent and schedule support, with the defensive coordinator's track record where the staff changed. Higher is better."},
+  talent: {name:"Talent",      tip:"recruiting level over recent classes, shrunk toward how the team actually plays — recruiting informs the rating but doesn't override on-field results."},
+  qb:     {name:"Quarterback", tip:"projected starter quality: a returning starter, a transfer credited with his prior-school play, or an unproven replacement leaning on the roster's talent."},
+  coaching:{name:"Coaching",   tip:"how much this staff beats the rating its roster's talent alone would predict — a departed coach loses the credit; a proven new staff brings its own."},
+  returning:{name:"Returning", tip:"production coming back from last season plus net transfer-portal moves (who arrived, and who left)."},
+};
+
+let board2026=null, poll2025=null;
+async function ensureBoard(){ if(!board2026) board2026 = await api(
+  "power_ratings?select=team_id,overall,off,def,teams(school,conference,color,alt_color)&season=eq.2026&week=eq.0&order=overall.desc"); return board2026; }
+async function ensurePoll(){ if(!poll2025){ poll2025={};
+  (await api("poll_rankings?select=rank,team_id&season=eq.2025&poll=eq.AP%20Top%2025")).forEach(x=>poll2025[x.team_id]=x.rank); }
+  return poll2025; }
+
+async function openDetail(teamId){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading team…</div>`;
+  try{
+    await ensureTeamMeta();
+    // official/factual data shown in BOTH preview and full mode (record + schedule)
+    const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
+    if(!SHOW_HASHMARK_RATINGS){
+      const [team, ap] = await Promise.all([
+        api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
+        api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`) ]);
+      return renderDetailPreview(team[0], ap[0], ts, games, teamId);
+    }
+    const [comps, board, poll] = await Promise.all([
+      api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
+      ensureBoard(), ensurePoll() ]);
+    renderDetail(teamId, comps, board, poll, ts, games);
+  }catch(e){
+    app.innerHTML = `<div class="dtop"><button class="back">←</button>
+      <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+      <div class="err">Couldn't load team: ${e.message}</div>`;
+    document.querySelector(".back").onclick = load;
+  }
+}
+
+// preview team page: factual/official info (record + schedule) + a coming-soon placeholder
+function renderDetailPreview(t, ap, ts, games, teamId){
+  if(!t){ app.innerHTML = `<div class="dtop"><button class="back">←</button>
+    <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=load; return; }
+  const c=hx(t.color);
+  const cls = (t.classification||"").toUpperCase()==="FBS" ? "FBS" : (t.classification||"—");
+  const head = ts ? recordCard(ts, ap)
+    : `<div class="apstand"><div class="apnum${ap?"":" nr"}">${ap?("#"+ap.rank):"Unranked"}</div>
+        <div class="aplbl">${ap?("Final 2025 AP Top 25"+(ap.points!=null?" · "+ap.points+" pts":"")):"Final 2025 AP poll"}</div></div>
+       <div class="infocard"><div class="infocell"><div class="ik">Conference</div><div class="iv">${esc(t.conference||"—")}</div></div>
+        <div class="infocell"><div class="ik">Classification</div><div class="iv">${esc(cls)}</div></div></div>`;
+  let h = `<div class="detail">
+    <div class="dtop"><button class="back">←</button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="dhead">
+      <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+      <div><div class="dschool">${esc(t.school)}</div>
+        <div class="dconf">${esc(t.mascot?t.mascot+" · ":"")}${esc(t.conference||"")}</div></div>
+    </div>
+    ${head}
+    ${scheduleSection(games||[], teamId)}
+    <div class="sec" style="padding-top:12px">
+      <div class="soon" style="padding:26px 20px 6px">
+        <div class="soonbadge">IN PREVIEW</div>
+        <div class="soontitle" style="font-size:18px">Hashmark ratings — coming soon</div>
+        <div class="soontext" style="font-size:12.5px">${esc(t.school)}'s offense &amp; defense unit grades, projection and the full component breakdown are being fine-tuned and will appear here soon.</div>
+      </div>
+    </div>
+    <div class="note"><b>Official info.</b> The record, scores, schedule and final 2025 AP standing are official/factual; Hashmark's own ratings are hidden while the model is in preview. Not affiliated with or endorsed by the AP, any school, conference, or the NCAA.</div></div>`;
+  app.innerHTML = h;
+  document.querySelector(".back").onclick = load;
+}
+
+function premCard(ic, title, tease, fake){
+  return `<div class="prem"><div class="ptitle"><span class="ic">${ic}</span>${title}</div>
+    <div class="blur">${fake}</div>
+    <div class="lock"><div class="lockbadge">PREMIUM</div><div class="lt">${tease}</div></div></div>`;
+}
+
+function renderDetail(teamId, comps, board, poll, ts, games){
+  const idx = board.findIndex(b=>String(b.team_id)===String(teamId));
+  if(idx<0){ app.innerHTML = `<div class="dtop"><button class="back">←</button></div>
+    <div class="err">No 2026 projection for this team.</div>`; document.querySelector(".back").onclick=load; return; }
+  const b=board[idx], t=b.teams, rank=idx+1, overall=Number(b.overall);
+  const cv={}; comps.forEach(c=>cv[c.component]=Number(c.value));
+  // ONE canonical unit rating (power_ratings.off/def) — the opponent-adjusted, talent-shrunk
+  // off/def quality, the same number the leaderboards show (not the attribution contribution).
+  const off=(b.off!=null?Number(b.off):0), def=(b.def!=null?Number(b.def):0), ap=poll[teamId];
+  const c=hx(t.color);
+  // breakdown shows what drives the OVERALL beyond the offense/defense ratings above
+  const drivers = CORDER.filter(k=>k!=="off_eff"&&k!=="def_eff").map(k=>({k,v:cv[k]||0})).sort((a,b)=>b.v-a.v);
+  const maxabs = Math.max(0.001, ...drivers.map(d=>Math.abs(d.v)));
+  const ratingTip = `Hashmark Rating — ${esc(t.school)}'s 2026 projection (${f3(overall)}, #${rank}). A learned, results-aware blend of unit quality (the offense & defense ratings above), results/Elo, talent, QB, coaching and returning production.`;
+
+  let h = `<div class="detail">
+    <div class="dtop"><button class="back">←</button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="dhead">
+      <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+      <div><div class="dschool">${esc(t.school)}</div>
+        <div class="dconf">${esc(t.conference||"")} · <span class="rk">#${rank}</span> · 2026 Hashmark</div></div>
+    </div>
+    <div class="drating"><div class="dbig" data-tip="${esc(ratingTip)}">${f3(overall)}</div>
+      <div class="dlbl">Hashmark proj rating</div></div>
+    <div class="od">
+      <div class="odcard o" data-tip="${esc('Off '+f3(off)+' — '+CMETA.off_eff.tip)}">
+        <div class="odk">Off</div><div class="odv">${f3(off)}</div></div>
+      <div class="odcard d" data-tip="${esc('Def '+f3(def)+' — '+CMETA.def_eff.tip)}">
+        <div class="odk">Def</div><div class="odv">${f3(def)}</div></div>
+    </div>
+    <div class="sec" style="padding-top:6px">
+      <div class="cmpcta" id="dcmpcta"><span class="ar">⇄</span>Compare ${esc(t.school)} vs another team</div>
+    </div>
+    <div class="sec">
+      <div class="sectitle">What's driving this rating</div>
+      <div class="secsub">Every piece adds up to the rating above — the transparency other rankings don't show. Tap any row for what it means.</div>`;
+  drivers.forEach(d=>{
+    const m=CMETA[d.k], w=Math.abs(d.v)/maxabs*48;
+    const bar = d.v>=0 ? `<i class="pos" style="left:50%;width:${w}%"></i>`
+                       : `<i class="neg" style="right:50%;width:${w}%"></i>`;
+    h += `<div class="driver" data-tip="${esc(m.name+' '+f3(d.v)+' — '+m.tip)}">
+      <div class="dvk">${m.name}</div>
+      <div class="dvbar"><span class="mid"></span>${bar}</div>
+      <div class="dvv">${f3(d.v)}</div></div>`;
+  });
+  h += `</div>
+    <div class="sec"><div class="sectitle">2025 → 2026</div>
+      <div class="ctx">
+        <div class="ctxcol"><div class="y">2025 finish</div><div class="v">${ts?(ts.wins+'–'+ts.losses):(ap?('#'+ap):'NR')}</div>
+          <div class="vs">${ap?'#'+ap+' AP':'unranked (AP)'}</div></div>
+        <div class="ctxarrow">→</div>
+        <div class="ctxcol"><div class="y">2026 projection</div><div class="v">#${rank}</div>
+          <div class="vs">Hashmark</div></div>
+      </div>
+    </div>
+    ${scheduleSection(games||[], teamId)}
+    <div class="sec"><div class="sectitle">Go deeper</div>
+      <div class="secsub">Premium unlocks the forward-looking model for ${esc(t.school)}.</div>`;
+  h += premCard("📅","Schedule projections","Unlock game-by-game win probabilities for all 12 games",
+    `<div class="fakebar" style="width:92%"></div><div class="fakebar" style="width:74%"></div><div class="fakebar" style="width:84%"></div>`);
+  h += premCard("🏆","Playoff simulator","See CFP & national-title odds from a 10,000-season Monte Carlo",
+    `<div class="fakebar" style="width:58%"></div><div class="fakebar" style="width:40%"></div>`);
+  h += premCard("💬","Ask Hashmark",`Ask anything about ${esc(t.school)}'s outlook, matchups and roster`,
+    `<div class="fakebar" style="width:95%"></div><div class="fakebar" style="width:68%"></div>`);
+  h += `</div>
+    <div class="note"><b>2026 Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings (finishing + success rate + efficiency, with coordinator track records folded in where the staff changed); the breakdown shows each factor's contribution to the overall rating. Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer. ${BRAND_LINE}</div></div>`;
+  app.innerHTML = h;
+  document.querySelector(".back").onclick = load;
+  const dc=document.getElementById("dcmpcta");
+  if(dc) dc.onclick = ()=> openCompare(teamId);
+}
+
+// ---------- compare tool (free-tier flagship: single-game projection) ----------
+// Engine constants from the Hashmark model (wf-ridge-v1). The margin model is
+//   margin = beta * zdiff + hfa * home_field   (walkforward.py / ratings.project_margin)
+// where zdiff is the difference of the teams' z-scored power ratings. beta & hfa are
+// the latest fitted values logged to prediction_log; sigma is the CALIBRATED win-prob
+// sigma (calibration_report.md: fitted 16.75, not the raw residual SD ~18.1). We map a
+// projected margin to win prob with the normal approximation P(win)=Phi(margin/sigma),
+// exactly as ratings.win_probability() does.
+const ENGINE = { beta: 8.342, hfa: 2.975, sigma: 16.75 };
+let engineLoaded = false;
+async function ensureEngine(){
+  if(engineLoaded) return ENGINE;
+  try{ // best-effort: pull the most recent margin-model coefficients from the log
+    const r = await api("prediction_log?select=features&order=season.desc,week.desc&limit=1");
+    const f = r && r[0] && r[0].features;
+    if(f && isFinite(f.beta) && isFinite(f.hfa)){ ENGINE.beta=Number(f.beta); ENGINE.hfa=Number(f.hfa); }
+  }catch(e){ /* keep the cited defaults */ }
+  engineLoaded = true; return ENGINE;
+}
+function erf(x){ // Abramowitz & Stegun 7.1.26, |err| < 1.5e-7
+  const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return s*y;
+}
+const winProb = m => 0.5*(1+erf((m/ENGINE.sigma)/Math.sqrt(2)));
+
+let cmp = {a:null,b:null,venue:"neutral"};
+let boardSD = 0;            // cross-team SD of `overall` -> converts ratings to unit-z
+const compCache = {};       // team_id -> {component: value}
+
+async function fetchComps(teamId){
+  if(compCache[teamId]) return compCache[teamId];
+  const rows = await api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`);
+  const cv={}; rows.forEach(c=>cv[c.component]=Number(c.value));
+  compCache[teamId]=cv; return cv;
+}
+function boardRank(teamId){ return board2026.findIndex(b=>String(b.team_id)===String(teamId))+1; }
+function boardEntry(teamId){ return board2026.find(b=>String(b.team_id)===String(teamId)); }
+
+async function openCompare(aId, bId){
+  if(!SHOW_HASHMARK_RATINGS){ view="2026"; return renderComingSoon(); }  // Compare is a Hashmark projection — hidden in preview
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading matchup…</div>`;
+  try{
+    await Promise.all([ensureBoard(), ensureEngine()]);
+    const ov = board2026.map(b=>Number(b.overall));
+    const mean = ov.reduce((s,x)=>s+x,0)/ov.length;
+    boardSD = Math.sqrt(ov.reduce((s,x)=>s+(x-mean)*(x-mean),0)/ov.length) || 1;
+    // defaults: top two teams (or the passed team vs the best other team)
+    if(!aId) aId = board2026[0].team_id;
+    if(!bId) bId = (board2026.find(b=>String(b.team_id)!==String(aId))||board2026[0]).team_id;
+    cmp = {a:aId, b:bId, venue:"neutral"};
+    await Promise.all([fetchComps(aId), fetchComps(bId)]);
+    drawCompare();
+  }catch(e){
+    app.innerHTML = `<div class="cmptop"><button class="back">←</button>
+      <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+      <div class="err">Couldn't load matchup: ${e.message}</div>`;
+    document.querySelector(".back").onclick = load;
+  }
+}
+
+async function setTeam(slot, teamId){
+  cmp[slot]=teamId;
+  await fetchComps(teamId);
+  drawCompare();
+}
+
+function pickCard(slot){
+  const id=cmp[slot], b=boardEntry(id), t=b.teams, c=hx(t.color);
+  return `<div class="pick" data-pick="${slot}">
+    <div class="pcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+    <div class="pname">${esc(t.school)}</div>
+    <div class="pconf">${esc(t.conference||"")} · #${boardRank(id)}</div>
+    <div class="pchg">Change</div></div>`;
+}
+
+// one comparison row: back-to-back bars growing out from the centre, longer bar = edge
+function cmpRow(label, va, vb, cA, cB, tipK, big){
+  const mx=Math.max(1e-6, Math.abs(va), Math.abs(vb));
+  const wa=Math.abs(va)/mx*100, wb=Math.abs(vb)/mx*100;
+  const barA=`<i class="${va<0?'neg':''}" style="width:${wa}%;${va<0?'':'background:'+cA}"></i>`;
+  const barB=`<i class="${vb<0?'neg':''}" style="width:${wb}%;${vb<0?'':'background:'+cB}"></i>`;
+  return `<div class="cmprow${big?' big':''}">
+    <div class="cmpk"${tipK?` data-tip="${esc(tipK)}"`:''}>${label}</div>
+    <div class="cmpgrid">
+      <div class="cmpval a${va>vb?' win':''}">${f3(va)}</div>
+      <div class="cmptrk l">${barA}</div>
+      <div class="cmptrk r">${barB}</div>
+      <div class="cmpval b${vb>va?' win':''}">${f3(vb)}</div>
+    </div></div>`;
+}
+
+function drawCompare(){
+  const A=boardEntry(cmp.a), B=boardEntry(cmp.b);
+  const ta=A.teams, tb=B.teams, cA=hx(ta.color), cB=hx(tb.color);
+  const oA=Number(A.overall), oB=Number(B.overall);
+  const cvA=compCache[cmp.a]||{}, cvB=compCache[cmp.b]||{};
+  const rkA=boardRank(cmp.a), rkB=boardRank(cmp.b);
+
+  // projection (positive margin => team A favored)
+  const z=(oA-oB)/boardSD;
+  let margin=ENGINE.beta*z;
+  if(cmp.venue==="home") margin+=ENGINE.hfa;
+  else if(cmp.venue==="away") margin-=ENGINE.hfa;
+  const pA=winProb(margin), paPct=Math.round(pA*100), pbPct=100-paPct;
+  const favA=margin>=0, fav=favA?ta:tb, favRk=favA?rkA:rkB;
+  const by=Math.abs(margin), favWp=Math.round((favA?pA:1-pA)*100);
+  const tossup = by<0.5;
+
+  const venues={
+    home:{lbl:"Home",sub:`<b>${esc(ta.school)}</b> hosts`,
+          desc:`${esc(ta.school)} at home vs ${esc(tb.school)}`},
+    neutral:{lbl:"Neutral",sub:"neutral site",
+          desc:`${esc(ta.school)} vs ${esc(tb.school)} — neutral field`},
+    away:{lbl:"Away",sub:`at <b>${esc(tb.school)}</b>`,
+          desc:`${esc(ta.school)} on the road at ${esc(tb.school)}`},
+  };
+  const hfaTxt=ENGINE.hfa.toFixed(1);
+
+  let h=`<div class="cmp">
+    <div class="cmptop"><button class="back">←</button>
+      <div class="wordmark">Hashmark<span class="dot">.</span></div>
+      <div class="cmptag">Compare</div></div>
+    <div class="pickrow">${pickCard("a")}<div class="pickvs">VS</div>${pickCard("b")}</div>
+    <div class="venue"><div class="toggle">`;
+  ["home","neutral","away"].forEach(v=>{
+    h+=`<button data-venue="${v}" class="${cmp.venue===v?'on':''}">${venues[v].lbl}<small>${venues[v].sub}</small></button>`;
+  });
+  h+=`</div></div>
+    <div class="venuesub">Projection includes the model's home-field value of <b>${hfaTxt} pts</b> (off on neutral).</div>`;
+
+  // headline
+  h+=`<div class="headcard">
+    <div class="hl">${tossup
+      ? `Hashmark calls this a <span class="by">toss-up</span>`
+      : `Hashmark projects ${esc(fav.school)} <span class="by">by ${by.toFixed(1)}</span>`}</div>
+    <div class="hlsub">win probability <b>${favWp}%</b>${tossup?'':` · ${esc(fav.school)} #${favRk}`} · <b>${venues[cmp.venue].lbl.toLowerCase()==='neutral'?'neutral site':venues[cmp.venue].lbl}</b></div>
+    <div class="wpbar">
+      <div class="seg a" style="width:${paPct}%;background:${cA};color:${textOn(ta.color)}">${paPct>=16?paPct+'%':''}</div>
+      <div class="seg b" style="width:${pbPct}%;background:${cB};color:${textOn(tb.color)}">${pbPct>=16?pbPct+'%':''}</div>
+    </div>
+    <div class="wplbl"><span><b>${esc(ta.school)}</b> ${paPct}%</span><span>${pbPct}% <b>${esc(tb.school)}</b></span></div>
+  </div>`;
+
+  // side-by-side ratings (overall / off / def) — off/def are the canonical unit ratings
+  const ea=boardEntry(cmp.a), eb=boardEntry(cmp.b);
+  const offA=ea&&ea.off!=null?Number(ea.off):0, defA=ea&&ea.def!=null?Number(ea.def):0;
+  const offB=eb&&eb.off!=null?Number(eb.off):0, defB=eb&&eb.def!=null?Number(eb.def):0;
+  h+=`<div class="cmpsec"><div class="sectitle">Hashmark rating</div>
+    <div class="secsub">2026 preseason projection — higher is better. Amber marks the edge.</div>`;
+  h+=cmpRow("Overall", oA, oB, cA, cB,
+        `Hashmark Rating — ${ta.school} ${f3(oA)} (#${rkA}) vs ${tb.school} ${f3(oB)} (#${rkB}). The learned, results-aware blend the matchup is built on.`, true);
+  h+=cmpRow("Offense", offA, offB, cA, cB,
+        `Offense rating — ${ta.school} ${f3(offA)} vs ${tb.school} ${f3(offB)}. ${CMETA.off_eff.tip}`, true);
+  h+=cmpRow("Defense", defA, defB, cA, cB,
+        `Defense rating — ${ta.school} ${f3(defA)} vs ${tb.school} ${f3(defB)}. ${CMETA.def_eff.tip}`, true);
+  h+=`</div>`;
+
+  // component breakdown (what else drives the overall, beyond the unit ratings above)
+  h+=`<div class="cmpsec"><div class="sectitle">What's driving the matchup</div>
+    <div class="secsub">Each team's other rating factors, head-to-head. Tap a row for what it means.</div>`;
+  CORDER.filter(k=>k!=="off_eff"&&k!=="def_eff").forEach(k=>{
+    const m=CMETA[k], va=cvA[k]||0, vb=cvB[k]||0;
+    h+=cmpRow(m.name, va, vb, cA, cB,
+      `${m.name} — ${ta.school} ${f3(va)} vs ${tb.school} ${f3(vb)}. ${m.tip}`, false);
+  });
+  h+=`</div>`;
+
+  // tiering: the single-game projection is the free hook; deeper sims stay premium
+  h+=`<div class="cmpsec"><div class="sectitle">Go deeper</div>
+    <div class="secsub">This single-game projection is <b style="color:var(--teal)">free</b>. Premium runs the full forward model.</div>`;
+  h+=premCard("📅","Full-season simulation",
+    `Simulate every game on both schedules for win totals, CFP odds & a projected head-to-head if they actually meet`,
+    `<div class="fakebar" style="width:88%"></div><div class="fakebar" style="width:64%"></div><div class="fakebar" style="width:78%"></div>`);
+  h+=premCard("💬","Ask Hashmark",`Ask anything about this matchup — tempo, injuries, how the edge could swing`,
+    `<div class="fakebar" style="width:93%"></div><div class="fakebar" style="width:70%"></div>`);
+  h+=`</div>`;
+
+  h+=`<div class="note"><b>2026 Preseason — Hashmark projection.</b> A single-game projection from our way-too-early preseason ratings: projected margin = the teams' rating gap on a points scale plus the model's home-field value, and win probability is the normal-model share of outcomes above zero at the calibrated &sigma;=${ENGINE.sigma}. Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer. ${BRAND_LINE}</div></div>`;
+
+  app.innerHTML = h;
+  document.querySelector(".back").onclick = load;
+  document.querySelectorAll(".venue button").forEach(btn=>{
+    btn.onclick=()=>{ if(cmp.venue!==btn.dataset.venue){ cmp.venue=btn.dataset.venue; drawCompare(); } };
+  });
+  document.querySelectorAll(".pick").forEach(p=>{
+    p.onclick=()=> openPicker(p.dataset.pick);
+  });
+}
+
+function openPicker(slot){
+  const other = slot==="a"?cmp.b:cmp.a;
+  const ov=document.createElement("div"); ov.className="pickov";
+  ov.innerHTML=`<div class="picksheet">
+    <div class="pickhd">
+      <input class="picksearch" placeholder="Search teams…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="pickx">✕</button></div>
+    <div class="picklist"></div></div>`;
+  document.body.appendChild(ov);
+  const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
+  function draw(q){
+    q=(q||"").toLowerCase().trim();
+    list.innerHTML = board2026.filter(b=>b.teams && b.teams.school.toLowerCase().includes(q))
+      .map(b=>{ const t=b.teams, c=hx(t.color), dis=String(b.team_id)===String(other);
+        return `<div class="pitem${dis?' dis':''}" data-id="${b.team_id}">
+          <div class="prk">${boardRank(b.team_id)}</div>
+          <div class="pcr" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+          <div><div class="pnm">${esc(t.school)}</div><div class="pcf">${esc(t.conference||"")}</div></div>
+          <div class="pov">${f3(b.overall)}</div></div>`; }).join("")
+      || `<div class="loading" style="padding:30px">No teams match "${esc(q)}"</div>`;
+  }
+  draw("");
+  const close=()=>ov.remove();
+  ov.querySelector(".pickx").onclick=close;
+  ov.onclick=e=>{ if(e.target===ov) close(); };
+  search.oninput=()=>draw(search.value);
+  list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it) return;
+    close(); setTeam(slot, it.dataset.id); };
+}
+
+// plain-English tooltip — hover (desktop) + tap (mobile)
+const tipEl=document.createElement("div"); tipEl.className="tip"; document.body.appendChild(tipEl);
+function showTip(el){ tipEl.textContent=el.getAttribute("data-tip"); tipEl.classList.add("show");
+  const r=el.getBoundingClientRect(), tw=Math.min(264,window.innerWidth-20);
+  const left=Math.min(Math.max(10,r.right-tw),window.innerWidth-tw-10);
+  let top=r.top-tipEl.offsetHeight-8; if(top<8) top=r.bottom+8;
+  tipEl.style.left=left+"px"; tipEl.style.top=top+"px"; }
+const hideTip=()=>tipEl.classList.remove("show");
+document.body.addEventListener("mouseover",e=>{const el=e.target.closest("[data-tip]");if(el)showTip(el);});
+document.body.addEventListener("mouseout", e=>{const el=e.target.closest("[data-tip]");if(el)hideTip();});
+document.body.addEventListener("click",    e=>{const el=e.target.closest("[data-tip]");if(el){showTip(el);e.stopPropagation();}else hideTip();});
+// tap a ranking row (anywhere but its number/tooltip) -> open the team detail page
+document.body.addEventListener("click", e=>{
+  if(e.target.closest("[data-tip]")) return;
+  const row=e.target.closest("[data-team]");
+  if(row && row.dataset.team && row.dataset.team!=="undefined") openDetail(row.dataset.team);
+});
+
+load();
+</script>
+<script>
+// PWA service worker — caches the app shell for offline + instant repeat loads. Registered
+// from a relative path so it scopes correctly under the GitHub Pages project subpath. Live
+// Supabase data is always fetched fresh (the SW only handles same-origin shell requests).
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
