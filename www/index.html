@@ -1263,8 +1263,8 @@ function teamLeaders(players){
   add("Receiving", lead("receiving","YDS"), ["YDS","yds"], ["REC","rec"]);
   add("Tackles", lead("defensive","TOT"), ["TOT","tot"], ["TFL","TFL"]);
   if(!items.length) return "";
-  let h=`<div class="sec"><div class="sectitle">2025 team leaders</div>
-    <div class="secsub">Top producers — player names &amp; stats only (no photos). Source: CFBD.</div>`;
+  let h=`<div class="sec"><div class="sectitle">Returning leaders</div>
+    <div class="secsub">Top <b>returning</b> producers' <b>2025</b> stats — players active in 2026 only (NFL draftees &amp; graduated seniors excluded). Names &amp; stats only. Source: CFBD.</div>`;
   items.forEach(({label,p,a,b})=>{
     const av=p.stats[a[0]], bv=p.stats[b[0]];
     h+=`<div class="leadrow"><div class="lpos">${label}</div>
@@ -1371,13 +1371,13 @@ async function renderPlayerLeaders(body){
     `player_stat_season?select=player,position,team_id,value,rank&season=eq.${STAT_SEASON}&category=eq.${c}&stat_key=eq.${k}&order=rank.asc&limit=10`)));
   let h=`<div class="lbgrid">`;
   PLAYER_LB.forEach(([c,k,label],idx)=>{
-    h+=`<div class="lbcard"><div class="lbhead"><div class="lt">${label}<small>2025 · national leaders</small></div></div>`;
+    h+=`<div class="lbcard"><div class="lbhead"><div class="lt">${label}<small>2025 · returning leaders</small></div></div>`;
     data[idx].forEach(r=>{ const t=teamMeta[r.team_id];
       h+=`<div class="lbmini"${t?` data-team="${r.team_id}"`:""}><div class="mrk">${r.rank}</div>
         <div class="mnm">${esc(r.player)} <span style="color:var(--text2);font-weight:500">${t?esc(t.school):""}</span></div>
         <div class="mvl">${Math.round(r.value).toLocaleString()}</div></div>`; });
     h+=`</div>`; });
-  body.innerHTML=h+`</div><div class="secsub" style="padding:12px 2px 0">Player names &amp; stats only — no photos, no implied endorsement.</div>`;
+  body.innerHTML=h+`<div class="secsub" style="padding:12px 2px 0"><b>2025 production, returning players only</b> — players active in 2026 (2026 NFL draftees &amp; graduated/exhausted-eligibility seniors excluded; matched by athlete ID). Names &amp; stats only — no photos, no implied endorsement.</div>`;
 }
 async function renderConfView(body){
   const METRICS=[["points_per_game","Scoring offense"],["opp_points_per_game","Scoring defense"],
