@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Hashmark — College Football Ratings</title>
-<meta name="description" content="Hashmark — independent, gambling-free college football analytics: opponent-adjusted 2026 team & unit ratings, matchup projections, and official 2025 records, scores and schedules." />
+<title>Hashmark — College Football Stats & Analytics</title>
+<meta name="description" content="Hashmark — deep, official college-football stats &amp; analytics for every FBS team and across the sport: team stat profiles with national ranks, league-wide leaderboards, player leaders, and preseason rankings. Independent and gambling-free." />
 <!-- PWA: installable as a full-screen app on iOS/Android. Relative paths so it works under the GitHub Pages project subpath. -->
 <link rel="manifest" href="manifest.webmanifest" />
 <meta name="theme-color" content="#0B0F14" />
@@ -304,6 +304,111 @@
   .scteam.win .pts{position:relative}
   .scteam.win .pts::after{content:"◂";color:var(--amber);font-size:11px;position:absolute;right:-13px;top:3px}
   .scvs{color:var(--text2);font-size:11px;text-align:center;padding:3px 0 1px}
+  /* ---- Stats Hub ---- */
+  .navrow{display:flex;gap:8px;margin:0 0 12px}
+  .navbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 8px;
+    border-radius:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);
+    font-family:"Archivo",sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
+  .navbtn .nic{font-size:15px}
+  .navbtn.primary{background:linear-gradient(180deg,#1d2735,#141c27);border-color:#3a4a5e}
+  .navbtn:hover{border-color:var(--amber)}
+  .searchwrap{position:relative;margin:0 0 12px}
+  .searchwrap input{width:100%;padding:13px 14px 13px 40px;border-radius:13px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font-family:"Hanken Grotesk",sans-serif;font-size:14px;outline:none}
+  .searchwrap input:focus{border-color:var(--amber)}
+  .searchwrap .si{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:14px}
+  .searchres{position:absolute;left:0;right:0;top:50px;z-index:30;background:var(--surface2);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:300px;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+  .sropt{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line)}
+  .sropt:hover{background:var(--surface)}
+  .sropt .src{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;flex:none}
+  .sropt .snm{font-weight:600;font-size:13.5px}
+  .sropt .scf{font-size:11px;color:var(--text2);margin-left:auto}
+  /* stat sub-nav */
+  .statnav{display:flex;gap:6px;overflow-x:auto;margin:0 0 14px;-webkit-overflow-scrolling:touch}
+  .statnav button{white-space:nowrap;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text2);font-family:"Hanken Grotesk",sans-serif;font-weight:600;font-size:12.5px;cursor:pointer}
+  .statnav button.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
+  /* team stat profile */
+  .statgrp{margin:0 0 16px}
+  .sgtitle{font-family:"Archivo",sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--text2);margin:0 2px 7px;display:flex;align-items:center;gap:8px}
+  .sgtitle .sd{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
+  .sgtitle .sd.off{color:var(--teal)} .sgtitle .sd.def{color:#7CA8FF}
+  .statrow{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);
+    border:1px solid var(--line);border-top:none}
+  .statrow:first-of-type{border-top:1px solid var(--line);border-radius:12px 12px 0 0}
+  .statrow:last-of-type{border-radius:0 0 12px 12px}
+  .statrow .snm{font-size:13px;flex:1;min-width:0;cursor:help}
+  .statrow .sval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;width:64px;text-align:right;flex:none}
+  .statrow .srk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:11px;width:38px;text-align:right;flex:none}
+  .statbar{width:46px;height:6px;border-radius:3px;background:#222c38;flex:none;overflow:hidden}
+  .statbar i{display:block;height:100%;border-radius:3px}
+  .statrow .dlt{font-family:"JetBrains Mono",monospace;font-size:10px;width:30px;text-align:right;flex:none}
+  .r-elite{color:#4ED88A} .r-good{color:#9BD86B} .r-avg{color:var(--text2)} .r-below{color:#E8A84C} .r-poor{color:#E2685F}
+  .bg-elite{background:#4ED88A} .bg-good{background:#9BD86B} .bg-avg{background:#6b7888} .bg-below{background:#E8A84C} .bg-poor{background:#E2685F}
+  .up{color:#4ED88A} .down{color:#E2685F}
+  /* team leaders + honors */
+  .leadrow{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--surface);
+    border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+  .leadrow .lpos{font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;letter-spacing:.05em;
+    color:var(--text2);width:62px;flex:none;text-transform:uppercase}
+  .leadrow .lnm{font-weight:600;font-size:14px;flex:1;min-width:0}
+  .leadrow .lnm small{color:var(--text2);font-weight:500;font-size:11.5px}
+  .leadrow .lst{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;text-align:right;flex:none;color:var(--amber)}
+  .leadrow .lst small{display:block;color:var(--text2);font-weight:500;font-size:10px}
+  .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
+    border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
+  .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
+    background:rgba(246,180,60,.14);color:var(--amber);flex:none;letter-spacing:.04em}
+  .honor .hn{font-weight:600;font-size:13.5px;flex:1}
+  .honor .hn small{color:var(--text2);font-weight:500}
+  .honor .hpos{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--text2);flex:none}
+  /* explorer + leaderboards */
+  .exprow{display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--surface);
+    border:1px solid var(--line);border-top:none;cursor:pointer}
+  .exprow:first-of-type{border-top:1px solid var(--line);border-radius:12px 12px 0 0}
+  .exprow:last-of-type{border-radius:0 0 12px 12px}
+  .exprow:hover{background:var(--surface2)}
+  .exprow .erk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;width:26px;text-align:right;color:var(--text2);flex:none}
+  .exprow .enm{font-weight:600;font-size:13.5px;flex:1;min-width:0}
+  .exprow .enm small{display:block;color:var(--text2);font-weight:500;font-size:11px}
+  .exprow .eval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;flex:none}
+  .selectwrap{position:relative;margin:0 0 10px}
+  .selectwrap select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font-family:"Hanken Grotesk",sans-serif;font-size:14px;
+    font-weight:600;outline:none;-webkit-appearance:none;appearance:none}
+  .selectwrap::after{content:"▾";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none}
+  .lbgrid{display:flex;flex-direction:column;gap:14px}
+  .lbcard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 15px 8px}
+  .lbhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:pointer}
+  .lbhead .lt{font-family:"Archivo",sans-serif;font-weight:700;font-size:14px}
+  .lbhead .lt small{display:block;color:var(--text2);font-weight:500;font-size:10.5px;font-family:"Hanken Grotesk",sans-serif;letter-spacing:0;text-transform:none}
+  .lbhead .more{font-size:11px;color:var(--amber);font-weight:600;flex:none}
+  .lbmini{display:flex;align-items:center;gap:9px;padding:6px 0;border-top:1px solid var(--line)}
+  .lbmini .mrk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:11px;width:18px;color:var(--text2);flex:none}
+  .lbmini .mnm{font-size:12.5px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lbmini .mvl{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12.5px;flex:none;color:var(--amber)}
+  /* preseason */
+  .srcpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);
+    text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+  .srcpill:hover{border-color:var(--amber);color:var(--text)}
+  .srcpill b{color:var(--text);font-weight:700}
+  .t25row{display:flex;align-items:center;gap:11px;padding:9px 12px;background:var(--surface);
+    border:1px solid var(--line);border-top:none}
+  .t25row:first-of-type{border-top:1px solid var(--line);border-radius:12px 12px 0 0}
+  .t25row:last-of-type{border-radius:0 0 12px 12px}
+  .t25row .trk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;width:24px;text-align:right;color:var(--amber);flex:none}
+  .t25row .tnm{font-weight:600;font-size:13.5px;flex:1}
+  .aagrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .aacell{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
+  .aacell .ap{font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;color:var(--text2);letter-spacing:.05em;margin-bottom:3px}
+  .aacell .anm{font-weight:700;font-size:13px;line-height:1.2}
+  .aacell .asc{font-size:11px;color:var(--text2);margin-top:2px}
+  .scbadge{display:inline-block;font-size:8.5px;font-weight:800;font-family:"Archivo",sans-serif;
+    padding:2px 6px;border-radius:5px;margin-left:5px;vertical-align:middle}
+  .sc-cons{background:rgba(246,180,60,.16);color:var(--amber)}
 </style>
 </head>
 <body>
@@ -505,9 +610,16 @@ function header(){
 function listTop(hint){
   const top = SHOW_HASHMARK_RATINGS
     ? `<div class="cmpcta" id="cmpcta"><span class="ar">⇄</span>Compare two teams — projected matchup</div>`
-    : `<div class="previewbar"><span class="pb-badge">PREVIEW</span>Hashmark's homegrown ratings are being fine-tuned — <b>coming soon</b>. For now, official 2025 results &amp; the 2026 schedule.</div>`;
+    : `<div class="previewbar"><span class="pb-badge">PREVIEW</span>Deep <b>official stats &amp; analytics</b> for every FBS team — Hashmark's own ratings are coming soon.</div>`;
   return `<div class="list">${top}
-    <div class="cmpcta" id="scorescta"><span class="ar">📅</span>Scores &amp; schedule — 2025 results · 2026</div>
+    <div class="searchwrap"><span class="si">🔍</span>
+      <input id="teamsearch" type="text" placeholder="Search a team for its stat page…" autocomplete="off" autocapitalize="words">
+      <div class="searchres" id="searchres" style="display:none"></div></div>
+    <div class="navrow">
+      <button class="navbtn primary" id="statsnav"><span class="nic">📊</span>Stats</button>
+      <button class="navbtn" id="scoresnav"><span class="nic">📅</span>Scores</button>
+      <button class="navbtn" id="pressnav"><span class="nic">🏆</span>Preseason</button>
+    </div>
     ${hint?`<div class="hint">${hint}</div>`:""}`;
 }
 
@@ -660,8 +772,10 @@ function wireToggle(){
   });
   const cta=document.getElementById("cmpcta");
   if(cta) cta.onclick = ()=> openCompare();
-  const scta=document.getElementById("scorescta");
-  if(scta) scta.onclick = ()=> openScores();
+  const statsnav=document.getElementById("statsnav"); if(statsnav) statsnav.onclick = ()=> openStats();
+  const scoresnav=document.getElementById("scoresnav"); if(scoresnav) scoresnav.onclick = ()=> openScores();
+  const pressnav=document.getElementById("pressnav"); if(pressnav) pressnav.onclick = ()=> openPreseason();
+  wireSearch();
   // leaderboard controls (re-render from cached data; no refetch)
   document.querySelectorAll(".bnav button").forEach(b=>{
     b.onclick = ()=>{ if(boardMode!==b.dataset.mode){ boardMode=b.dataset.mode; renderLeaderboard(); window.scrollTo(0,0); } };
@@ -698,10 +812,14 @@ async function openDetail(teamId){
     // official/factual data shown in BOTH preview and full mode (record + schedule)
     const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
     if(!SHOW_HASHMARK_RATINGS){
-      const [team, ap] = await Promise.all([
+      const [team, ap, cat, stats, players, honors] = await Promise.all([
         api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
-        api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`) ]);
-      return renderDetailPreview(team[0], ap[0], ts, games, teamId);
+        api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
+        ensureCatalog(),
+        api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${PRIOR_SEASON},${STAT_SEASON})&team_id=eq.${teamId}`),
+        api(`player_stat_season?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
+        api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`) ]);
+      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors});
     }
     const [comps, board, poll] = await Promise.all([
       api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
@@ -715,8 +833,9 @@ async function openDetail(teamId){
   }
 }
 
-// preview team page: factual/official info (record + schedule) + a coming-soon placeholder
-function renderDetailPreview(t, ap, ts, games, teamId){
+// team stat page: official record + schedule + FULL stat profile (ranks) + leaders + preseason
+// honors. The "ratings coming soon" slot sits ready for the Hashmark rating section (SHOW=false).
+function renderDetailPreview(t, ap, ts, games, teamId, ext){
   if(!t){ app.innerHTML = `<div class="dtop"><button class="back">←</button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=load; return; }
@@ -727,6 +846,10 @@ function renderDetailPreview(t, ap, ts, games, teamId){
         <div class="aplbl">${ap?("Final 2025 AP Top 25"+(ap.points!=null?" · "+ap.points+" pts":"")):"Final 2025 AP poll"}</div></div>
        <div class="infocard"><div class="infocell"><div class="ik">Conference</div><div class="iv">${esc(t.conference||"—")}</div></div>
         <div class="infocell"><div class="ik">Classification</div><div class="iv">${esc(cls)}</div></div></div>`;
+  const e = ext || {};
+  const profile = (e.cat && e.stats) ? statProfile(e.cat, e.stats, t.school) : "";
+  const leaders = e.players ? teamLeaders(e.players) : "";
+  const honors  = e.honors ? teamHonors(e.honors) : "";
   let h = `<div class="detail">
     <div class="dtop"><button class="back">←</button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
@@ -735,15 +858,18 @@ function renderDetailPreview(t, ap, ts, games, teamId){
         <div class="dconf">${esc(t.mascot?t.mascot+" · ":"")}${esc(t.conference||"")}</div></div>
     </div>
     ${head}
+    ${profile}
+    ${leaders}
     ${scheduleSection(games||[], teamId)}
-    <div class="sec" style="padding-top:12px">
-      <div class="soon" style="padding:26px 20px 6px">
-        <div class="soonbadge">IN PREVIEW</div>
-        <div class="soontitle" style="font-size:18px">Hashmark ratings — coming soon</div>
-        <div class="soontext" style="font-size:12.5px">${esc(t.school)}'s offense &amp; defense unit grades, projection and the full component breakdown are being fine-tuned and will appear here soon.</div>
+    ${honors}
+    <div class="sec" style="padding-top:6px">
+      <div class="soon" style="padding:22px 20px 6px">
+        <div class="soonbadge">COMING SOON</div>
+        <div class="soontitle" style="font-size:17px">Hashmark rating — coming soon</div>
+        <div class="soontext" style="font-size:12.5px">${esc(t.school)}'s Hashmark power rating, offense &amp; defense grades and projection will appear here above the official stats when the ratings go live.</div>
       </div>
     </div>
-    <div class="note"><b>Official info.</b> The record, scores, schedule and final 2025 AP standing are official/factual; Hashmark's own ratings are hidden while the model is in preview. Not affiliated with or endorsed by the AP, any school, conference, or the NCAA.</div></div>`;
+    <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
 }
@@ -1048,6 +1174,324 @@ function openPicker(slot){
 }
 
 // plain-English tooltip — hover (desktop) + tap (mobile)
+// ===================================================================================
+//  STATS HUB — official CFBD stats & analytics + attributed third-party preseason lists.
+//  NONE of this is a Hashmark rating/projection (those stay behind SHOW_HASHMARK_RATINGS).
+// ===================================================================================
+const STAT_SEASON = 2025, PRIOR_SEASON = 2024;
+let statTab = "explorer", exploreStat = "points_per_game", exploreConf = null;
+let _catalog = null; const _statCache = {};
+const normName = s => String(s||"").toLowerCase().replace(/\b(jr|sr|iii|ii|iv)\b/g,"").replace(/[^a-z]/g,"");
+const STAT_GROUPS = ["Scoring","Offense","Defense","Efficiency/Advanced","Special teams","Discipline"];
+
+async function ensureCatalog(){
+  if(_catalog) return _catalog;
+  const list = await api("stat_catalog?select=*&order=sort_order");
+  const by={}, groups={};
+  list.forEach(d=>{ by[d.stat_key]=d; (groups[d.stat_group]=groups[d.stat_group]||[]).push(d); });
+  _catalog = {list, by, groups};
+  return _catalog;
+}
+function fmtStat(v, fmt){
+  if(v==null||v==="") return "—"; v=Number(v);
+  switch(fmt){
+    case "int": return Math.round(v).toLocaleString();
+    case "1dp": return v.toFixed(1);
+    case "2dp": return v.toFixed(2);
+    case "3dp": return v.toFixed(3);
+    case "pct": return (v*100).toFixed(1)+"%";
+    case "signed": return (v>0?"+":"")+Math.round(v);
+    case "signed1": return (v>0?"+":"")+v.toFixed(1);
+    case "time": { const m=Math.floor(v/60), s=Math.round(v%60); return m+":"+String(s).padStart(2,"0"); }
+    default: return v.toFixed(1);
+  }
+}
+const ordinal = n => { const v=n%100, s=["th","st","nd","rd"]; return n+(s[(v-20)%10]||s[v]||s[0]); };
+const rankBucket = p => p>=80?"elite":p>=60?"good":p>=40?"avg":p>=20?"below":"poor";
+function backHeader(tag){
+  return `<div class="cmptop"><button class="back">←</button>
+    <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">${tag}</div></div>`;
+}
+async function statRows(key){
+  if(!_statCache[key]) _statCache[key] = await api(
+    `team_stat_season?select=team_id,value,rank,percentile&season=eq.${STAT_SEASON}&stat_key=eq.${key}&order=rank.asc`);
+  return _statCache[key];
+}
+
+// ---------- Part 2: team stat profile + leaders + preseason honors (on the team page) ----------
+function statProfile(cat, statsRows, school){
+  const cur={}, prior={};
+  statsRows.forEach(r=>{ (Number(r.season)===STAT_SEASON?cur:prior)[r.stat_key]=r; });
+  let h=`<div class="sec"><div class="sectitle">2025 stat profile</div>
+    <div class="secsub">Official season stats with national rank + percentile. Tap a label for what it means. Source: CFBD.</div>`;
+  let any=false;
+  STAT_GROUPS.forEach(grp=>{
+    const defs=(cat.groups[grp]||[]).filter(d=>cur[d.stat_key]);
+    if(!defs.length) return;
+    any=true;
+    const sideTag = grp==="Defense"?`<span class="sd def">DEF</span>`:grp==="Offense"?`<span class="sd off">OFF</span>`:"";
+    h+=`<div class="statgrp"><div class="sgtitle">${grp}${sideTag}</div>`;
+    defs.forEach(d=>{
+      const r=cur[d.stat_key], pct=Number(r.percentile), bkt=rankBucket(pct), val=fmtStat(r.value,d.format);
+      const tip=`${esc(d.display_name)} — ${esc(d.description)} ${esc(school)}: ${val}, #${r.rank} nationally (${ordinal(Math.round(pct))} percentile, 2025).`;
+      const pr=prior[d.stat_key];
+      let dlt=`<div class="dlt"></div>`;
+      if(pr){ const dv=Number(pr.rank)-Number(r.rank);
+        dlt = dv ? `<div class="dlt ${dv>0?"up":"down"}" data-tip="2024 rank #${pr.rank} → 2025 #${r.rank}.">${dv>0?"▲":"▼"}${Math.abs(dv)}</div>` : `<div class="dlt">—</div>`; }
+      h+=`<div class="statrow">
+        <div class="snm" data-tip="${tip}">${esc(d.display_name)}</div>
+        <div class="sval">${val}</div>
+        <div class="srk r-${bkt}">#${r.rank}</div>
+        <div class="statbar"><i class="bg-${bkt}" style="width:${Math.max(4,pct)}%"></i></div>
+        ${dlt}</div>`;
+    });
+    h+=`</div>`;
+  });
+  return any ? h+`</div>` : "";
+}
+function teamLeaders(players){
+  const byCat={};
+  players.forEach(p=>{ const c=byCat[p.category]=byCat[p.category]||{};
+    const pl=c[p.player]=c[p.player]||{pos:p.position,stats:{}}; pl.stats[p.stat_key]=Number(p.value); });
+  const lead=(cat,key)=>{ const c=byCat[cat]; if(!c) return null; let best=null;
+    for(const nm in c){ const v=c[nm].stats[key]; if(v!=null&&(!best||v>best.v)) best={nm,v,pos:c[nm].pos,stats:c[nm].stats}; }
+    return best; };
+  const items=[];
+  const add=(label,p,a,b)=>{ if(p) items.push({label,p,a,b}); };
+  add("Passing", lead("passing","YDS"), ["YDS","yds"], ["TD","TD"]);
+  add("Rushing", lead("rushing","YDS"), ["YDS","yds"], ["TD","TD"]);
+  add("Receiving", lead("receiving","YDS"), ["YDS","yds"], ["REC","rec"]);
+  add("Tackles", lead("defensive","TOT"), ["TOT","tot"], ["TFL","TFL"]);
+  if(!items.length) return "";
+  let h=`<div class="sec"><div class="sectitle">2025 team leaders</div>
+    <div class="secsub">Top producers — player names &amp; stats only (no photos). Source: CFBD.</div>`;
+  items.forEach(({label,p,a,b})=>{
+    const av=p.stats[a[0]], bv=p.stats[b[0]];
+    h+=`<div class="leadrow"><div class="lpos">${label}</div>
+      <div class="lnm">${esc(p.nm)} <small>${esc(p.pos||"")}</small></div>
+      <div class="lst">${Math.round(av).toLocaleString()}<small>${a[1]}${bv!=null?" · "+Math.round(bv)+" "+b[1]:""}</small></div></div>`;
+  });
+  return h+`</div>`;
+}
+function teamHonors(honors){
+  const aa=honors.filter(h=>h.ranking_type==="all_american");
+  const cons=aa.filter(h=>h.source==="Consensus");
+  const single=aa.filter(h=>h.source!=="Consensus");
+  const poll=honors.filter(h=>h.ranking_type==="preseason_poll");
+  if(!aa.length && !poll.length) return "";
+  const seen=new Set(); let h=`<div class="sec"><div class="sectitle">Around CFB — preseason 2026</div>
+    <div class="secsub">Third-party preseason honors &amp; rankings, attributed to each outlet — <b>not</b> Hashmark ratings.</div>`;
+  poll.forEach(x=>{ h+=`<div class="honor"><div class="hb">ATHLON</div>
+    <div class="hn">Projected <b>#${x.rank}</b> in <a class="srcpill" href="${esc(x.source_url)}" target="_blank" rel="noopener">Athlon's 2026 preseason Top&nbsp;25</a></div></div>`; });
+  const row=(x,badge)=>{ seen.add(normName(x.player));
+    return `<div class="honor"><div class="hb">${badge}</div>
+      <div class="hn">${esc(x.player)} <small>· ${esc(x.position||"")}</small></div>
+      <div class="hpos">preseason AA</div></div>`; };
+  cons.forEach(x=>{ h+=row(x,"CONSENSUS"); });
+  single.forEach(x=>{ if(seen.has(normName(x.player))) return; h+=row(x, x.source==="ESPN"?"ESPN":"P. STEELE"); });
+  return h+`</div>`;
+}
+
+// ---------- Part 3: the league-wide Stats hub ----------
+async function openStats(tab){
+  if(tab) statTab=tab;
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading stats…</div>`;
+  try{ await Promise.all([ensureTeamMeta(), ensureCatalog()]); await renderStats(); }
+  catch(e){ app.innerHTML=backHeader("Stats")+`<div class="list"><div class="err">Couldn't load stats: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=load; }
+}
+async function renderStats(){
+  let h=`<div class="cmp">`+backHeader("Stats")+`<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 10px">Official stats &amp; analytics · <b>2025 season</b> · all FBS teams · source CFBD.</div>
+    <div class="statnav">`;
+  [["explorer","Stat explorer"],["leaders","Leaderboards"],["players","Player leaders"],["conf","Conferences"]]
+    .forEach(([k,l])=>h+=`<button data-stab="${k}" class="${statTab===k?"on":""}">${l}</button>`);
+  h+=`</div><div id="statbody"><div class="loading">…</div></div>
+    <div class="note"><b>Official stats — 2025 season.</b> Source: CollegeFootballData (CFBD); PPA/EPA, success rate &amp; explosiveness are CFBD's public metrics. Player names &amp; stats only. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-stab]").forEach(b=>b.onclick=()=>{ statTab=b.dataset.stab; renderStats(); window.scrollTo(0,0); });
+  const body=document.getElementById("statbody");
+  try{
+    if(statTab==="explorer") await renderExplorer(body);
+    else if(statTab==="leaders") await renderStatLeaders(body);
+    else if(statTab==="players") await renderPlayerLeaders(body);
+    else await renderConfView(body);
+  }catch(e){ body.innerHTML=`<div class="err">Couldn't load: ${e.message}</div>`; }
+}
+async function renderExplorer(body){
+  const d=_catalog.by[exploreStat];
+  let opts="";
+  STAT_GROUPS.forEach(g=>{ const ds=_catalog.groups[g]||[]; if(!ds.length) return;
+    opts+=`<optgroup label="${g}">`;
+    ds.forEach(x=>opts+=`<option value="${x.stat_key}" ${x.stat_key===exploreStat?"selected":""}>${esc(x.display_name)}</option>`);
+    opts+=`</optgroup>`; });
+  const confs=[...new Set(Object.values(teamMeta).map(t=>t.conference).filter(Boolean))].sort();
+  let pills=`<button class="confpill ${exploreConf?"":"on"}" data-econf="">All FBS</button>`;
+  confs.forEach(c=>pills+=`<button class="confpill ${exploreConf===c?"on":""}" data-econf="${esc(c)}">${esc(shortConf(c))}</button>`);
+  let rows=(await statRows(exploreStat)).slice();
+  if(exploreConf) rows=rows.filter(r=>teamMeta[r.team_id]&&teamMeta[r.team_id].conference===exploreConf);
+  let h=`<div class="selectwrap"><select id="statsel">${opts}</select></div>
+    <div class="secsub" style="padding:0 2px 8px">${esc(d.description)} ${d.higher_is_better?"Higher is better.":"Lower is better."}</div>
+    <div class="confbar">${pills}</div>`;
+  rows.forEach((r,i)=>{ const t=teamMeta[r.team_id]; if(!t) return;
+    h+=`<div class="exprow" data-team="${r.team_id}">
+      <div class="erk">${i+1}</div>
+      ${crestEl("schedcr",t.school,hx(t.color))}
+      <div class="enm">${esc(t.school)}<small>${esc(t.conference||"")} · #${r.rank} nationally</small></div>
+      <div class="eval r-${rankBucket(Number(r.percentile))}">${fmtStat(r.value,d.format)}</div></div>`; });
+  if(!rows.length) h+=`<div class="loading">No teams.</div>`;
+  body.innerHTML=h;
+  const sel=document.getElementById("statsel"); sel.onchange=()=>{ exploreStat=sel.value; renderStats(); };
+  body.querySelectorAll("[data-econf]").forEach(b=>b.onclick=()=>{ exploreConf=b.dataset.econf||null; renderStats(); });
+}
+const STAT_LEADERS=["points_per_game","opp_points_per_game","total_yards_pg","total_yards_allowed_pg",
+  "off_ppa","def_ppa","off_success_rate","off_explosiveness","def_havoc","third_down_pct",
+  "off_points_per_opp","turnover_margin"];
+async function renderStatLeaders(body){
+  const data=await Promise.all(STAT_LEADERS.map(statRows));
+  let h=`<div class="lbgrid">`;
+  STAT_LEADERS.forEach((k,idx)=>{ const d=_catalog.by[k];
+    h+=`<div class="lbcard"><div class="lbhead" data-go="${k}">
+      <div class="lt">${esc(d.display_name)}<small>${esc(d.short_label)} · 2025 · ${d.higher_is_better?"higher better":"lower better"}</small></div>
+      <div class="more">All ›</div></div>`;
+    data[idx].slice(0,6).forEach(r=>{ const t=teamMeta[r.team_id]; if(!t) return;
+      h+=`<div class="lbmini" data-team="${r.team_id}"><div class="mrk">${r.rank}</div>
+        <div class="mnm">${esc(t.school)}</div><div class="mvl">${fmtStat(r.value,d.format)}</div></div>`; });
+    h+=`</div>`; });
+  body.innerHTML=h+`</div>`;
+  body.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ exploreStat=b.dataset.go; statTab="explorer"; renderStats(); window.scrollTo(0,0); });
+}
+const PLAYER_LB=[["passing","YDS","Passing yards"],["passing","TD","Passing touchdowns"],
+  ["rushing","YDS","Rushing yards"],["rushing","TD","Rushing touchdowns"],
+  ["receiving","YDS","Receiving yards"],["receiving","REC","Receptions"],
+  ["defensive","TOT","Total tackles"],["defensive","SACKS","Sacks"],["kicking","FGM","Field goals made"]];
+async function renderPlayerLeaders(body){
+  const data=await Promise.all(PLAYER_LB.map(([c,k])=>api(
+    `player_stat_season?select=player,position,team_id,value,rank&season=eq.${STAT_SEASON}&category=eq.${c}&stat_key=eq.${k}&order=rank.asc&limit=10`)));
+  let h=`<div class="lbgrid">`;
+  PLAYER_LB.forEach(([c,k,label],idx)=>{
+    h+=`<div class="lbcard"><div class="lbhead"><div class="lt">${label}<small>2025 · national leaders</small></div></div>`;
+    data[idx].forEach(r=>{ const t=teamMeta[r.team_id];
+      h+=`<div class="lbmini"${t?` data-team="${r.team_id}"`:""}><div class="mrk">${r.rank}</div>
+        <div class="mnm">${esc(r.player)} <span style="color:var(--text2);font-weight:500">${t?esc(t.school):""}</span></div>
+        <div class="mvl">${Math.round(r.value).toLocaleString()}</div></div>`; });
+    h+=`</div>`; });
+  body.innerHTML=h+`</div><div class="secsub" style="padding:12px 2px 0">Player names &amp; stats only — no photos, no implied endorsement.</div>`;
+}
+async function renderConfView(body){
+  const METRICS=[["points_per_game","Scoring offense"],["opp_points_per_game","Scoring defense"],
+    ["off_ppa","Offense EPA/play"],["def_ppa","Defense EPA/play"]];
+  const data=await Promise.all(METRICS.map(([k])=>statRows(k)));
+  let h="";
+  METRICS.forEach(([k,label],idx)=>{ const d=_catalog.by[k];
+    const byc={}; data[idx].forEach(r=>{ const t=teamMeta[r.team_id]; if(!t||!t.conference) return;
+      (byc[t.conference]=byc[t.conference]||[]).push(Number(r.value)); });
+    const confs=Object.keys(byc).map(c=>({c,avg:mean(byc[c]),n:byc[c].length})).filter(x=>x.n>=4)
+      .sort((a,b)=>d.higher_is_better?b.avg-a.avg:a.avg-b.avg);
+    const mx=Math.max(...confs.map(x=>Math.abs(x.avg)),0.001);
+    h+=`<div class="lbcard" style="margin-bottom:12px"><div class="lbhead"><div class="lt">${label}<small>avg ${esc(d.short_label)} · 2025 · conferences (≥4 FBS teams)</small></div></div>`;
+    confs.forEach((x,i)=>h+=`<div class="cstrrow"><div class="ci">${i+1}</div>
+      <div class="cn">${esc(shortConf(x.c))} <small>${x.n}</small></div>
+      <div class="cbar"><i style="width:${Math.abs(x.avg)/mx*100}%;background:var(--amber)"></i></div>
+      <div class="cvv">${fmtStat(x.avg,d.format)}</div></div>`);
+    h+=`</div>`; });
+  body.innerHTML=h;
+}
+
+// ---------- Part 6: the Preseason hub (attributed third-party lists) ----------
+const POSGRP={QB:"QB",RB:"RB",WR:"WR / TE",TE:"WR / TE",OT:"Offensive line",G:"Offensive line",C:"Offensive line",
+  OL:"Offensive line",EDGE:"Front seven",DT:"Front seven",DL:"Front seven",LB:"Front seven",
+  CB:"Secondary",S:"Secondary",DB:"Secondary",ATH:"All-purpose",K:"Special teams",P:"Special teams",KR:"Special teams"};
+async function openPreseason(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading preseason…</div>`;
+  try{ await ensureTeamMeta();
+    const rows=await api("external_rankings?select=*&season=eq.2026&order=ranking_type.asc,source.asc,rank.asc");
+    renderPreseason(rows);
+  }catch(e){ app.innerHTML=backHeader("Preseason")+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=load; }
+}
+function renderPreseason(rows){
+  const aa=rows.filter(r=>r.ranking_type==="all_american");
+  const cons=aa.filter(r=>r.source==="Consensus");
+  const espn=aa.filter(r=>r.source==="ESPN"), steele=aa.filter(r=>r.source==="Phil Steele");
+  const poll=rows.filter(r=>r.ranking_type==="preseason_poll").sort((a,b)=>a.rank-b.rank);
+  const asof=(rows.find(r=>r.as_of_date)||{}).as_of_date||"";
+  const link=(src,url)=>url?`<a class="srcpill" href="${esc(url)}" target="_blank" rel="noopener"><b>${esc(src)}</b> ↗</a>`:`<span class="srcpill"><b>${esc(src)}</b></span>`;
+  const teamTap=r=>r.team_id?` data-team="${r.team_id}"`:"";
+
+  let h=`<div class="cmp">`+backHeader("Preseason")+`<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 10px">Preseason 2026 — <b>third-party</b> selections &amp; projections, attributed and linked. <b>Not</b> Hashmark ratings. As of ${esc(asof)}.</div>`;
+
+  // Consensus All-America team (grouped by position group)
+  if(cons.length){
+    h+=`<div class="sec"><div class="sectitle">Consensus All-Americans</div>
+      <div class="secsub">Players named first-team by <b>2+ outlets</b> (${link("ESPN",espn[0]&&espn[0].source_url)} ${link("Phil Steele",steele[0]&&steele[0].source_url)}). Hashmark tally of their picks — not our rating.</div>`;
+    const grp={}; cons.forEach(r=>{ const g=POSGRP[r.position]||"Other"; (grp[g]=grp[g]||[]).push(r); });
+    Object.keys(grp).forEach(g=>{
+      h+=`<div class="sgtitle" style="margin-top:10px">${g}</div><div class="aagrid">`;
+      grp[g].forEach(r=>{ const t=teamMeta[r.team_id];
+        h+=`<div class="aacell"${teamTap(r)}><div class="ap">${esc(r.position||"")}</div>
+          <div class="anm">${esc(r.player)}<span class="scbadge sc-cons">2+</span></div>
+          <div class="asc">${esc(t?t.school:r.school)}</div></div>`; });
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  }
+  // By-source All-America teams
+  const srcBlock=(label,list,url)=>{
+    if(!list.length) return "";
+    let b=`<div class="sec"><div class="sectitle">${label} — preseason All-America</div>
+      <div class="secsub">First team, per ${link(label,url)}. Facts only (player · position · school).</div><div class="aagrid">`;
+    list.forEach(r=>{ const t=teamMeta[r.team_id];
+      b+=`<div class="aacell"${teamTap(r)}><div class="ap">${esc(r.position||"")}</div>
+        <div class="anm">${esc(r.player)}</div><div class="asc">${esc(t?t.school:r.school)}</div></div>`; });
+    return b+`</div></div>`;
+  };
+  h+=srcBlock("ESPN", espn, espn[0]&&espn[0].source_url);
+  h+=srcBlock("Phil Steele", steele, steele[0]&&steele[0].source_url);
+
+  // Preseason poll / projection
+  h+=`<div class="sec"><div class="sectitle">Preseason Top 25</div>`;
+  if(poll.length){
+    h+=`<div class="secsub">${link(poll[0].source, poll[0].source_url)} media projection for 2026. The official <b>AP &amp; Coaches</b> preseason polls auto-appear here when released in August.</div>`;
+    poll.forEach(r=>{ const t=teamMeta[r.team_id];
+      h+=`<div class="t25row"${teamTap(r)}><div class="trk">${r.rank}</div>
+        ${crestEl("schedcr",(t?t.school:r.school),t?hx(t.color):"#384455")}
+        <div class="tnm">${esc(t?t.school:r.school)}</div></div>`; });
+  } else {
+    h+=`<div class="secsub">The official AP &amp; Coaches preseason Top 25 release in August — they'll appear here automatically (CFBD).</div>`;
+  }
+  h+=`</div>`;
+
+  h+=`<div class="note"><b>Preseason 2026 — third-party.</b> All selections belong to the cited outlets and link to their source; Hashmark compiles a consensus only where 2+ agree and copies facts only, never their analysis. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+}
+
+// ---------- team search (jump to a team's stat page) ----------
+let _searchTeams=null;
+async function ensureSearchTeams(){
+  if(_searchTeams) return _searchTeams;
+  await ensureTeamMeta();
+  _searchTeams=Object.entries(teamMeta).map(([id,t])=>({id,school:t.school,conference:t.conference,color:t.color}))
+    .sort((a,b)=>a.school.localeCompare(b.school));
+  return _searchTeams;
+}
+function wireSearch(){
+  const inp=document.getElementById("teamsearch"); if(!inp) return;
+  const res=document.getElementById("searchres");
+  const run=async()=>{ const q=inp.value.trim().toLowerCase();
+    if(!q){ res.style.display="none"; return; }
+    const list=await ensureSearchTeams();
+    const hits=list.filter(t=>t.school.toLowerCase().includes(q)).slice(0,8);
+    res.innerHTML=hits.map(t=>`<div class="sropt" data-team="${t.id}">
+      ${crestEl("src",t.school,hx(t.color))}<div class="snm">${esc(t.school)}</div>
+      <div class="scf">${esc(t.conference||"")}</div></div>`).join("")||`<div class="sropt"><div class="snm" style="color:var(--text2)">No team found</div></div>`;
+    res.style.display="block"; };
+  inp.oninput=run; inp.onfocus=run;
+}
+
 const tipEl=document.createElement("div"); tipEl.className="tip"; document.body.appendChild(tipEl);
 function showTip(el){ tipEl.textContent=el.getAttribute("data-tip"); tipEl.classList.add("show");
   const r=el.getBoundingClientRect(), tw=Math.min(264,window.innerWidth-20);
@@ -1067,6 +1511,7 @@ document.body.addEventListener("click", e=>{
 
 load();
 </script>
+
 <script>
 // PWA service worker — caches the app shell for offline + instant repeat loads. Registered
 // from a relative path so it scopes correctly under the GitHub Pages project subpath. Live
