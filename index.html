@@ -511,6 +511,7 @@
   .simseed .ssnm small{display:block;color:var(--text2);font-weight:500;font-size:10px}
   .simseed .ssr{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:right}
   .simseed .ssr small{display:block;color:var(--teal);font-size:8.5px;font-weight:800;letter-spacing:.05em}
+  .simseed.bumped{border-color:#7CA8FF;border-style:dashed}
   .simbrk{font-size:11px;color:var(--text2);background:var(--surface);border:1px dashed var(--line);
     border-radius:10px;padding:9px 11px;margin-top:6px;line-height:1.5}
   .simchips{display:flex;flex-wrap:wrap;gap:6px}
@@ -1194,6 +1195,8 @@ async function openSimulator(){
     // model favorite per game (default pick); if predictions off, default home team
     fgames.forEach(g=>{ const ph=simPHome(g.home_team_id,g.away_team_id,g.neutral_site);
       sim.fav[g.id]= (SHOW_PREDICTIONS? (ph>=0.5):true) ? String(g.home_team_id):String(g.away_team_id); });
+    sim.hasSOR = SHOW_PREDICTIONS && sim.wp.size>0;
+    if(sim.hasSOR) precomputeSOR();
     renderSim();
   }catch(e){ app.innerHTML=backHeader("Simulator")+`<div class="list"><div class="err">Couldn't load simulator: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=load; }
@@ -1209,34 +1212,89 @@ function simPTeam(teamId, g){   // P(teamId wins this game)
   const pHome=simPHome(g.home_team_id, g.away_team_id, g.neutral_site);
   return String(teamId)===String(g.home_team_id)? pHome : 1-pHome;
 }
+// P(winner beats loser) with the winner at the given venue ('home'/'away'/'neutral')
+function simPair(w, l, venue){
+  const W=+w, L=+l, lo=Math.min(W,L), hi=Math.max(W,L), row=sim.wp.get(lo+"-"+hi);
+  if(!row) return 0.5; const wIsLo=(W===lo);
+  if(venue==="neutral"){ const a=Number(row.win_prob_a); return wIsLo?a:1-a; }
+  if(venue==="home")   return wIsLo?Number(row.win_prob_a_home):1-Number(row.win_prob_a_away);
+  return wIsLo?Number(row.win_prob_a_away):1-Number(row.win_prob_a_home);   // away
+}
+// STRENGTH OF RECORD precompute: per team, the distribution of how many games an "average
+// top-tier team" (mean of the top-25 by model strength) would win against THAT team's exact
+// schedule (honoring venue). SOR(team) = 1 - P(reference wins >= team's actual wins): a hard
+// schedule lowers the reference's chances, so matching a good record there grades high; an
+// undefeated team vs a soft schedule grades low. Schedule is fixed, so this is computed once.
+function precomputeSOR(){
+  const ids=[...sim.fbs];
+  const proxy={}; ids.forEach(t=>{ let s=0,n=0; ids.forEach(u=>{ if(u===t) return; s+=simPair(t,u,"neutral"); n++; }); proxy[t]=n?s/n:0; });
+  const topRef=ids.slice().sort((a,b)=>proxy[b]-proxy[a]).slice(0,25);   // "average top-25 team"
+  const refH={},refA={},refN={};
+  ids.forEach(o=>{ let sh=0,sa=0,sn=0,c=0; topRef.forEach(R=>{ if(R===o) return;
+      sh+=simPair(R,o,"home"); sa+=simPair(R,o,"away"); sn+=simPair(R,o,"neutral"); c++; });
+    refH[o]=c?sh/c:0.5; refA[o]=c?sa/c:0.5; refN[o]=c?sn/c:0.5; });
+  const sched={}; ids.forEach(t=>sched[t]=[]);
+  sim.games.forEach(g=>{ const h=String(g.home_team_id), a=String(g.away_team_id);
+    if(sched[h]) sched[h].push(g.neutral_site?refN[a]:refH[a]);   // reference hosts (or neutral)
+    if(sched[a]) sched[a].push(g.neutral_site?refN[h]:refA[h]); });
+  sim.refGeq={};
+  ids.forEach(t=>{ const ps=sched[t], N=ps.length; let dist=[1];
+    ps.forEach(p=>{ const nd=new Array(dist.length+1).fill(0);
+      for(let k=0;k<dist.length;k++){ nd[k]+=dist[k]*(1-p); nd[k+1]+=dist[k]*p; } dist=nd; });
+    const geq=new Array(N+1).fill(0); let acc=0; for(let k=N;k>=0;k--){ acc+=dist[k]; geq[k]=acc; }
+    sim.refGeq[t]={geq,N}; });
+}
+function simSOR(teamId, wins){
+  if(!sim.hasSOR || !sim.refGeq) return null;
+  const r=sim.refGeq[teamId]; if(!r) return 0;
+  return 1 - r.geq[Math.min(Math.max(wins,0), r.N)];
+}
 const simEffective = ()=> Object.assign({}, sim.fav, sim.userPicks);
 function simCompute(picks){
   const rec={}; sim.fbs.forEach(id=>rec[id]={w:0,l:0,cw:0,cl:0});
-  const h2h={};
+  const h2h={};        // winner -> Set(losers beaten)
+  const tg={};         // team -> {opp: wonBool}  (for common-opponents tiebreak)
   sim.games.forEach(g=>{ const w=picks[g.id]; if(!w) return;
     const h=String(g.home_team_id), a=String(g.away_team_id);
     const loser = (String(w)===h)?a:h;
     const cg = sim.conf[h] && sim.conf[h]===sim.conf[a];
     if(rec[w]){ rec[w].w++; if(cg) rec[w].cw++; (h2h[w]=h2h[w]||new Set()).add(loser); }
     if(rec[loser]){ rec[loser].l++; if(cg) rec[loser].cl++; }
+    (tg[w]=tg[w]||{})[loser]=true; (tg[loser]=tg[loser]||{})[w]=false;
   });
   const wpct=id=>{ const r=rec[id], g=r.w+r.l; return g?r.w/g:0; };
   const cpct=id=>{ const r=rec[id], g=r.cw+r.cl; return g?r.cw/g:0; };
-  const rank=(x,y)=>wpct(y)-wpct(x)||(rec[x].l-rec[y].l)||(rec[y].w-rec[x].w);
   // conference champions (real conferences only)
   const byConf={}; sim.fbs.forEach(id=>{ const c=sim.conf[id]; (byConf[c]=byConf[c]||[]).push(id); });
   const champions=[];
   Object.entries(byConf).forEach(([c,ids])=>{ if(ids.length<REAL_CONF_MIN) return;
     ids.sort((x,y)=>cpct(y)-cpct(x)||wpct(y)-wpct(x)||((h2h[y]&&h2h[y].has(x))?1:(h2h[x]&&h2h[x].has(y))?-1:0));
     champions.push(ids[0]); });
-  // 12-team field: 5 highest-ranked champions auto; top 4 of them get byes; +7 best at-large
-  const champSorted=champions.slice().sort(rank);
-  const auto=champSorted.slice(0,5), autoSet=new Set(auto);
-  const atlarge=[...sim.fbs].filter(id=>!autoSet.has(id)).sort(rank).slice(0,7);
-  const top4=auto.slice(0,4);
-  const rest=[auto[4],...atlarge].filter(Boolean).sort(rank);
-  const field=[...top4,...rest].slice(0,12);
-  return {rec, wpct, cpct, rank, champions, champSorted, field, byConf};
+  const champSet=new Set(champions);
+  // resume metric: Strength of Record (falls back to win% if predictions/winprob are off)
+  const sor={}; sim.fbs.forEach(id=>{ const s=simSOR(id, rec[id].w); sor[id]=(s==null?wpct(id):s); });
+  // common-opponents edge: +1 if x better, -1 if y better, 0 otherwise
+  const commonEdge=(x,y)=>{ const gx=tg[x],gy=tg[y]; if(!gx||!gy) return 0;
+    let xw=0,xn=0,yw=0; for(const o in gx){ if(o in gy){ xn++; if(gx[o])xw++; if(gy[o])yw++; } }
+    if(!xn) return 0; return xw>yw?-1:xw<yw?1:0; };
+  // CFP-style comparator: SOR, then head-to-head, then conference champ, then common opponents
+  const cmp=(x,y)=>{ const d=sor[y]-sor[x]; if(Math.abs(d)>1e-9) return d;
+    if(h2h[x]&&h2h[x].has(y)) return -1; if(h2h[y]&&h2h[y].has(x)) return 1;
+    const cx=champSet.has(x), cy=champSet.has(y); if(cx!==cy) return cx?-1:1;
+    return commonEdge(x,y); };
+  // 2025-26+ CFP selection: straight-seed by SOR; guarantee the 5 highest-SOR conf champions
+  const allRanked=[...sim.fbs].sort(cmp);
+  const guaranteed=champions.slice().sort(cmp).slice(0,5), guarSet=new Set(guaranteed);
+  const top12=allRanked.slice(0,12), inTop=new Set(top12);
+  const missing=guaranteed.filter(id=>!inTop.has(id));
+  let field;
+  if(!missing.length){ field=top12.slice(); }
+  else { // bump the lowest-SOR non-guaranteed teams; slot the missing champions at the bottom (#12, #11…)
+    const drop=new Set(top12.filter(id=>!guarSet.has(id)).sort(cmp).slice(-missing.length));
+    const kept=top12.filter(id=>!drop.has(id)).sort(cmp);
+    field=[...kept, ...missing.slice().sort(cmp)].slice(0,12);
+  }
+  return {rec, wpct, cpct, sor, cmp, rank:cmp, champions, champSorted:champions.slice().sort(cmp), field, byConf, bumped:new Set(missing)};
 }
 function simRecord(id, r){ return `${r.rec[id].w}–${r.rec[id].l}`; }
 function renderSim(){
@@ -1244,19 +1302,22 @@ function renderSim(){
   const nPicked=Object.keys(sim.userPicks).length;
   const tnm=id=>{ const t=teamMeta[id]; return t?t.school:id; };
   let h=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners → see the standings, conference champions and the <b>12-team Playoff</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by record. Hypothetical — no ratings or betting lines.</div>
+    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners → see the standings, conference champions and the <b>12-team Playoff</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Hypothetical — no ratings or betting lines.</div>
     <div class="navrow"><button class="navbtn primary" id="simpick">✏️ Pick a team's games</button>
       <button class="navbtn" id="simreset">↺ Reset picks</button>
       ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun">🎲 Simulate 1000×</button>`:""}</div>
     <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game"}</div>`;
   // 12-team field bracket
+  const sorTip="Strength of Record (resume): how hard it would be for an average top-tier team to match this team's record against this exact schedule — rewards tough schedules and quality wins, not just wins. Built from matchup win probabilities, not the hidden ratings.";
   h+=`<div class="sec"><div class="sectitle">Projected 12-team Playoff</div>
-    <div class="secsub">Seeds 1–4 (conference champions) get first-round byes; 5–12 play in. Source: your picks.</div>`;
+    <div class="secsub" data-tip="${esc(sorTip)}">Seeded by <b>Strength of Record</b> (resume) ⓘ — straight-seeded, with the five highest-SOR conference champions guaranteed in. Seeds 1–4 get first-round byes. Source: your picks.</div>`;
   const seedRow=(id,seed,bye)=>{ const t=teamMeta[id]||{school:tnm(id)}, ch=c.champions.includes(id);
-    return `<div class="simseed" data-team="${id}"><div class="ssn">${seed}</div>
+    const sorTxt=(sim.hasSOR&&c.sor[id]!=null)?`SOR ${Math.round(c.sor[id]*100)}`:"";
+    const tag=[bye?"BYE":"", ch?"champ":"", sorTxt].filter(Boolean).join(" · ");
+    return `<div class="simseed${c.bumped.has(id)?" bumped":""}" data-team="${id}"><div class="ssn">${seed}</div>
       ${crestEl("glcr",t.school,oppColor(id))}
-      <div class="ssnm">${esc(t.school)}<small>${esc(shortConf(sim.conf[id]||""))}${ch?" · champ":""}</small></div>
-      <div class="ssr">${simRecord(id,c)}${bye?'<small>BYE</small>':''}</div></div>`; };
+      <div class="ssnm">${esc(t.school)}<small>${esc(shortConf(sim.conf[id]||""))}${c.bumped.has(id)?" · champ auto-bid":""}</small></div>
+      <div class="ssr">${simRecord(id,c)}${tag?`<small>${tag}</small>`:""}</div></div>`; };
   c.field.forEach((id,i)=>{ h+=seedRow(id,i+1,i<4); });
   if(c.field.length>=12){
     h+=`<div class="simbrk">First round: (12) ${esc(tnm(c.field[11]))} @ (5) ${esc(tnm(c.field[4]))} · (11) ${esc(tnm(c.field[10]))} @ (6) ${esc(tnm(c.field[5]))} · (10) ${esc(tnm(c.field[9]))} @ (7) ${esc(tnm(c.field[6]))} · (9) ${esc(tnm(c.field[8]))} @ (8) ${esc(tnm(c.field[7]))}</div>`;
@@ -1267,7 +1328,7 @@ function renderSim(){
   c.champSorted.forEach(id=>{ h+=`<div class="simchip" data-team="${id}">${esc(tnm(id))} <small>${esc(shortConf(sim.conf[id]||""))} · ${simRecord(id,c)}</small></div>`; });
   h+=`</div></div>`;
   h+=`<div id="simodds"></div>`;
-  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: your game picks determine the standings, conference champions and 12-team field (seeded by win–loss record). ${SHOW_PREDICTIONS?"\"Simulate\" runs a Monte-Carlo of the unpicked games using the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.":""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
+  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: your game picks determine the standings, conference champions and 12-team field. Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?"\"Simulate\" runs a Monte-Carlo of the unpicked games using the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.":""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
