@@ -305,7 +305,8 @@
   .scteam.win .pts::after{content:"◂";color:var(--amber);font-size:11px;position:absolute;right:-13px;top:3px}
   .scvs{color:var(--text2);font-size:11px;text-align:center;padding:3px 0 1px}
   /* ---- Stats Hub ---- */
-  .navrow{display:flex;gap:8px;margin:0 0 12px}
+  .navrow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+  .navrow .navbtn{flex:1 1 28%}
   .navbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 8px;
     border-radius:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);
     font-family:"Archivo",sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
@@ -430,6 +431,27 @@
   .lbtoggle button{flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--surface);
     color:var(--text2);font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer}
   .lbtoggle button.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
+  /* ---- standings ---- */
+  .stconf{font-family:"Archivo",sans-serif;font-weight:800;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--amber);margin:14px 2px 6px}
+  .sthead{display:grid;grid-template-columns:26px 30px 1fr 56px 56px 44px;gap:8px;padding:0 12px 6px;
+    align-items:center;font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--text2)}
+  .sthead div:nth-child(n+4){text-align:center}
+  .strow{display:grid;grid-template-columns:26px 30px 1fr 56px 56px 44px;gap:8px;align-items:center;
+    padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    margin-bottom:6px;cursor:pointer}
+  .strow:hover{border-color:var(--amber)}
+  .strow .srk{font-family:"JetBrains Mono",monospace;font-weight:700;color:var(--text2);text-align:center;font-size:13px}
+  .strow .snm{font-weight:600;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .strow .snm small{display:block;color:var(--text2);font-weight:500;font-size:10px}
+  .strow .srec{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:center}
+  .strow .sstrk{font-family:"Archivo",sans-serif;font-weight:800;font-size:12px;text-align:center}
+  .strow .sstrk.w{color:#5BD39A} .strow .sstrk.l{color:#E5705C}
+  .standchip{display:flex;gap:8px;margin:4px 0 2px}
+  .standchip .schip{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:9px 11px}
+  .standchip .sl{display:block;font-size:9.5px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .standchip .sv{display:block;font-weight:700;font-size:14px;margin-top:2px}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -698,6 +720,7 @@ function listTop(hint){
     <div class="navrow">
       <button class="navbtn primary" id="statsnav"><span class="nic">📊</span>Stats</button>
       <button class="navbtn" id="scoresnav"><span class="nic">📅</span>Scores</button>
+      <button class="navbtn" id="standnav"><span class="nic">📋</span>Standings</button>
       <button class="navbtn" id="pressnav"><span class="nic">🏆</span>Preseason</button>
     </div>
     ${hint?`<div class="hint">${hint}</div>`:""}`;
@@ -854,6 +877,7 @@ function wireToggle(){
   if(cta) cta.onclick = ()=> openCompare();
   const statsnav=document.getElementById("statsnav"); if(statsnav) statsnav.onclick = ()=> openStats();
   const scoresnav=document.getElementById("scoresnav"); if(scoresnav) scoresnav.onclick = ()=> openScores();
+  const standnav=document.getElementById("standnav"); if(standnav) standnav.onclick = ()=> openStandings();
   const pressnav=document.getElementById("pressnav"); if(pressnav) pressnav.onclick = ()=> openPreseason();
   wireSearch();
   // leaderboard controls (re-render from cached data; no refetch)
@@ -863,6 +887,66 @@ function wireToggle(){
   document.querySelectorAll("[data-conf]").forEach(el=>{
     el.onclick = ()=>{ const c=el.dataset.conf||null; if(confFilter!==c){ confFilter=c; renderLeaderboard(); window.scrollTo(0,0); } };
   });
+}
+
+// ---------- Standings + strength of schedule (official records — no Hashmark ratings) ----------
+const CONF_ORDER = ["SEC","Big Ten","Big 12","ACC","American Athletic","Mountain West","Sun Belt",
+  "Mid-American","Conference USA","Pac-12","FBS Independents"];
+let standingsMode = "conf";   // "conf" (grouped) | "sos" (national strength-of-schedule list)
+async function openStandings(){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading standings…</div>`;
+  try{
+    await ensureTeamMeta();
+    const rows = await api(`standings?select=team_id,school,conference,wins,losses,win_pct,conf_wins,conf_losses,conf_pct,streak,sos,sos_rank,conf_rank&season=eq.${SEASON_RESULTS}`);
+    renderStandings(rows);
+  }catch(e){
+    app.innerHTML = backHeader("Standings")+`<div class="list"><div class="err">Couldn't load standings: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=load;
+  }
+}
+function _strkCls(s){ return s&&s[0]==="W"?"w":s&&s[0]==="L"?"l":""; }
+function renderStandings(rows){
+  let h=`<div class="cmp">${backHeader("Standings")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Official <b>2025</b> records. Conference order applies win% with head-to-head on ties. Source: CFBD.</div>
+    <div class="lbtoggle">
+      <button data-stm="conf" class="${standingsMode==="conf"?"on":""}">By conference</button>
+      <button data-stm="sos" class="${standingsMode==="sos"?"on":""}">By strength of schedule</button></div>`;
+  if(standingsMode==="conf"){
+    const byc={}; rows.forEach(r=>{ (byc[r.conference||"Independent"]=byc[r.conference||"Independent"]||[]).push(r); });
+    const confs=Object.keys(byc).sort((a,b)=>{
+      const ia=CONF_ORDER.indexOf(a), ib=CONF_ORDER.indexOf(b);
+      return (ia<0?99:ia)-(ib<0?99:ib) || a.localeCompare(b); });
+    confs.forEach(conf=>{
+      const list=byc[conf].slice().sort((a,b)=>(a.conf_rank||99)-(b.conf_rank||99));
+      h+=`<div class="stconf">${esc(conf)}</div>
+        <div class="sthead"><div></div><div></div><div></div><div>Overall</div><div>Conf</div><div>Strk</div></div>`;
+      list.forEach((r,i)=>{ const t=teamMeta[r.team_id]||{school:r.school};
+        h+=`<div class="strow" data-team="${r.team_id}">
+          <div class="srk">${r.conf_rank||i+1}</div>
+          ${crestEl("glcr",t.school,oppColor(r.team_id))}
+          <div class="snm">${esc(r.school)}<small>SoS #${r.sos_rank||"—"}</small></div>
+          <div class="srec">${r.wins}–${r.losses}</div>
+          <div class="srec">${r.conf_wins}–${r.conf_losses}</div>
+          <div class="sstrk ${_strkCls(r.streak)}">${esc(r.streak||"—")}</div></div>`; });
+    });
+  }else{
+    const list=rows.slice().filter(r=>r.sos_rank).sort((a,b)=>a.sos_rank-b.sos_rank);
+    h+=`<div class="stconf">Toughest schedules — mean FBS-opponent win%</div>
+      <div class="sthead"><div></div><div></div><div></div><div>SoS%</div><div>Record</div><div>Strk</div></div>`;
+    list.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
+      h+=`<div class="strow" data-team="${r.team_id}">
+        <div class="srk">${r.sos_rank}</div>
+        ${crestEl("glcr",t.school,oppColor(r.team_id))}
+        <div class="snm">${esc(r.school)}<small>${esc(shortConf(r.conference||""))}</small></div>
+        <div class="srec">${r.sos!=null?(Number(r.sos)*100).toFixed(1)+"%":"—"}</div>
+        <div class="srec">${r.wins}–${r.losses}</div>
+        <div class="sstrk">${esc(r.streak||"—")}</div></div>`; });
+  }
+  h+=`<div class="note"><b>Official standings — 2025.</b> Records from CFBD game results; strength of schedule is the average win percentage of a team's FBS opponents. No Hashmark ratings shown. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-stm]").forEach(b=>b.onclick=()=>{ if(standingsMode!==b.dataset.stm){ standingsMode=b.dataset.stm; openStandings(); } });
 }
 
 // ---------- team detail page ----------
@@ -892,15 +976,16 @@ async function openDetail(teamId){
     // official/factual data shown in BOTH preview and full mode (record + schedule)
     const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
     if(!SHOW_HASHMARK_RATINGS){
-      const [team, ap, cat, stats, players, honors, gamelog] = await Promise.all([
+      const [team, ap, cat, stats, players, honors, gamelog, standing] = await Promise.all([
         api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
         api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
         ensureCatalog(),
         api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${PRIOR_SEASON},${STAT_SEASON})&team_id=eq.${teamId}`),
         api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
         api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`),
-        api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`) ]);
-      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog});
+        api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`),
+        api(`standings?select=conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}`) ]);
+      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog, standing:standing&&standing[0]});
     }
     const [comps, board, poll] = await Promise.all([
       api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
@@ -928,6 +1013,11 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
        <div class="infocard"><div class="infocell"><div class="ik">Conference</div><div class="iv">${esc(t.conference||"—")}</div></div>
         <div class="infocell"><div class="ik">Classification</div><div class="iv">${esc(cls)}</div></div></div>`;
   const e = ext || {};
+  const st = e.standing;
+  const standLine = st ? `<div class="standchip">
+      <div class="schip"><span class="sl">Conference</span><span class="sv">${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}</span></div>
+      <div class="schip"><span class="sl">Strength of schedule</span><span class="sv">#${st.sos_rank||"—"}${st.sos!=null?" · "+(Number(st.sos)*100).toFixed(0)+"%":""}</span></div>
+    </div>` : "";
   const profile = (e.cat && e.stats) ? statProfile(e.cat, e.stats, t.school) : "";
   const leaders = teamLeaders(e.players || []);
   const honors  = e.honors ? teamHonors(e.honors) : "";
@@ -939,6 +1029,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
         <div class="dconf">${esc(t.mascot?t.mascot+" · ":"")}${esc(t.conference||"")}</div></div>
     </div>
     ${head}
+    ${standLine}
     ${profile}
     ${leaders}
     ${gameLogSection(e.gamelog||[], teamId)}
