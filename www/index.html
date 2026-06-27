@@ -452,6 +452,28 @@
   .standchip .schip{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:9px 11px}
   .standchip .sl{display:block;font-size:9.5px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
   .standchip .sv{display:block;font-weight:700;font-size:14px;margin-top:2px}
+  /* ---- situational splits ---- */
+  .splithead{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:4px 6px 6px;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--text2)}
+  .splithead div:nth-child(2),.splithead div:nth-child(3){text-align:center}
+  .splitgrp{font-family:"Archivo",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--teal);margin:9px 2px 4px}
+  .splitrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;padding:7px 6px;
+    border-bottom:1px solid rgba(42,53,66,.5)}
+  .splitrow .slk{font-size:12.5px;font-weight:600}
+  .splitrow .slv{text-align:center;font-family:"JetBrains Mono",monospace;font-size:13px}
+  .splitrow .slv small{display:block;color:var(--text2);font-size:9.5px;font-family:"Hanken Grotesk",sans-serif;font-weight:500}
+  .splitrow .slv.off b{color:var(--teal)} .splitrow .slv.def b{color:#7CA8FF}
+  .spchips{display:flex;flex-wrap:wrap;gap:6px}
+  .spchip{padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
+    color:var(--text2);font-size:11.5px;font-weight:600;cursor:pointer}
+  .spchip.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
+  .spm{padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);
+    color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;flex:1}
+  .spm.on{background:var(--surface2);color:var(--text);border-color:var(--amber)}
+  .lbhead2{display:grid;grid-template-columns:26px 30px 1fr 70px 50px;gap:8px;padding:4px 12px 6px;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
+  .lbhead2 div:nth-child(4),.lbhead2 div:nth-child(5){text-align:center}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -976,7 +998,7 @@ async function openDetail(teamId){
     // official/factual data shown in BOTH preview and full mode (record + schedule)
     const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
     if(!SHOW_HASHMARK_RATINGS){
-      const [team, ap, cat, stats, players, honors, gamelog, standing] = await Promise.all([
+      const [team, ap, cat, stats, players, honors, gamelog, standing, splits] = await Promise.all([
         api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
         api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
         ensureCatalog(),
@@ -984,8 +1006,9 @@ async function openDetail(teamId){
         api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
         api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`),
         api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`),
-        api(`standings?select=conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}`) ]);
-      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog, standing:standing&&standing[0]});
+        api(`standings?select=conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}`),
+        api(`team_splits?select=side,split_type,split_key,plays,epa_per_play,success_rate,explosive_rate&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`) ]);
+      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog, standing:standing&&standing[0], splits});
     }
     const [comps, board, poll] = await Promise.all([
       api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
@@ -1031,6 +1054,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     ${head}
     ${standLine}
     ${profile}
+    ${teamSplitsSection(e.splits||[])}
     ${leaders}
     ${gameLogSection(e.gamelog||[], teamId)}
     ${scheduleSection(games||[], teamId)}
@@ -1079,6 +1103,36 @@ function gameLogSection(rows, teamId){
           <div class="glsc">${sc}<small>${glLine(g.stats)}</small></div>
           <div class="chev">›</div></div>`;
       });
+  });
+  return h+`</div>`;
+}
+
+// team-page situational splits (off vs def EPA/play + success rate), grouped
+const SPLIT_GROUPS = [
+  ["Down", "down", ["1st down","2nd down","3rd down"]],
+  ["Situation", "situation", ["3rd & short","3rd & long"]],
+  ["Field", "field", ["Red zone"]],
+  ["By quarter", "quarter", ["Q1","Q2","Q3","Q4"]],
+  ["Location", "location", ["Home","Away","Neutral"]],
+  ["By outcome", "result", ["In wins","In losses"]],
+  ["Competition", "vs", ["vs Ranked (AP)"]],
+];
+function teamSplitsSection(splits){
+  if(!splits.length) return "";
+  const by={}; splits.forEach(s=>{ by[`${s.side}|${s.split_type}|${s.split_key}`]=s; });
+  const cell=(s)=> s ? `<b>${(s.epa_per_play>0?"+":"")+Number(s.epa_per_play).toFixed(2)}</b><small>${(Number(s.success_rate)*100).toFixed(0)}% SR</small>` : "—";
+  let h=`<div class="sec"><div class="sectitle">Situational splits</div>
+    <div class="secsub">EPA/play &amp; success rate by situation, from official play-by-play (garbage time removed). <b>Off</b> = this team's offense; <b>Def</b> = what its defense allowed (lower is better). 2025. Source: CFBD.</div>
+    <div class="splithead"><div></div><div>Offense</div><div>Defense (allowed)</div></div>`;
+  SPLIT_GROUPS.forEach(([label,stype,keys])=>{
+    const present=keys.filter(k=>by[`off|${stype}|${k}`]||by[`def|${stype}|${k}`]);
+    if(!present.length) return;
+    h+=`<div class="splitgrp">${label}</div>`;
+    present.forEach(k=>{
+      h+=`<div class="splitrow"><div class="slk">${esc(k)}</div>
+        <div class="slv off">${cell(by[`off|${stype}|${k}`])}</div>
+        <div class="slv def">${cell(by[`def|${stype}|${k}`])}</div></div>`;
+    });
   });
   return h+`</div>`;
 }
@@ -1580,6 +1634,27 @@ function renderPlayer(aid, idx, seasons, games){
     });
     h+=`</div>`;
   });
+  // 2025 player splits (home vs away) — computed from the game log; clearly game-context only
+  if(games.length){
+    const acc={};   // cat -> {home:{}, away:{}}
+    games.forEach(g=>{ const loc=g.home_away==="home"?"home":"away";
+      const a=acc[g.category]=acc[g.category]||{home:{},away:{},hn:0,an:0};
+      (GLOG_SHOW[g.category]||[]).forEach(([k])=>{ const v=parseFloat(String(g.stats&&g.stats[k]).replace(/[^0-9.\-]/g,""));
+        if(!isNaN(v)) a[loc][k]=(a[loc][k]||0)+v; });
+      if(loc==="home") a.hn++; else a.an++; });
+    const cats=CAT_ORDER.filter(c=>acc[c]);
+    if(cats.length){
+      h+=`<div class="sec"><div class="sectitle">Splits — home / away</div>
+        <div class="secsub">2025 totals by game location (game-context split). Source: CFBD.</div>
+        <div class="splithead"><div></div><div>Home</div><div>Away</div></div>`;
+      cats.forEach(c=>{ const a=acc[c];
+        const line=(side)=>(GLOG_SHOW[c]||[]).map(([k,lb])=>a[side][k]!=null?`${Math.round(a[side][k])} ${lb}`:null).filter(Boolean).join(", ")||"—";
+        h+=`<div class="splitrow"><div class="slk">${CAT_LABEL[c]||c}</div>
+          <div class="slv off"><b style="color:var(--text)">${line("home")}</b></div>
+          <div class="slv def"><b style="color:var(--text)">${line("away")}</b></div></div>`; });
+      h+=`</div>`;
+    }
+  }
   // 2025 game log (merge categories per game)
   if(games.length){
     const byGame={};
@@ -1703,7 +1778,7 @@ async function renderStats(){
   let h=`<div class="cmp">`+backHeader("Stats")+`<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 10px">Official stats &amp; analytics · <b>2025 season</b> · all FBS teams · source CFBD.</div>
     <div class="statnav">`;
-  [["explorer","Stat explorer"],["leaders","Leaderboards"],["players","Player leaders"],["conf","Conferences"]]
+  [["explorer","Stat explorer"],["leaders","Leaderboards"],["players","Player leaders"],["splits","Splits"],["conf","Conferences"]]
     .forEach(([k,l])=>h+=`<button data-stab="${k}" class="${statTab===k?"on":""}">${l}</button>`);
   h+=`</div><div id="statbody"><div class="loading">…</div></div>
     <div class="note"><b>Official stats — 2025 season.</b> Source: CollegeFootballData (CFBD); PPA/EPA, success rate &amp; explosiveness are CFBD's public metrics. Player names &amp; stats only. ${BRAND_LINE}</div></div></div>`;
@@ -1715,6 +1790,7 @@ async function renderStats(){
     if(statTab==="explorer") await renderExplorer(body);
     else if(statTab==="leaders") await renderStatLeaders(body);
     else if(statTab==="players") await renderPlayerLeaders(body);
+    else if(statTab==="splits") await renderSplitLeaders(body);
     else await renderConfView(body);
   }catch(e){ body.innerHTML=`<div class="err">Couldn't load: ${e.message}</div>`; }
 }
@@ -1823,6 +1899,47 @@ function wirePlayerSearch(){
       }catch(e){ res.style.display="none"; }
     }, 220);
   };
+}
+// ---------- Situational split leaderboards (PBP-derived; official, not a Hashmark rating) ----------
+// preset -> [side, split_type, split_key, label]
+const SPLIT_PRESETS = [
+  ["off","down","3rd down","3rd-down offense"],
+  ["def","down","3rd down","3rd-down defense"],
+  ["off","field","Red zone","Red-zone offense"],
+  ["def","field","Red zone","Red-zone defense"],
+  ["off","quarter","Q4","4th-quarter offense"],
+  ["def","quarter","Q4","4th-quarter defense"],
+  ["off","situation","3rd & long","Offense on 3rd & long"],
+  ["off","vs","vs Ranked (AP)","Offense vs ranked"],
+  ["def","vs","vs Ranked (AP)","Defense vs ranked"],
+  ["off","location","Away","Offense on the road"],
+  ["off","overall","all","Offense overall"],
+  ["def","overall","all","Defense overall"],
+];
+const SPLIT_METRICS=[["epa_per_play","EPA/play","3dp"],["success_rate","Success rate","pct"],["explosive_rate","Explosive rate","pct"]];
+let splitPreset=0, splitMetric="epa_per_play";
+async function renderSplitLeaders(body){
+  const [side,stype,skey,label]=SPLIT_PRESETS[splitPreset];
+  const m=SPLIT_METRICS.find(x=>x[0]===splitMetric);
+  // off: higher is better; def: lower (less allowed) is better — for every metric here
+  const asc = side==="def";
+  const rows=await api(`team_splits?select=team_id,plays,epa_per_play,success_rate,explosive_rate&season=eq.${STAT_SEASON}&side=eq.${side}&split_type=eq.${encodeURIComponent(stype)}&split_key=eq.${encodeURIComponent(skey)}&plays=gte.20&order=${splitMetric}.${asc?"asc":"desc"}&limit=20`);
+  let chips=SPLIT_PRESETS.map((p,i)=>`<button class="spchip ${i===splitPreset?"on":""}" data-sp="${i}">${p[3]}</button>`).join("");
+  let mtoggle=SPLIT_METRICS.map(x=>`<button class="spm ${x[0]===splitMetric?"on":""}" data-spm="${x[0]}">${x[1]}</button>`).join("");
+  let h=`<div class="secsub" style="padding:0 2px 8px">Situational splits from official play-by-play — garbage time removed. ${side==="def"?"Lower is better (less allowed).":"Higher is better."} 2025.</div>
+    <div class="spchips">${chips}</div>
+    <div class="lbtoggle" style="margin:10px 0">${mtoggle}</div>
+    <div class="lbhead2"><div></div><div></div><div></div><div>${m[1]}</div><div>Plays</div></div>`;
+  rows.forEach((r,i)=>{ const t=teamMeta[r.team_id]; if(!t) return;
+    h+=`<div class="strow" data-team="${r.team_id}" style="grid-template-columns:26px 30px 1fr 70px 50px">
+      <div class="srk">${i+1}</div>${crestEl("glcr",t.school,hx(t.color))}
+      <div class="snm">${esc(t.school)}<small>${esc(t.conference||"")}</small></div>
+      <div class="srec">${fmtStat(r[splitMetric],m[2])}</div>
+      <div class="srec" style="color:var(--text2)">${r.plays}</div></div>`; });
+  if(!rows.length) h+=`<div class="loading">No qualifying teams.</div>`;
+  body.innerHTML=h;
+  body.querySelectorAll("[data-sp]").forEach(b=>b.onclick=()=>{ splitPreset=+b.dataset.sp; renderStats(); });
+  body.querySelectorAll("[data-spm]").forEach(b=>b.onclick=()=>{ splitMetric=b.dataset.spm; renderStats(); });
 }
 async function renderConfView(body){
   const METRICS=[["points_per_game","Scoring offense"],["opp_points_per_game","Scoring defense"],
