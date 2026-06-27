@@ -359,6 +359,55 @@
   .leadrow .lst{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;text-align:right;flex:none;color:var(--amber)}
   .leadrow .lst small{display:block;color:var(--text2);font-weight:500;font-size:10px}
   .leadrow .lnote{color:var(--text2);font-weight:500;font-size:12.5px;font-style:italic}
+  /* ---- game log + box score ---- */
+  .glseason{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--text2);margin:10px 2px 7px}
+  .glrow{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);
+    border:1px solid var(--line);border-radius:12px;margin-bottom:7px;cursor:pointer}
+  .glrow:hover{border-color:var(--amber)}
+  .glrow .glres{font-family:"Archivo",sans-serif;font-weight:800;font-size:14px;width:18px;flex:none;text-align:center}
+  .glrow .glres.w{color:#5BD39A} .glrow .glres.l{color:#E5705C} .glrow .glres.wk{color:var(--text2)}
+  .glcr{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;flex:none}
+  .glrow .glopp{flex:1;min-width:0}
+  .glrow .glopp .ha{font-size:10px;color:var(--text2);font-weight:600}
+  .glrow .glopp .on{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .glrow .glsc{font-family:"JetBrains Mono",monospace;font-size:13.5px;text-align:right;flex:none}
+  .glrow .glsc small{display:block;color:var(--text2);font-size:10px;font-weight:500;font-family:"Hanken Grotesk",sans-serif}
+  .glrow .chev{color:var(--text2);font-size:18px;flex:none}
+  .boxscore{display:flex;align-items:stretch;gap:8px;padding:14px 12px;background:var(--surface);
+    border:1px solid var(--line);border-radius:14px;margin:4px 0 6px}
+  .boxteam{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:0}
+  .boxcr{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;flex:none}
+  .boxteam .bnm{font-weight:700;font-size:13px;text-align:center;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;max-width:100%}
+  .boxteam .bpts{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:26px;color:var(--text2)}
+  .boxteam .bpts.win{color:var(--text)}
+  .boxmid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;padding:0 2px}
+  .boxmid .bvs{font-size:11px;color:var(--text2);font-weight:700}
+  .boxmid .bseason{font-size:9.5px;color:var(--text2);text-align:center;max-width:80px}
+  .boxhead{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:6px;padding:6px 4px 7px;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--text2);text-align:center}
+  .boxhead div:first-child{text-align:left} .boxhead div:last-child{text-align:right}
+  .boxhead.adv{border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
+  .boxrow{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:6px;padding:6px 4px;border-bottom:1px solid rgba(42,53,66,.5)}
+  .boxrow .bva{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:left}
+  .boxrow .bvb{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:right}
+  .boxrow .bk{font-size:11.5px;color:var(--text2);text-align:center;align-self:center}
+  .boxrow .win{color:var(--amber);font-weight:700}
+  .boxpcat{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--teal);margin:11px 2px 5px}
+  .boxptbl{font-size:12px}
+  .boxprow{display:grid;grid-template-columns:1.6fr repeat(5,0.7fr);gap:4px;padding:5px 4px;align-items:center}
+  .boxprow .bpn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .boxprow div:not(.bpn){font-family:"JetBrains Mono",monospace;text-align:right;font-size:11.5px}
+  .boxprow.head{color:var(--text2);font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;
+    text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .boxprow.head div:not(.bpn){color:var(--text2)}
+  .scbox{margin-top:8px;padding-top:8px;border-top:1px solid rgba(42,53,66,.6);text-align:right;
+    font-size:11.5px;font-weight:700;color:var(--amber);cursor:pointer}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -433,6 +482,12 @@ const BRAND_LINE = "Independent analytics — team &amp; player names and statis
 // (the final 2025 AP Top 25) + factual team info with a "coming soon" placeholder. TRUE = the
 // full ratings experience is LIVE (launch). The preview-only code below stays intact and gated.
 const SHOW_HASHMARK_RATINGS = false;
+// PREDICTIONS VISIBILITY — a SEPARATE, owner-approved switch, decoupled from the ratings board.
+// When true, the app may surface a model WIN PROBABILITY for a chosen matchup and OUTCOME ODDS in
+// the simulator — and NOTHING else: never a rating number, ranked board, projected margin or score.
+// Win probabilities are read from the precomputed `matchup_winprob` table (the underlying ratings
+// never reach the browser). This stays on while SHOW_HASHMARK_RATINGS is false.
+const SHOW_PREDICTIONS = true;
 let view = "2025";            // preview: land on the official 2025 AP Top 25 (ratings hidden)
 let boardMode = "overall";   // 2026 leaderboard: overall | offense | defense
 let confFilter = null;        // null = all FBS, else a conference name
@@ -456,7 +511,7 @@ async function api(q){
 
 // ---------- official games + records (FACTUAL — render in preview AND full mode) ----------
 const SEASON_RESULTS = 2025, SEASON_SCHED = 2026;
-const GAME_SEL = "season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed";
+const GAME_SEL = "id,season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed";
 let teamMeta = null;        // {id: {school, color, conference}}
 const scoresCache = {};     // season -> [games]
 async function ensureTeamMeta(){
@@ -535,11 +590,13 @@ function scGameRow(g){
   const teamLine = (name,id,score,win)=>`<div class="scteam${win?" win":""}"${id?` data-team="${id}"`:""}>
       ${crestEl("scc", name, oppColor(id))}<div class="nm">${esc(name||"TBD")}</div>
       <div class="pts">${done?score:""}</div></div>`;
+  const boxLink = (done && g.id) ? `<div class="scbox" data-box="${g.id}" data-bteam="${g.home_team_id}">Box score ›</div>` : "";
   return `<div class="scgame">
     ${meta?`<div class="gm"><span>${meta}</span><span></span></div>`:""}
     ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
     ${done?"":`<div class="scvs">${g.neutral_site?"vs":"at"}</div>`}
-    ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}</div>`;
+    ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}
+    ${boxLink}</div>`;
 }
 async function openScores(){
   window.scrollTo(0,0);
@@ -813,14 +870,15 @@ async function openDetail(teamId){
     // official/factual data shown in BOTH preview and full mode (record + schedule)
     const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
     if(!SHOW_HASHMARK_RATINGS){
-      const [team, ap, cat, stats, players, honors] = await Promise.all([
+      const [team, ap, cat, stats, players, honors, gamelog] = await Promise.all([
         api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
         api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
         ensureCatalog(),
         api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${PRIOR_SEASON},${STAT_SEASON})&team_id=eq.${teamId}`),
         api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
-        api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`) ]);
-      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors});
+        api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`),
+        api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`) ]);
+      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog});
     }
     const [comps, board, poll] = await Promise.all([
       api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
@@ -861,6 +919,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     ${head}
     ${profile}
     ${leaders}
+    ${gameLogSection(e.gamelog||[], teamId)}
     ${scheduleSection(games||[], teamId)}
     ${honors}
     <div class="sec" style="padding-top:6px">
@@ -873,6 +932,136 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
+}
+
+// ---------- Game logs + box scores (official CFBD game data — no Hashmark ratings) ----------
+const seasonTag = s => `${s} ${s===SEASON_RESULTS?"":"· prior"}`.trim();
+function _glStat(stats, key){ const v=stats&&stats[key]; return v==null||v===""?null:v; }
+// the compact stat shown on a game-log row (total yards, then turnovers)
+function glLine(stats){
+  const ty=_glStat(stats,"totalYards"), to=_glStat(stats,"turnovers");
+  let bits=[]; if(ty!=null) bits.push(`${Number(ty).toLocaleString()} yds`);
+  if(to!=null) bits.push(`${to} TO`);
+  return bits.join(" · ")||"—";
+}
+function gameLogSection(rows, teamId){
+  if(!rows.length) return "";
+  const bySeason={}; rows.forEach(r=>{ (bySeason[r.season]=bySeason[r.season]||[]).push(r); });
+  const seasons=Object.keys(bySeason).map(Number).sort((a,b)=>b-a);
+  let h=`<div class="sec"><div class="sectitle">Game log</div>
+    <div class="secsub">Every game's official box line. Tap a game for the full box score. Source: CFBD.</div>`;
+  seasons.forEach(s=>{
+    h+=`<div class="glseason">${s}${s===SEASON_RESULTS?" season":""}</div>`;
+    bySeason[s].slice().sort((a,b)=>(stOrder(a.season_type)-stOrder(b.season_type))||(a.week-b.week))
+      .forEach(g=>{
+        const opp=teamMeta[g.opponent_id]||{school:g.opponent_name||"TBD"}, c=oppColor(g.opponent_id);
+        const ha=g.home_away==="home"?"vs":"at";
+        const res=g.result?`<div class="glres ${g.result==='W'?'w':'l'}">${g.result}</div>`:`<div class="glres wk">—</div>`;
+        const sc=(g.points!=null&&g.opp_points!=null)?`<b>${g.points}</b>–${g.opp_points}`:"—";
+        h+=`<div class="glrow" data-box="${g.game_id}" data-bteam="${teamId}">
+          ${res}
+          ${crestEl("glcr", opp.school, c)}
+          <div class="glopp"><div class="ha">${ha}${g.season_type==="postseason"?" · Bowl/CFP":` · Wk ${g.week}`}</div>
+            <div class="on">${esc(opp.school)}</div></div>
+          <div class="glsc">${sc}<small>${glLine(g.stats)}</small></div>
+          <div class="chev">›</div></div>`;
+      });
+  });
+  return h+`</div>`;
+}
+
+// box-score config: team comparison rows (category, label) + which are "higher is better" numerics
+const BOX_TEAM = [
+  ["totalYards","Total yards",1],["netPassingYards","Passing yards",1],["rushingYards","Rushing yards",1],
+  ["firstDowns","First downs",1],["thirdDownEff","3rd down",0],["fourthDownEff","4th down",0],
+  ["completionAttempts","Comp–Att",0],["yardsPerPass","Yards/pass",1],["yardsPerRushAttempt","Yards/rush",1],
+  ["totalPenaltiesYards","Penalties",0],["turnovers","Turnovers",-1],["possessionTime","Possession",0],
+  ["sacks","Sacks",1],["tacklesForLoss","TFL",1],
+];
+// player box: category -> [display label, [stat types in order], headline type for sorting]
+const BOX_PLAYERS = [
+  ["passing","Passing",["C/ATT","YDS","TD","INT","QBR"],"YDS"],
+  ["rushing","Rushing",["CAR","YDS","AVG","TD","LONG"],"YDS"],
+  ["receiving","Receiving",["REC","YDS","AVG","TD","LONG"],"YDS"],
+  ["defensive","Defense",["TOT","SOLO","TFL","SACKS","PD"],"TOT"],
+];
+const _numv = v => { const n=parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(n)?-1:n; };
+
+async function openBox(gameId, fromTeam){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading box score…</div>`;
+  try{
+    await ensureTeamMeta();
+    const [tg, pg] = await Promise.all([
+      api(`team_game_stats?select=team_id,opponent_id,opponent_name,season,week,season_type,home_away,points,opp_points,result,stats,off_epa,def_epa,off_plays,def_plays&game_id=eq.${gameId}`),
+      api(`player_game_stats?select=team_id,player,category,stats&game_id=eq.${gameId}`) ]);
+    renderBox(gameId, tg, pg, fromTeam);
+  }catch(e){
+    app.innerHTML = backHeader("Box score")+`<div class="list"><div class="err">Couldn't load box score: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load();
+  }
+}
+function boxCrest(id){ const t=teamMeta[id]||{school:"?"}; return crestEl("boxcr", t.school, oppColor(id)); }
+function renderBox(gameId, tg, pg, fromTeam){
+  if(!tg||tg.length<2){ app.innerHTML=backHeader("Box score")+`<div class="list"><div class="err">No box score for this game yet.</div></div>`;
+    document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load(); return; }
+  // home on the left (fall back to the row order)
+  let A=tg.find(r=>r.home_away==="home")||tg[0];
+  let B=tg.find(r=>r!==A)||tg[1];
+  const tA=teamMeta[A.team_id]||{school:B.opponent_name||"?"}, tB=teamMeta[B.team_id]||{school:A.opponent_name||"?"};
+  const neutral=A.home_away!=="home"&&B.home_away!=="home";
+  const sLabel=`${A.season} ${A.season_type==="postseason"?"Bowl / CFP":"Week "+A.week}`;
+  const vs = neutral?"vs":"vs";
+  // header / scoreboard
+  let h=`<div class="cmp">${backHeader("Box score")}
+    <div class="boxscore">
+      <div class="boxteam" data-team="${A.team_id}">${boxCrest(A.team_id)}<div class="bnm">${esc(tA.school)}</div>
+        <div class="bpts ${A.result==='W'?'win':''}">${A.points!=null?A.points:"—"}</div></div>
+      <div class="boxmid"><div class="bvs">${neutral?"neutral":vs}</div><div class="bseason">${sLabel}</div></div>
+      <div class="boxteam" data-team="${B.team_id}">${boxCrest(B.team_id)}<div class="bnm">${esc(tB.school)}</div>
+        <div class="bpts ${B.result==='W'?'win':''}">${B.points!=null?B.points:"—"}</div></div>
+    </div>`;
+  // team stats comparison
+  h+=`<div class="sec"><div class="sectitle">Team stats</div>
+    <div class="boxhead"><div>${esc(tA.school)}</div><div></div><div>${esc(tB.school)}</div></div>`;
+  BOX_TEAM.forEach(([k,label,dir])=>{
+    const va=_glStat(A.stats,k), vb=_glStat(B.stats,k);
+    if(va==null&&vb==null) return;
+    let wa="",wb="";
+    if(dir&&va!=null&&vb!=null){ const na=_numv(va),nb=_numv(vb);
+      if(na!==nb){ const aWin=dir>0?na>nb:na<nb; if(aWin)wa="win"; else wb="win"; } }
+    h+=`<div class="boxrow"><div class="bva ${wa}">${va==null?"—":esc(String(va))}</div>
+      <div class="bk">${label}</div><div class="bvb ${wb}">${vb==null?"—":esc(String(vb))}</div></div>`;
+  });
+  // advanced (PPA/EPA) — opponent-adjusted is internal; per-game EPA/play is official-derived
+  if(A.off_epa!=null||B.off_epa!=null){
+    const ep=v=>v==null?"—":Number(v).toFixed(3);
+    h+=`<div class="boxhead adv"><div>${esc(tA.school)}</div><div></div><div>${esc(tB.school)}</div></div>
+      <div class="boxrow"><div class="bva">${ep(A.off_epa)}</div><div class="bk">EPA/play (off)</div><div class="bvb">${ep(B.off_epa)}</div></div>
+      <div class="boxrow"><div class="bva">${A.off_plays??"—"}</div><div class="bk">Plays (off)</div><div class="bvb">${B.off_plays??"—"}</div></div>`;
+  }
+  h+=`</div>`;
+  // player stats — grouped by team then category
+  [A,B].forEach(side=>{
+    const t=teamMeta[side.team_id]||{school:"?"};
+    const mine=pg.filter(p=>String(p.team_id)===String(side.team_id));
+    if(!mine.length) return;
+    h+=`<div class="sec"><div class="sectitle">${esc(t.school)} — players</div>`;
+    BOX_PLAYERS.forEach(([cat,label,types,sortKey])=>{
+      const ps=mine.filter(p=>p.category===cat&&p.stats&&Object.keys(p.stats).length)
+        .sort((a,b)=>_numv(b.stats[sortKey])-_numv(a.stats[sortKey])).slice(0,6);
+      if(!ps.length) return;
+      h+=`<div class="boxpcat">${label}</div>
+        <div class="boxptbl"><div class="boxprow head"><div class="bpn"></div>${types.map(t=>`<div>${t}</div>`).join("")}</div>`;
+      ps.forEach(p=>{ h+=`<div class="boxprow"><div class="bpn">${esc(p.player||"")}</div>
+        ${types.map(t=>`<div>${p.stats[t]!=null?esc(String(p.stats[t])):"—"}</div>`).join("")}</div>`; });
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`<div class="note"><b>Official box score — ${sLabel}.</b> Team &amp; player game stats and per-game EPA/play, from CFBD play-by-play. No Hashmark ratings or projections shown. ${BRAND_LINE}</div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load();
 }
 
 function premCard(ic, title, tease, fake){
@@ -1515,6 +1704,8 @@ document.body.addEventListener("click",    e=>{const el=e.target.closest("[data-
 // tap a ranking row (anywhere but its number/tooltip) -> open the team detail page
 document.body.addEventListener("click", e=>{
   if(e.target.closest("[data-tip]")) return;
+  const box=e.target.closest("[data-box]");
+  if(box && box.dataset.box && box.dataset.box!=="undefined"){ openBox(box.dataset.box, box.dataset.bteam); return; }
   const row=e.target.closest("[data-team]");
   if(row && row.dataset.team && row.dataset.team!=="undefined") openDetail(row.dataset.team);
 });
