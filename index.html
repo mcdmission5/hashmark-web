@@ -502,6 +502,38 @@
     border-bottom:1px solid rgba(42,53,66,.5);font-size:12.5px}
   .h2hrow .h2hsea{font-family:"JetBrains Mono",monospace;color:var(--text2)}
   .h2hrow .h2hw{font-weight:700;color:#5BD39A;font-size:11px}
+  /* ---- simulator ---- */
+  .simmeta{font-size:12px;color:var(--text2);padding:2px 2px 6px}
+  .simseed{display:grid;grid-template-columns:26px 30px 1fr auto;gap:9px;align-items:center;padding:8px 12px;
+    background:var(--surface);border:1px solid var(--line);border-radius:11px;margin-bottom:6px;cursor:pointer}
+  .simseed .ssn{font-family:"JetBrains Mono",monospace;font-weight:800;color:var(--amber);text-align:center}
+  .simseed .ssnm{font-weight:600;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .simseed .ssnm small{display:block;color:var(--text2);font-weight:500;font-size:10px}
+  .simseed .ssr{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:right}
+  .simseed .ssr small{display:block;color:var(--teal);font-size:8.5px;font-weight:800;letter-spacing:.05em}
+  .simbrk{font-size:11px;color:var(--text2);background:var(--surface);border:1px dashed var(--line);
+    border-radius:10px;padding:9px 11px;margin-top:6px;line-height:1.5}
+  .simchips{display:flex;flex-wrap:wrap;gap:6px}
+  .simchip{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 11px;
+    font-size:12px;font-weight:700;cursor:pointer} .simchip small{color:var(--text2);font-weight:500}
+  .strec{font-weight:800;font-size:14px;padding:4px 2px 10px;color:var(--text)}
+  .stgame{display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid rgba(42,53,66,.5)}
+  .stopp{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
+  .stopp .on{font-weight:600;font-size:13px} .stopp .ha{font-size:10.5px;color:var(--text2)}
+  .stbtns{display:flex;gap:5px;flex:none}
+  .stb{width:34px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--bg);
+    color:var(--text2);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .stb.w{background:#5BD39A;color:#10130c;border-color:#5BD39A}
+  .stb.l{background:#E5705C;color:#10130c;border-color:#E5705C}
+  .oddhead{display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;padding:4px 10px 6px;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
+  .oddhead div:nth-child(n+2){text-align:center}
+  .oddrow{display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;align-items:center;padding:8px 10px;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:5px;cursor:pointer}
+  .oddrow .onm{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;min-width:0}
+  .oddrow .onm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .oddrow .ov{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:center}
+  .oddrow .ov:first-of-type{color:var(--amber);font-weight:700}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -772,6 +804,7 @@ function listTop(hint){
       <button class="navbtn" id="scoresnav"><span class="nic">📅</span>Scores</button>
       <button class="navbtn" id="standnav"><span class="nic">📋</span>Standings</button>
       <button class="navbtn" id="matchnav"><span class="nic">⚔️</span>Matchup</button>
+      <button class="navbtn" id="simnav"><span class="nic">🎯</span>Simulator</button>
       <button class="navbtn" id="pressnav"><span class="nic">🏆</span>Preseason</button>
     </div>
     ${hint?`<div class="hint">${hint}</div>`:""}`;
@@ -930,6 +963,7 @@ function wireToggle(){
   const scoresnav=document.getElementById("scoresnav"); if(scoresnav) scoresnav.onclick = ()=> openScores();
   const standnav=document.getElementById("standnav"); if(standnav) standnav.onclick = ()=> openStandings();
   const matchnav=document.getElementById("matchnav"); if(matchnav) matchnav.onclick = ()=> openMatchup();
+  const simnav=document.getElementById("simnav"); if(simnav) simnav.onclick = ()=> openSimulator();
   const pressnav=document.getElementById("pressnav"); if(pressnav) pressnav.onclick = ()=> openPreseason();
   wireSearch();
   // leaderboard controls (re-render from cached data; no refetch)
@@ -1128,6 +1162,171 @@ function renderMatchup(statsRows, wp, hh, S){
   document.querySelectorAll("[data-mpick]").forEach(el=>el.onclick=()=>{ const slot=el.dataset.mpick;
     teamPicker(matchup[slot==="a"?"b":"a"], id=>{ matchup[slot]=String(id); drawMatchup(); }); });
   document.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ matchup.venue=b.dataset.mv; drawMatchup(); });
+}
+
+// ---------- User-driven Simulator: pick winners -> standings, champions, 12-team CFP field ----------
+// Deterministic core uses NO model. The optional odds layer (SHOW_PREDICTIONS) Monte-Carlos the
+// unpicked games with the precomputed matchup_winprob (probabilities only — never a rating).
+const REAL_CONF_MIN = 8;   // a "conference" that crowns a champion (excludes 2-team Independents)
+let sim=null;
+async function fetchAllWinprob(){   // PostgREST caps at 1000 rows/request; matchup_winprob has ~9.5k
+  let all=[], off=0;
+  while(off<=20000){
+    const chunk=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.2026&order=team_a.asc,team_b.asc&limit=1000&offset=${off}`);
+    all=all.concat(chunk); if(chunk.length<1000) break; off+=1000;
+  }
+  return all;
+}
+async function openSimulator(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading simulator…</div>`;
+  try{
+    await ensureTeamMeta();
+    const [games, teams, wp] = await Promise.all([
+      api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site&season=eq.2026&order=week.asc`),
+      api(`teams?select=id,school,conference,classification`),
+      SHOW_PREDICTIONS?fetchAllWinprob():Promise.resolve([]) ]);
+    const conf={}, fbs=new Set();
+    teams.forEach(t=>{ if((t.classification||"").toLowerCase()==="fbs"){ fbs.add(String(t.id)); conf[String(t.id)]=t.conference||"Independent"; } });
+    const wpmap=new Map(); wp.forEach(r=>wpmap.set(r.team_a+"-"+r.team_b, r));
+    // only games between two FBS teams matter for the field
+    const fgames=games.filter(g=>fbs.has(String(g.home_team_id))&&fbs.has(String(g.away_team_id)));
+    sim={games:fgames, conf, fbs, wp:wpmap, userPicks:{}, fav:{}, ranked:[]};
+    // model favorite per game (default pick); if predictions off, default home team
+    fgames.forEach(g=>{ const ph=simPHome(g.home_team_id,g.away_team_id,g.neutral_site);
+      sim.fav[g.id]= (SHOW_PREDICTIONS? (ph>=0.5):true) ? String(g.home_team_id):String(g.away_team_id); });
+    renderSim();
+  }catch(e){ app.innerHTML=backHeader("Simulator")+`<div class="list"><div class="err">Couldn't load simulator: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=load; }
+}
+function simPHome(h,a,neutral){
+  const lo=Math.min(+h,+a), hi=Math.max(+h,+a), row=sim&&sim.wp.get(lo+"-"+hi);
+  if(!row) return 0.5;
+  if(neutral){ const pLo=Number(row.win_prob_a); return (+h===lo)?pLo:1-pLo; }
+  if(+h===lo) return Number(row.win_prob_a_home);
+  return 1-Number(row.win_prob_a_away);
+}
+function simPTeam(teamId, g){   // P(teamId wins this game)
+  const pHome=simPHome(g.home_team_id, g.away_team_id, g.neutral_site);
+  return String(teamId)===String(g.home_team_id)? pHome : 1-pHome;
+}
+const simEffective = ()=> Object.assign({}, sim.fav, sim.userPicks);
+function simCompute(picks){
+  const rec={}; sim.fbs.forEach(id=>rec[id]={w:0,l:0,cw:0,cl:0});
+  const h2h={};
+  sim.games.forEach(g=>{ const w=picks[g.id]; if(!w) return;
+    const h=String(g.home_team_id), a=String(g.away_team_id);
+    const loser = (String(w)===h)?a:h;
+    const cg = sim.conf[h] && sim.conf[h]===sim.conf[a];
+    if(rec[w]){ rec[w].w++; if(cg) rec[w].cw++; (h2h[w]=h2h[w]||new Set()).add(loser); }
+    if(rec[loser]){ rec[loser].l++; if(cg) rec[loser].cl++; }
+  });
+  const wpct=id=>{ const r=rec[id], g=r.w+r.l; return g?r.w/g:0; };
+  const cpct=id=>{ const r=rec[id], g=r.cw+r.cl; return g?r.cw/g:0; };
+  const rank=(x,y)=>wpct(y)-wpct(x)||(rec[x].l-rec[y].l)||(rec[y].w-rec[x].w);
+  // conference champions (real conferences only)
+  const byConf={}; sim.fbs.forEach(id=>{ const c=sim.conf[id]; (byConf[c]=byConf[c]||[]).push(id); });
+  const champions=[];
+  Object.entries(byConf).forEach(([c,ids])=>{ if(ids.length<REAL_CONF_MIN) return;
+    ids.sort((x,y)=>cpct(y)-cpct(x)||wpct(y)-wpct(x)||((h2h[y]&&h2h[y].has(x))?1:(h2h[x]&&h2h[x].has(y))?-1:0));
+    champions.push(ids[0]); });
+  // 12-team field: 5 highest-ranked champions auto; top 4 of them get byes; +7 best at-large
+  const champSorted=champions.slice().sort(rank);
+  const auto=champSorted.slice(0,5), autoSet=new Set(auto);
+  const atlarge=[...sim.fbs].filter(id=>!autoSet.has(id)).sort(rank).slice(0,7);
+  const top4=auto.slice(0,4);
+  const rest=[auto[4],...atlarge].filter(Boolean).sort(rank);
+  const field=[...top4,...rest].slice(0,12);
+  return {rec, wpct, cpct, rank, champions, champSorted, field, byConf};
+}
+function simRecord(id, r){ return `${r.rec[id].w}–${r.rec[id].l}`; }
+function renderSim(){
+  const c=simCompute(simEffective());
+  const nPicked=Object.keys(sim.userPicks).length;
+  const tnm=id=>{ const t=teamMeta[id]; return t?t.school:id; };
+  let h=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners → see the standings, conference champions and the <b>12-team Playoff</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by record. Hypothetical — no ratings or betting lines.</div>
+    <div class="navrow"><button class="navbtn primary" id="simpick">✏️ Pick a team's games</button>
+      <button class="navbtn" id="simreset">↺ Reset picks</button>
+      ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun">🎲 Simulate 1000×</button>`:""}</div>
+    <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game"}</div>`;
+  // 12-team field bracket
+  h+=`<div class="sec"><div class="sectitle">Projected 12-team Playoff</div>
+    <div class="secsub">Seeds 1–4 (conference champions) get first-round byes; 5–12 play in. Source: your picks.</div>`;
+  const seedRow=(id,seed,bye)=>{ const t=teamMeta[id]||{school:tnm(id)}, ch=c.champions.includes(id);
+    return `<div class="simseed" data-team="${id}"><div class="ssn">${seed}</div>
+      ${crestEl("glcr",t.school,oppColor(id))}
+      <div class="ssnm">${esc(t.school)}<small>${esc(shortConf(sim.conf[id]||""))}${ch?" · champ":""}</small></div>
+      <div class="ssr">${simRecord(id,c)}${bye?'<small>BYE</small>':''}</div></div>`; };
+  c.field.forEach((id,i)=>{ h+=seedRow(id,i+1,i<4); });
+  if(c.field.length>=12){
+    h+=`<div class="simbrk">First round: (12) ${esc(tnm(c.field[11]))} @ (5) ${esc(tnm(c.field[4]))} · (11) ${esc(tnm(c.field[10]))} @ (6) ${esc(tnm(c.field[5]))} · (10) ${esc(tnm(c.field[9]))} @ (7) ${esc(tnm(c.field[6]))} · (9) ${esc(tnm(c.field[8]))} @ (8) ${esc(tnm(c.field[7]))}</div>`;
+  }
+  h+=`</div>`;
+  // conference champions
+  h+=`<div class="sec"><div class="sectitle">Projected conference champions</div><div class="simchips">`;
+  c.champSorted.forEach(id=>{ h+=`<div class="simchip" data-team="${id}">${esc(tnm(id))} <small>${esc(shortConf(sim.conf[id]||""))} · ${simRecord(id,c)}</small></div>`; });
+  h+=`</div></div>`;
+  h+=`<div id="simodds"></div>`;
+  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: your game picks determine the standings, conference champions and 12-team field (seeded by win–loss record). ${SHOW_PREDICTIONS?"\"Simulate\" runs a Monte-Carlo of the unpicked games using the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.":""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
+  const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={}; renderSim(); };
+  const run=document.getElementById("simrun"); if(run) run.onclick=()=>simRunOdds();
+}
+function simTeamSheet(teamId){
+  teamId=String(teamId);
+  const tgames=sim.games.filter(g=>String(g.home_team_id)===teamId||String(g.away_team_id)===teamId)
+    .sort((a,b)=>a.week-b.week);
+  const t=teamMeta[teamId]||{school:teamId};
+  const ov=document.createElement("div"); ov.className="pickov";
+  ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+    <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — pick games</div><button class="pickx">✕</button></div>
+    <div class="picklist" id="stsheet"></div></div>`;
+  document.body.appendChild(ov);
+  const draw=()=>{ const eff=simEffective(); let w=0,l=0;
+    let html="";
+    tgames.forEach(g=>{ const opp=String(g.home_team_id)===teamId?g.away_team_id:g.home_team_id;
+      const home=String(g.home_team_id)===teamId; const win=String(eff[g.id])===teamId;
+      const isUser=sim.userPicks[g.id]!=null; win?w++:l++;
+      const ph=SHOW_PREDICTIONS?Math.round(simPTeam(teamId, g)*100):null;
+      html+=`<div class="stgame">
+        <div class="stopp">${crestEl("glcr",(teamMeta[opp]||{}).school||"opp",oppColor(opp))}
+          <div><div class="on">${home?"vs":"@"} ${esc((teamMeta[opp]||{}).school||"TBD")}</div>
+          <div class="ha">Wk ${g.week}${ph!=null?` · model ${ph}% to win`:""}${isUser?" · your pick":""}</div></div></div>
+        <div class="stbtns"><button class="stb ${win?"w":""}" data-gid="${g.id}" data-pick="${teamId}">W</button>
+          <button class="stb ${!win?"l":""}" data-gid="${g.id}" data-pick="${opp}">L</button></div></div>`; });
+    document.getElementById("stsheet").innerHTML=`<div class="strec">Projected: <b>${w}–${l}</b></div>`+html;
+    document.querySelectorAll("#stsheet .stb").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gid]=b.dataset.pick; draw(); });
+  };
+  draw();
+  const close=()=>{ ov.remove(); renderSim(); };
+  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+}
+function simRunOdds(){
+  const odds=document.getElementById("simodds");
+  odds.innerHTML=`<div class="loading">Simulating 1000 seasons…</div>`;
+  setTimeout(()=>{
+    const N=1000, fbs=[...sim.fbs], tally={}; fbs.forEach(id=>tally[id]={po:0,ct:0,wo:0});
+    for(let s=0;s<N;s++){
+      const picks=Object.assign({}, sim.userPicks);
+      sim.games.forEach(g=>{ if(picks[g.id]) return;
+        picks[g.id]= Math.random()<simPHome(g.home_team_id,g.away_team_id,g.neutral_site)?String(g.home_team_id):String(g.away_team_id); });
+      const r=simCompute(picks);
+      r.field.forEach(id=>tally[id].po++);
+      r.champions.forEach(id=>{ if(tally[id]) tally[id].ct++; });
+      fbs.forEach(id=>{ if(r.rec[id].l===0 && r.rec[id].w>0) tally[id].wo++; });
+    }
+    const rows=fbs.map(id=>({id, po:tally[id].po/N, ct:tally[id].ct/N, wo:tally[id].wo/N}))
+      .filter(r=>r.po>0).sort((a,b)=>b.po-a.po).slice(0,20);
+    let h=`<div class="sec"><div class="sectitle">Playoff &amp; title odds</div>
+      <div class="secsub">From <b>1,000</b> Monte-Carlo seasons — your picks fixed, the rest drawn from the model's matchup win probabilities. Probabilities only. </div>
+      <div class="oddhead"><div></div><div>Make CFP</div><div>Conf title</div><div>Win out</div></div>`;
+    rows.forEach(r=>{ const t=teamMeta[r.id]||{school:r.id};
+      h+=`<div class="oddrow" data-team="${r.id}"><div class="onm">${crestEl("glcr",t.school,oppColor(r.id))}<span>${esc(t.school)}</span></div>
+        <div class="ov">${Math.round(r.po*100)}%</div><div class="ov">${Math.round(r.ct*100)}%</div><div class="ov">${Math.round(r.wo*100)}%</div></div>`; });
+    odds.innerHTML=h+`</div>`;
+  }, 30);
 }
 
 // ---------- team detail page ----------
