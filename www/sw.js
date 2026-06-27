@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v8";
+const VERSION = "hashmark-v9";
 const SHELL = [
   "./",
   "./index.html",
@@ -37,6 +37,18 @@ self.addEventListener("fetch", (e) => {
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req).catch(() => caches.match("./index.html").then((r) => r || caches.match("./")))
+    );
+    return;
+  }
+
+  // The HTML document itself: network-first, so returning visitors always get the latest home
+  // (the stats dashboard) instead of a stale cached shell. Falls back to cache when offline.
+  if (sameOrigin && (url.pathname === "/" || url.pathname.endsWith("/") || url.pathname.endsWith("/index.html"))) {
+    e.respondWith(
+      fetch(req).then((res) => {
+        if (res && res.status === 200) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
+        return res;
+      }).catch(() => caches.match(req).then((r) => r || caches.match("./index.html")))
     );
     return;
   }

@@ -535,6 +535,48 @@
   .oddrow .onm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .oddrow .ov{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:center}
   .oddrow .ov:first-of-type{color:var(--amber);font-weight:700}
+  /* ---- stats HOME dashboard ---- */
+  .homesearch{position:relative;display:flex;align-items:center;gap:10px;background:var(--surface);
+    border:1.5px solid var(--line);border-radius:14px;padding:14px 15px;margin:8px 0 6px}
+  .homesearch:focus-within{border-color:var(--amber)}
+  .homesearch .si{font-size:17px;color:var(--text2)}
+  .homesearch input{flex:1;background:none;border:none;color:var(--text);font-size:15.5px;outline:none;font-family:inherit}
+  .hsec{margin-top:18px}
+  .hsectitle{font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;letter-spacing:.02em;
+    margin:0 2px 9px;display:flex;align-items:baseline;gap:8px}
+  .hsectitle small{font-weight:600;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
+  .nlead{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nlead::-webkit-scrollbar{display:none}
+  .ncard{flex:0 0 auto;width:140px;background:var(--surface);border:1px solid var(--line);border-radius:13px;
+    padding:11px 12px;cursor:pointer}
+  .ncard:hover{border-color:var(--amber)}
+  .ncard .nlbl{font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .ncard .nteam{display:flex;align-items:center;gap:7px;margin:8px 0 6px;min-width:0}
+  .ncard .nteam span{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ncard .nval{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:21px;color:var(--amber)}
+  .ncard .nrk{font-size:9.5px;color:var(--text2);margin-top:3px}
+  .exgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .excard{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);
+    border-radius:13px;padding:12px;cursor:pointer}
+  .excard:hover{border-color:var(--amber)}
+  .excard .exic{font-size:21px;flex:none}
+  .excard .ext{font-weight:700;font-size:13.5px}
+  .excard .exd{font-size:10.5px;color:var(--text2);margin-top:2px;line-height:1.3}
+  .featrow{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .featcard{background:linear-gradient(165deg,var(--surface2),var(--surface));border:1px solid #3a4a5e;
+    border-radius:14px;padding:14px;cursor:pointer}
+  .featcard:hover{border-color:var(--amber)}
+  .featcard .featic{font-size:23px} .featcard .featt{font-weight:800;font-size:14px;margin-top:6px;font-family:"Archivo",sans-serif}
+  .featcard .featd{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.4}
+  .featcard .featcta{color:var(--amber);font-weight:700;font-size:12px;margin-top:9px}
+  .premod{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .precol{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px}
+  .precol .prehd{font-family:"Archivo",sans-serif;font-weight:800;font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--teal);margin-bottom:8px}
+  .precol .prelist div{font-size:12px;font-weight:600;padding:3px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .precol .prelist small{color:var(--text2);font-weight:500}
+  .precol .prelist b{font-family:"JetBrains Mono",monospace;color:var(--amber);margin-right:5px}
+  .morelink{text-align:right;color:var(--amber);font-weight:700;font-size:12px;margin-top:9px;cursor:pointer}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -772,7 +814,7 @@ async function drawScores(){
 
 function header(){
   const sub = view==="2025"
-    ? "Official <b>AP Top 25</b>, final poll after the national championship."
+    ? "Deep <b>official</b> college-football stats &amp; analytics — every FBS team &amp; player, standings, splits, matchups &amp; a playoff simulator."
     : !SHOW_HASHMARK_RATINGS
       ? "Hashmark ratings are in <b>preview</b> — coming soon."
       : boardMode==="offense"
@@ -812,14 +854,16 @@ function listTop(hint){
 }
 
 async function load(){
-  app.innerHTML = `<div class="loading">Loading ${view}…</div>`;
-  try{
-    if(view==="2025") return renderPoll(await api(
-      "poll_rankings?select=rank,points,team_id,teams(school,conference,color,alt_color)&season=eq.2025&poll=eq.AP%20Top%2025&order=rank.asc"));
-    if(!SHOW_HASHMARK_RATINGS) return renderComingSoon();   // preview: hide the 2026 board/leaderboards
-    await ensureUnits();
-    renderLeaderboard();
-  }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
+  // 2026 toggle = the (hidden) Hashmark ratings preview; 2025 = the stats Home dashboard (default).
+  if(view==="2026"){
+    app.innerHTML = `<div class="loading">Loading 2026…</div>`;
+    try{
+      if(!SHOW_HASHMARK_RATINGS) return renderComingSoon();   // preview: hide the 2026 board/leaderboards
+      await ensureUnits(); return renderLeaderboard();
+    }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
+    return;
+  }
+  return renderHome();
 }
 
 // preview placeholder shown where the 2026 Hashmark board + leaderboards used to be
@@ -858,6 +902,108 @@ function renderPoll(rows){
   });
   h += `</div><div class="note"><b>2025 Final — AP Top 25.</b> The Associated Press writers' poll released after the national championship: the official end-of-season ranking. ${BRAND_LINE}</div>`;
   app.innerHTML = h; wireToggle();
+}
+
+// ---------- Stats HOME dashboard (the front door — official stats, not the AP poll) ----------
+const HOME_LEADERS = [
+  ["points_per_game","Scoring offense"],["opp_points_per_game","Scoring defense"],
+  ["total_yards_pg","Total offense"],["total_yards_allowed_pg","Total defense"],
+  ["off_ppa","EPA/play offense"],["def_ppa","EPA/play defense"],["turnover_margin","Turnover margin"],
+];
+const HOME_EXPLORE = [
+  ["📊","Stats explorer","Sort all 136 teams by any stat","explorer"],
+  ["📈","Leaderboards","National leaders at a glance","leaders"],
+  ["🧑","Player leaders","Passing, rushing, receiving &amp; more","players"],
+  ["📋","Standings","Conference races + strength of schedule","standings"],
+  ["🏟️","Conferences","Conference-by-conference strength","conf"],
+  ["🎬","Situational splits","3rd down, red zone, by quarter…","splits"],
+  ["⚔️","Matchup","Compare any two teams head-to-head","matchup"],
+  ["🎯","Simulator","Build your 12-team Playoff","simulator"],
+  ["📅","Scores","Every game + box scores, week by week","scores"],
+  ["🏆","Preseason","All-Americans + preseason Top 25","preseason"],
+];
+async function renderHome(){
+  app.innerHTML = `<div class="loading">Loading Hashmark…</div>`;
+  try{
+    const [, cat, leaders, ap, ext] = await Promise.all([
+      ensureTeamMeta(), ensureCatalog(),
+      api(`team_stat_season?select=stat_key,team_id,value&season=eq.${STAT_SEASON}&rank=eq.1&stat_key=in.(${HOME_LEADERS.map(x=>x[0]).join(",")})`),
+      api("poll_rankings?select=rank,team_id,teams(school,conference,color,alt_color)&season=eq.2025&poll=eq.AP%20Top%2025&order=rank.asc"),
+      api("external_rankings?select=player,position,team_id,school,rank,ranking_type,source&season=eq.2026") ]);
+    const lmap={}; leaders.forEach(r=>lmap[r.stat_key]=r);
+    let h = header() + `<div class="list" style="padding-top:4px">`;
+    // prominent combined team/player search
+    h += `<div class="homesearch"><span class="si">🔍</span>
+      <input id="homesearch" type="text" placeholder="Search any team or player…" autocomplete="off" autocapitalize="words">
+      <div class="searchres" id="homeres" style="display:none"></div></div>`;
+    // national leaders strip
+    h += `<div class="hsec"><div class="hsectitle">National leaders <small>2025 · #1</small></div><div class="nlead">`;
+    HOME_LEADERS.forEach(([k,label])=>{ const r=lmap[k]; if(!r) return; const d=cat.by[k], t=teamMeta[r.team_id]||{};
+      h += `<div class="ncard" data-stat="${k}"><div class="nlbl">${label}</div>
+        <div class="nteam">${crestEl("glcr",t.school,oppColor(r.team_id))}<span>${esc(t.school||"")}</span></div>
+        <div class="nval">${fmtStat(r.value, d?d.format:"1dp")}</div>
+        <div class="nrk">${esc(d?d.short_label:k)} · league #1</div></div>`; });
+    h += `</div></div>`;
+    // explore grid
+    h += `<div class="hsec"><div class="hsectitle">Explore</div><div class="exgrid">`;
+    HOME_EXPLORE.forEach(([ic,t,d,go])=>{ h += `<div class="excard" data-go="${go}"><div class="exic">${ic}</div>
+      <div class="extx"><div class="ext">${t}</div><div class="exd">${d}</div></div></div>`; });
+    h += `</div></div>`;
+    // featured: matchup + simulator
+    h += `<div class="hsec"><div class="hsectitle">Featured</div><div class="featrow">
+      <div class="featcard" data-go="matchup"><div class="featic">⚔️</div><div class="featt">Matchup compare</div>
+        <div class="featd">Pick two teams — side-by-side stats, head-to-head${SHOW_PREDICTIONS?" &amp; win probability":""}.</div><div class="featcta">Compare →</div></div>
+      <div class="featcard" data-go="simulator"><div class="featic">🎯</div><div class="featt">Build your 12-team Playoff</div>
+        <div class="featd">Pick winners → standings, champions${SHOW_PREDICTIONS?" &amp; playoff odds":""}.</div><div class="featcta">Simulate →</div></div>
+    </div></div>`;
+    // preseason module
+    const cons=ext.filter(r=>r.ranking_type==="all_american"&&r.source==="Consensus");
+    const poll=ext.filter(r=>r.ranking_type==="preseason_poll").sort((a,b)=>a.rank-b.rank);
+    if(cons.length||poll.length){
+      h += `<div class="hsec"><div class="hsectitle">Preseason 2026 <small>third-party</small></div><div class="premod">`;
+      if(cons.length){ h+=`<div class="precol"><div class="prehd">Consensus All-Americans</div><div class="prelist">`+
+        cons.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}">${esc(r.player)} <small>${esc(r.position||"")} · ${esc(t.school||r.school||"")}</small></div>`; }).join("")+`</div></div>`; }
+      if(poll.length){ h+=`<div class="precol"><div class="prehd">${esc(poll[0].source||"Athlon")} Top 25</div><div class="prelist">`+
+        poll.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}"><b>${r.rank}</b> ${esc(t.school||r.school||"")}</div>`; }).join("")+`</div></div>`; }
+      h += `</div><div class="morelink" data-go="preseason">All preseason honors →</div></div>`;
+    }
+    // AP Top 25 — official, now a labeled section lower down
+    h += `<div class="hsec"><div class="hsectitle">Official AP Top 25 <small>2025 final</small></div>
+      <div class="secsub" style="padding:0 2px 8px">The Associated Press writers' poll after the national championship — the official end-of-season ranking.</div>`;
+    ap.filter(r=>r.teams).forEach((r,i)=>{ h += rowHTML(i, r.teams, `<div class="rval">#${r.rank}</div><div class="rlbl">AP</div>`, r.team_id); });
+    h += `</div>`;
+    // footer
+    h += `<div class="note"><b>Hashmark — official college-football stats &amp; analytics.</b> Team &amp; player stats, game logs, standings, situational splits, matchups and a season simulator — all official (CFBD). <b>Hashmark's own power ratings are coming soon.</b> ${BRAND_LINE}</div></div>`;
+    app.innerHTML = h; wireHome();
+  }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
+}
+const HOME_GO = {explorer:()=>openStats("explorer"), leaders:()=>openStats("leaders"), players:()=>openStats("players"),
+  standings:()=>openStandings(), conf:()=>openStats("conf"), splits:()=>openStats("splits"),
+  matchup:()=>openMatchup(), simulator:()=>openSimulator(), scores:()=>openScores(), preseason:()=>openPreseason()};
+function wireHome(){
+  document.querySelectorAll(".toggle button").forEach(b=>{ b.onclick=()=>{ if(b.dataset.v!==view){ view=b.dataset.v; load(); } }; });
+  document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
+  document.querySelectorAll(".ncard[data-stat]").forEach(el=>el.onclick=()=>{ exploreStat=el.dataset.stat; statTab="explorer"; openStats("explorer"); window.scrollTo(0,0); });
+  wireHomeSearch();
+}
+let _homeSearchT=null;
+function wireHomeSearch(){
+  const inp=document.getElementById("homesearch"), res=document.getElementById("homeres");
+  if(!inp) return;
+  const run=async()=>{ const q=inp.value.trim(); if(q.length<1){ res.style.display="none"; return; }
+    const ql=q.toLowerCase();
+    const teams=(await ensureSearchTeams()).filter(t=>t.school.toLowerCase().includes(ql)).slice(0,5);
+    let players=[];
+    if(q.length>=2){ try{ players=await api(`player_index?select=athlete_id,player,team_id,position&name_lower=ilike.*${encodeURIComponent(ql)}*&order=last_season.desc&limit=6`); }catch(e){} }
+    let html=teams.map(t=>`<div class="sropt" data-team="${t.id}">${crestEl("src",t.school,hx(t.color))}
+        <div class="snm">${esc(t.school)}</div><div class="scf">${esc(t.conference||"")} · team</div></div>`).join("");
+    html+=players.map(p=>{ const t=teamMeta[p.team_id]||{}; return `<div class="sropt" data-player="${p.athlete_id}">
+        ${crestEl("src",t.school||"·",oppColor(p.team_id))}<div class="snm">${esc(p.player)}</div>
+        <div class="scf">${esc(p.position||"")} ${esc(t.school||"")} · player</div></div>`; }).join("");
+    res.innerHTML=html||`<div class="sropt"><div class="snm" style="color:var(--text2)">No team or player found</div></div>`;
+    res.style.display="block"; };
+  inp.oninput=()=>{ clearTimeout(_homeSearchT); _homeSearchT=setTimeout(run,180); };
+  inp.onfocus=run;
 }
 
 // ---------- 2026 leaderboards: overall / offense / defense + conference ----------
