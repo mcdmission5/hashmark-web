@@ -358,6 +358,7 @@
   .leadrow .lnm small{color:var(--text2);font-weight:500;font-size:11.5px}
   .leadrow .lst{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;text-align:right;flex:none;color:var(--amber)}
   .leadrow .lst small{display:block;color:var(--text2);font-weight:500;font-size:10px}
+  .leadrow .lnote{color:var(--text2);font-weight:500;font-size:12.5px;font-style:italic}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -817,7 +818,7 @@ async function openDetail(teamId){
         api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
         ensureCatalog(),
         api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${PRIOR_SEASON},${STAT_SEASON})&team_id=eq.${teamId}`),
-        api(`player_stat_season?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
+        api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
         api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`) ]);
       return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors});
     }
@@ -848,7 +849,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
         <div class="infocell"><div class="ik">Classification</div><div class="iv">${esc(cls)}</div></div></div>`;
   const e = ext || {};
   const profile = (e.cat && e.stats) ? statProfile(e.cat, e.stats, t.school) : "";
-  const leaders = e.players ? teamLeaders(e.players) : "";
+  const leaders = teamLeaders(e.players || []);
   const honors  = e.honors ? teamHonors(e.honors) : "";
   let h = `<div class="detail">
     <div class="dtop"><button class="back">←</button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
@@ -1249,6 +1250,13 @@ function statProfile(cat, statsRows, school){
   });
   return any ? h+`</div>` : "";
 }
+// category -> [label, noun (for the empty-state note), headline key, [secondary key, suffix]]
+const LEADER_CATS=[
+  ["passing","Passing","passer",["YDS","yds"],["TD","TD"]],
+  ["rushing","Rushing","rusher",["YDS","yds"],["TD","TD"]],
+  ["receiving","Receiving","receiver",["YDS","yds"],["REC","rec"]],
+  ["defensive","Tackles","tackler",["TOT","tot"],["TFL","TFL"]],
+];
 function teamLeaders(players){
   const byCat={};
   players.forEach(p=>{ const c=byCat[p.category]=byCat[p.category]||{};
@@ -1256,20 +1264,22 @@ function teamLeaders(players){
   const lead=(cat,key)=>{ const c=byCat[cat]; if(!c) return null; let best=null;
     for(const nm in c){ const v=c[nm].stats[key]; if(v!=null&&(!best||v>best.v)) best={nm,v,pos:c[nm].pos,stats:c[nm].stats}; }
     return best; };
-  const items=[];
-  const add=(label,p,a,b)=>{ if(p) items.push({label,p,a,b}); };
-  add("Passing", lead("passing","YDS"), ["YDS","yds"], ["TD","TD"]);
-  add("Rushing", lead("rushing","YDS"), ["YDS","yds"], ["TD","TD"]);
-  add("Receiving", lead("receiving","YDS"), ["YDS","yds"], ["REC","rec"]);
-  add("Tackles", lead("defensive","TOT"), ["TOT","tot"], ["TFL","TFL"]);
-  if(!items.length) return "";
   let h=`<div class="sec"><div class="sectitle">Returning leaders</div>
     <div class="secsub">Top <b>returning</b> producers' <b>2025</b> stats — players active in 2026 only (NFL draftees &amp; graduated seniors excluded). Names &amp; stats only. Source: CFBD.</div>`;
-  items.forEach(({label,p,a,b})=>{
-    const av=p.stats[a[0]], bv=p.stats[b[0]];
-    h+=`<div class="leadrow"><div class="lpos">${label}</div>
-      <div class="lnm">${esc(p.nm)} <small>${esc(p.pos||"")}</small></div>
-      <div class="lst">${Math.round(av).toLocaleString()}<small>${a[1]}${bv!=null?" · "+Math.round(bv)+" "+b[1]:""}</small></div></div>`;
+  // Always render a row per category — show the best RETURNING player, or a note if none qualifies,
+  // so a slot is never silently dropped when a team's top producer departed.
+  LEADER_CATS.forEach(([cat,label,noun,a,b])=>{
+    const p=lead(cat,a[0]);
+    if(p){
+      const av=p.stats[a[0]], bv=p.stats[b[0]];
+      h+=`<div class="leadrow"><div class="lpos">${label}</div>
+        <div class="lnm">${esc(p.nm)} <small>${esc(p.pos||"")}</small></div>
+        <div class="lst">${Math.round(av).toLocaleString()}<small>${a[1]}${bv!=null?" · "+Math.round(bv)+" "+b[1]:""}</small></div></div>`;
+    }else{
+      h+=`<div class="leadrow"><div class="lpos">${label}</div>
+        <div class="lnm"><span class="lnote">No returning ${noun} with qualifying 2025 snaps</span></div>
+        <div class="lst"></div></div>`;
+    }
   });
   return h+`</div>`;
 }
