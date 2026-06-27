@@ -408,6 +408,28 @@
   .boxprow.head div:not(.bpn){color:var(--text2)}
   .scbox{margin-top:8px;padding-top:8px;border-top:1px solid rgba(42,53,66,.6);text-align:right;
     font-size:11.5px;font-weight:700;color:var(--amber);cursor:pointer}
+  .boxprow .bpn[data-player]{cursor:pointer} .boxprow .bpn[data-player]:hover{color:var(--amber)}
+  /* ---- player page ---- */
+  .phead{display:flex;align-items:center;gap:13px;padding:6px 2px 14px}
+  .pcrestbig{width:54px;height:54px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:16px;flex:none}
+  .pnamebig{font-family:"Archivo",sans-serif;font-weight:800;font-size:22px;line-height:1.1}
+  .pmeta{color:var(--text2);font-size:13px;font-weight:600;margin-top:3px}
+  .pteamlink{color:var(--amber);cursor:pointer}
+  .pscat{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--teal);margin:11px 2px 7px}
+  .pschips{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  .pchip{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 6px;text-align:center}
+  .pchip .pcv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:15px}
+  .pchip .pcl{font-size:9px;color:var(--text2);font-weight:700;text-transform:uppercase;margin-top:2px;letter-spacing:.03em}
+  .psearchwrap{position:relative;display:flex;align-items:center;gap:8px;background:var(--surface);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:2px 0 10px}
+  .psearchwrap .si{color:var(--text2)} .psearchwrap input{flex:1;background:none;border:none;color:var(--text);
+    font-size:14px;outline:none;font-family:inherit}
+  .lbtoggle{display:flex;gap:6px;margin-bottom:12px}
+  .lbtoggle button{flex:1;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--surface);
+    color:var(--text2);font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer}
+  .lbtoggle button.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -994,7 +1016,7 @@ async function openBox(gameId, fromTeam){
     await ensureTeamMeta();
     const [tg, pg] = await Promise.all([
       api(`team_game_stats?select=team_id,opponent_id,opponent_name,season,week,season_type,home_away,points,opp_points,result,stats,off_epa,def_epa,off_plays,def_plays&game_id=eq.${gameId}`),
-      api(`player_game_stats?select=team_id,player,category,stats&game_id=eq.${gameId}`) ]);
+      api(`player_game_stats?select=team_id,athlete_id,player,category,stats&game_id=eq.${gameId}`) ]);
     renderBox(gameId, tg, pg, fromTeam);
   }catch(e){
     app.innerHTML = backHeader("Box score")+`<div class="list"><div class="err">Couldn't load box score: ${e.message}</div></div>`;
@@ -1053,7 +1075,7 @@ function renderBox(gameId, tg, pg, fromTeam){
       if(!ps.length) return;
       h+=`<div class="boxpcat">${label}</div>
         <div class="boxptbl"><div class="boxprow head"><div class="bpn"></div>${types.map(t=>`<div>${t}</div>`).join("")}</div>`;
-      ps.forEach(p=>{ h+=`<div class="boxprow"><div class="bpn">${esc(p.player||"")}</div>
+      ps.forEach(p=>{ h+=`<div class="boxprow"><div class="bpn"${p.athlete_id?` data-player="${p.athlete_id}"`:""}>${esc(p.player||"")}</div>
         ${types.map(t=>`<div>${p.stats[t]!=null?esc(String(p.stats[t])):"—"}</div>`).join("")}</div>`; });
       h+=`</div>`;
     });
@@ -1408,6 +1430,93 @@ async function statRows(key){
   return _statCache[key];
 }
 
+// ---------- Player pages (season + game log) + the "2025 final" historical layer ----------
+// What to show per category, in order (season blocks); any extra types are appended.
+const PLAYER_SEASON_SHOW = {
+  passing:["YDS","TD","INT","PCT","ATT","COMPLETIONS","YPA","QBR"],
+  rushing:["YDS","TD","CAR","YPC","LONG"],
+  receiving:["YDS","REC","TD","YPR","LONG"],
+  defensive:["TOT","SOLO","SACKS","TFL","INT","PD","QB HUR","TD"],
+  kicking:["PTS","FGM","FGA","PCT","LONG","XPM"],
+};
+const CAT_LABEL = {passing:"Passing",rushing:"Rushing",receiving:"Receiving",defensive:"Defense",kicking:"Kicking"};
+// compact per-game line per category
+const GLOG_SHOW = {passing:[["YDS","yds"],["TD","TD"]],rushing:[["CAR","car"],["YDS","yds"],["TD","TD"]],
+  receiving:[["REC","rec"],["YDS","yds"],["TD","TD"]],defensive:[["TOT","tot"],["TFL","TFL"],["SACKS","sk"]],
+  kicking:[["FGM","FG"],["PTS","pts"]]};
+const CAT_ORDER = ["passing","rushing","receiving","defensive","kicking"];
+
+async function openPlayer(aid){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading player…</div>`;
+  try{
+    await ensureTeamMeta();
+    const [idx, seasons, games] = await Promise.all([
+      api(`player_index?select=athlete_id,player,team_id,position,last_season,categories&athlete_id=eq.${aid}`),
+      api(`player_season?select=season,category,stats,team_id,position&athlete_id=eq.${aid}&order=season.desc`),
+      api(`player_game_stats?select=game_id,week,season_type,opponent_id,home_away,category,stats&athlete_id=eq.${aid}&order=week.asc`) ]);
+    renderPlayer(aid, idx[0], seasons, games);
+  }catch(e){
+    app.innerHTML = backHeader("Player")+`<div class="list"><div class="err">Couldn't load player: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=load;
+  }
+}
+function _catStat(stats, t){ const v=stats&&stats[t]; return v==null||v===""?null:v; }
+function renderPlayer(aid, idx, seasons, games){
+  if(!idx){ app.innerHTML=backHeader("Player")+`<div class="list"><div class="err">Player not found.</div></div>`;
+    document.querySelector(".back").onclick=load; return; }
+  const t=teamMeta[idx.team_id]||{school:"—"}, c=hx(t.color);
+  let h=`<div class="cmp">${backHeader("Player")}
+    <div class="phead">
+      <div class="pcrestbig" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+      <div><div class="pnamebig">${esc(idx.player||"")}</div>
+        <div class="pmeta">${esc(idx.position||"")}${idx.position?" · ":""}<span class="pteamlink" data-team="${idx.team_id}">${esc(t.school)}</span></div></div>
+    </div>`;
+  // season stat blocks (most recent first), each clearly season-labeled
+  const bySeason={}; seasons.forEach(r=>{ (bySeason[r.season]=bySeason[r.season]||[]).push(r); });
+  Object.keys(bySeason).map(Number).sort((a,b)=>b-a).forEach(s=>{
+    h+=`<div class="sec"><div class="sectitle">${s} season${s===SEASON_RESULTS?" — final":""}</div>
+      <div class="secsub">Full official season totals${s===SEASON_RESULTS?" (all players, incl. departed — \"2025 final\")":""}. Source: CFBD.</div>`;
+    CAT_ORDER.forEach(cat=>{
+      const row=bySeason[s].find(r=>r.category===cat); if(!row||!row.stats) return;
+      const order=PLAYER_SEASON_SHOW[cat]||[];
+      const keys=[...order.filter(k=>_catStat(row.stats,k)!=null),
+                  ...Object.keys(row.stats).filter(k=>!order.includes(k)&&_catStat(row.stats,k)!=null)];
+      if(!keys.length) return;
+      h+=`<div class="pscat">${CAT_LABEL[cat]||cat}</div><div class="pschips">`;
+      keys.forEach(k=>{ h+=`<div class="pchip"><div class="pcv">${esc(String(row.stats[k]))}</div><div class="pcl">${esc(k)}</div></div>`; });
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  });
+  // 2025 game log (merge categories per game)
+  if(games.length){
+    const byGame={};
+    games.forEach(g=>{ const e=byGame[g.game_id]=byGame[g.game_id]||{week:g.week,st:g.season_type,opp:g.opponent_id,ha:g.home_away,cats:{}};
+      e.cats[g.category]=g.stats; });
+    const list=Object.entries(byGame).sort((a,b)=>(stOrder(a[1].st)-stOrder(b[1].st))||(a[1].week-b[1].week));
+    h+=`<div class="sec"><div class="sectitle">2025 game log</div>
+      <div class="secsub">Per-game stat lines. Tap a game for the full box score. Source: CFBD.</div>`;
+    list.forEach(([gid,g])=>{
+      const opp=teamMeta[g.opp]||{school:"opp"}, ha=g.ha==="home"?"vs":"at";
+      let bits=[];
+      CAT_ORDER.forEach(cat=>{ const st=g.cats[cat]; if(!st) return;
+        const parts=(GLOG_SHOW[cat]||[]).map(([k,lb])=>st[k]!=null?`${st[k]} ${lb}`:null).filter(Boolean);
+        if(parts.length) bits.push(parts.join(", ")); });
+      h+=`<div class="glrow" data-box="${gid}" data-bteam="${idx.team_id}">
+        ${crestEl("glcr",opp.school,oppColor(g.opp))}
+        <div class="glopp"><div class="ha">${ha}${g.st==="postseason"?" · Bowl/CFP":` · Wk ${g.week}`}</div>
+          <div class="on">${esc(opp.school)}</div></div>
+        <div class="glsc" style="flex:1.4"><small>${bits.join(" · ")||"—"}</small></div>
+        <div class="chev">›</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`<div class="note"><b>Player stats — official.</b> Season totals and per-game lines from CFBD. The forward-looking "returning leaders" elsewhere show 2026-active players only; this player page is the complete record incl. departed players ("2025 final"). Names &amp; stats only — no photos. ${BRAND_LINE}</div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+}
+
 // ---------- Part 2: team stat profile + leaders + preseason honors (on the team page) ----------
 function statProfile(cat, statsRows, school){
   const cur={}, prior={};
@@ -1565,18 +1674,64 @@ const PLAYER_LB=[["passing","YDS","Passing yards"],["passing","TD","Passing touc
   ["rushing","YDS","Rushing yards"],["rushing","TD","Rushing touchdowns"],
   ["receiving","YDS","Receiving yards"],["receiving","REC","Receptions"],
   ["defensive","TOT","Total tackles"],["defensive","SACKS","Sacks"],["kicking","FGM","Field goals made"]];
+// "2025 final" headline boards (all players incl. departed), sorted server-side by player_season.headline
+const PLAYER_LB_FINAL=[["passing","Passing yards"],["rushing","Rushing yards"],
+  ["receiving","Receiving yards"],["defensive","Total tackles"],["kicking","Kicking points"]];
+let playerLBMode = "returning";   // "returning" (2026-active) | "final" (2025 all players)
 async function renderPlayerLeaders(body){
-  const data=await Promise.all(PLAYER_LB.map(([c,k])=>api(
-    `player_stat_season?select=player,position,team_id,value,rank&season=eq.${STAT_SEASON}&category=eq.${c}&stat_key=eq.${k}&order=rank.asc&limit=10`)));
-  let h=`<div class="lbgrid">`;
-  PLAYER_LB.forEach(([c,k,label],idx)=>{
-    h+=`<div class="lbcard"><div class="lbhead"><div class="lt">${label}<small>2025 · returning leaders</small></div></div>`;
-    data[idx].forEach(r=>{ const t=teamMeta[r.team_id];
-      h+=`<div class="lbmini"${t?` data-team="${r.team_id}"`:""}><div class="mrk">${r.rank}</div>
-        <div class="mnm">${esc(r.player)} <span style="color:var(--text2);font-weight:500">${t?esc(t.school):""}</span></div>
-        <div class="mvl">${Math.round(r.value).toLocaleString()}</div></div>`; });
-    h+=`</div>`; });
-  body.innerHTML=h+`<div class="secsub" style="padding:12px 2px 0"><b>2025 production, returning players only</b> — players active in 2026 (2026 NFL draftees &amp; graduated/exhausted-eligibility seniors excluded; matched by athlete ID). Names &amp; stats only — no photos, no implied endorsement.</div>`;
+  const search = `<div class="psearchwrap"><span class="si">🔍</span>
+      <input id="plsearch" type="text" placeholder="Search any player (2024–25)…" autocomplete="off">
+      <div class="searchres" id="plres" style="display:none"></div></div>`;
+  const toggle = `<div class="lbtoggle">
+      <button data-plm="returning" class="${playerLBMode==="returning"?"on":""}">Returning (2026)</button>
+      <button data-plm="final" class="${playerLBMode==="final"?"on":""}">2025 final (all)</button></div>`;
+  let h = search + toggle;
+  if(playerLBMode==="returning"){
+    const data=await Promise.all(PLAYER_LB.map(([c,k])=>api(
+      `player_stat_season?select=athlete_id,player,position,team_id,value,rank&season=eq.${STAT_SEASON}&category=eq.${c}&stat_key=eq.${k}&order=rank.asc&limit=10`)));
+    h+=`<div class="lbgrid">`;
+    PLAYER_LB.forEach(([c,k,label],idx)=>{
+      h+=`<div class="lbcard"><div class="lbhead"><div class="lt">${label}<small>2025 · returning leaders</small></div></div>`;
+      data[idx].forEach(r=>{ const t=teamMeta[r.team_id];
+        h+=`<div class="lbmini"${r.athlete_id?` data-player="${r.athlete_id}"`:""}><div class="mrk">${r.rank}</div>
+          <div class="mnm">${esc(r.player)} <span style="color:var(--text2);font-weight:500">${t?esc(t.school):""}</span></div>
+          <div class="mvl">${Math.round(r.value).toLocaleString()}</div></div>`; });
+      h+=`</div>`; });
+    h+=`</div><div class="secsub" style="padding:12px 2px 0"><b>2025 production, returning players only</b> — players active in 2026 (2026 NFL draftees &amp; graduated/exhausted-eligibility seniors excluded; matched by athlete ID). Tap a player for their page. Names &amp; stats only — no photos.</div>`;
+  }else{
+    const data=await Promise.all(PLAYER_LB_FINAL.map(([c])=>api(
+      `player_season?select=athlete_id,player,team_id,position,headline&season=eq.${STAT_SEASON}&category=eq.${c}&headline=not.is.null&order=headline.desc&limit=10`)));
+    h+=`<div class="lbgrid">`;
+    PLAYER_LB_FINAL.forEach(([c,label],idx)=>{
+      h+=`<div class="lbcard"><div class="lbhead"><div class="lt">${label}<small>2025 final · all players</small></div></div>`;
+      data[idx].forEach((r,i)=>{ const t=teamMeta[r.team_id];
+        h+=`<div class="lbmini"${r.athlete_id?` data-player="${r.athlete_id}"`:""}><div class="mrk">${i+1}</div>
+          <div class="mnm">${esc(r.player)} <span style="color:var(--text2);font-weight:500">${t?esc(t.school):""}</span></div>
+          <div class="mvl">${Math.round(Number(r.headline)).toLocaleString()}</div></div>`; });
+      h+=`</div>`; });
+    h+=`</div><div class="secsub" style="padding:12px 2px 0"><b>2025 final — every player</b>, including those who have since departed (NFL / graduated). The complete historical record. Tap a player for their page. Names &amp; stats only — no photos.</div>`;
+  }
+  body.innerHTML=h;
+  body.querySelectorAll("[data-plm]").forEach(b=>b.onclick=()=>{ if(playerLBMode!==b.dataset.plm){ playerLBMode=b.dataset.plm; renderStats(); window.scrollTo(0,0); } });
+  wirePlayerSearch();
+}
+let _plSearchT=null;
+function wirePlayerSearch(){
+  const inp=document.getElementById("plsearch"), res=document.getElementById("plres");
+  if(!inp) return;
+  inp.oninput=()=>{ clearTimeout(_plSearchT); const q=inp.value.trim();
+    if(q.length<2){ res.style.display="none"; return; }
+    _plSearchT=setTimeout(async()=>{
+      try{
+        const rows=await api(`player_index?select=athlete_id,player,team_id,position,last_season&name_lower=ilike.*${encodeURIComponent(q.toLowerCase())}*&order=last_season.desc&limit=20`);
+        if(!rows.length){ res.innerHTML=`<div class="sropt" style="color:var(--text2)">No players match "${esc(q)}"</div>`; res.style.display="block"; return; }
+        res.innerHTML=rows.map(r=>{ const t=teamMeta[r.team_id]||{school:""};
+          return `<div class="sropt" data-player="${r.athlete_id}">${esc(r.player||"")}
+            <span style="color:var(--text2)"> · ${esc(r.position||"")} ${esc(t.school)}</span></div>`; }).join("");
+        res.style.display="block";
+      }catch(e){ res.style.display="none"; }
+    }, 220);
+  };
 }
 async function renderConfView(body){
   const METRICS=[["points_per_game","Scoring offense"],["opp_points_per_game","Scoring defense"],
@@ -1704,6 +1859,8 @@ document.body.addEventListener("click",    e=>{const el=e.target.closest("[data-
 // tap a ranking row (anywhere but its number/tooltip) -> open the team detail page
 document.body.addEventListener("click", e=>{
   if(e.target.closest("[data-tip]")) return;
+  const pl=e.target.closest("[data-player]");
+  if(pl && pl.dataset.player && pl.dataset.player!=="undefined"){ openPlayer(pl.dataset.player); return; }
   const box=e.target.closest("[data-box]");
   if(box && box.dataset.box && box.dataset.box!=="undefined"){ openBox(box.dataset.box, box.dataset.bteam); return; }
   const row=e.target.closest("[data-team]");
