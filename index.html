@@ -474,6 +474,34 @@
   .lbhead2{display:grid;grid-template-columns:26px 30px 1fr 70px 50px;gap:8px;padding:4px 12px 6px;
     font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
   .lbhead2 div:nth-child(4),.lbhead2 div:nth-child(5){text-align:center}
+  /* ---- matchup ---- */
+  .mwpcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin:4px 0 6px}
+  .mwphdr{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--text2);text-align:center;margin-bottom:9px}
+  .mwprow{display:grid;grid-template-columns:1fr auto auto 1fr;align-items:center;gap:8px}
+  .mwprow .mwpteam{font-weight:700;font-size:13px;color:var(--text2)} .mwprow .mwpteam.b{text-align:right}
+  .mwprow .mwppct{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:22px;color:var(--text2)}
+  .mwprow .mwppct.win{color:var(--amber)}
+  .mwpbar{height:9px;border-radius:999px;background:#7CA8FF;overflow:hidden;margin:10px 0 4px}
+  .mwpbar i{display:block;height:100%;background:var(--amber)}
+  .mwpcard .venue{margin-top:8px} .mwpcard .toggle{display:flex;gap:4px}
+  .mwpcard .toggle button{flex:1;padding:7px 4px;border-radius:8px;border:1px solid var(--line);
+    background:var(--bg);color:var(--text2);font-size:11px;font-weight:700;font-family:inherit;cursor:pointer}
+  .mwpcard .toggle button.on{background:var(--surface2);color:var(--text);border-color:var(--amber)}
+  .mwpnote{font-size:11px;color:var(--text2);margin-top:9px;line-height:1.45}
+  .mhead{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;padding:4px 4px 7px;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;color:var(--text2);text-align:center}
+  .mhead div:first-child{text-align:left} .mhead div:last-child{text-align:right}
+  .mrow{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid rgba(42,53,66,.5)}
+  .mrow .mval{font-family:"JetBrains Mono",monospace;font-size:14px}
+  .mrow .mval:first-child{text-align:left} .mrow .mval:last-child{text-align:right}
+  .mrow .mval small{color:var(--text2);font-size:10px;margin-left:4px;font-family:"Hanken Grotesk",sans-serif}
+  .mrow .mval.win b{color:var(--amber)}
+  .mrow .mk{font-size:11px;color:var(--text2);text-align:center}
+  .h2hrow{display:grid;grid-template-columns:40px 1fr auto;gap:8px;align-items:center;padding:8px 4px;
+    border-bottom:1px solid rgba(42,53,66,.5);font-size:12.5px}
+  .h2hrow .h2hsea{font-family:"JetBrains Mono",monospace;color:var(--text2)}
+  .h2hrow .h2hw{font-weight:700;color:#5BD39A;font-size:11px}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -743,6 +771,7 @@ function listTop(hint){
       <button class="navbtn primary" id="statsnav"><span class="nic">📊</span>Stats</button>
       <button class="navbtn" id="scoresnav"><span class="nic">📅</span>Scores</button>
       <button class="navbtn" id="standnav"><span class="nic">📋</span>Standings</button>
+      <button class="navbtn" id="matchnav"><span class="nic">⚔️</span>Matchup</button>
       <button class="navbtn" id="pressnav"><span class="nic">🏆</span>Preseason</button>
     </div>
     ${hint?`<div class="hint">${hint}</div>`:""}`;
@@ -900,6 +929,7 @@ function wireToggle(){
   const statsnav=document.getElementById("statsnav"); if(statsnav) statsnav.onclick = ()=> openStats();
   const scoresnav=document.getElementById("scoresnav"); if(scoresnav) scoresnav.onclick = ()=> openScores();
   const standnav=document.getElementById("standnav"); if(standnav) standnav.onclick = ()=> openStandings();
+  const matchnav=document.getElementById("matchnav"); if(matchnav) matchnav.onclick = ()=> openMatchup();
   const pressnav=document.getElementById("pressnav"); if(pressnav) pressnav.onclick = ()=> openPreseason();
   wireSearch();
   // leaderboard controls (re-render from cached data; no refetch)
@@ -969,6 +999,135 @@ function renderStandings(rows){
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   document.querySelectorAll("[data-stm]").forEach(b=>b.onclick=()=>{ if(standingsMode!==b.dataset.stm){ standingsMode=b.dataset.stm; openStandings(); } });
+}
+
+// ---------- Matchup compare (official stats + historical H2H + win prob behind SHOW_PREDICTIONS) ----------
+const MATCHUP_STATS = ["points_per_game","opp_points_per_game","total_yards_pg","total_yards_allowed_pg",
+  "yards_per_play","yards_per_play_allowed","off_ppa","def_ppa","off_success_rate","def_success_rate",
+  "third_down_pct","third_down_pct_allowed","turnover_margin","off_explosiveness","def_havoc"];
+let _statSeasonActive=null;
+async function activeStatSeason(){   // 2025 now; auto-switches to 2026 when those stats land
+  if(_statSeasonActive) return _statSeasonActive;
+  try{ const r=await api("team_stat_season?select=season&order=season.desc&limit=1");
+    _statSeasonActive=(r[0]&&r[0].season)||STAT_SEASON; }catch(e){ _statSeasonActive=STAT_SEASON; }
+  return _statSeasonActive;
+}
+let matchup={a:null,b:null,venue:"neutral"};
+function teamPicker(excludeId, cb){
+  const teams=Object.values(teamMeta).filter(t=>t.school).sort((a,b)=>a.school.localeCompare(b.school));
+  const ov=document.createElement("div"); ov.className="pickov";
+  ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+    <input class="picksearch" placeholder="Search teams…" autocomplete="off"><button class="pickx">✕</button></div>
+    <div class="picklist"></div></div>`;
+  document.body.appendChild(ov);
+  const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
+  const draw=q=>{ q=(q||"").toLowerCase().trim();
+    list.innerHTML=teams.filter(t=>t.school.toLowerCase().includes(q)).map(t=>{ const c=hx(t.color), dis=String(t.id)===String(excludeId);
+      return `<div class="pitem${dis?' dis':''}" data-id="${t.id}">
+        <div class="pcr" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+        <div><div class="pnm">${esc(t.school)}</div><div class="pcf">${esc(t.conference||"")}</div></div></div>`; }).join("")
+      ||`<div class="loading" style="padding:30px">No teams match "${esc(q)}"</div>`; };
+  draw("");
+  const close=()=>ov.remove();
+  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  search.oninput=()=>draw(search.value);
+  list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it||it.classList.contains("dis")) return; close(); cb(it.dataset.id); };
+}
+async function openMatchup(aId,bId){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading matchup…</div>`;
+  try{
+    await Promise.all([ensureTeamMeta(), ensureCatalog(), activeStatSeason()]);
+    if(!aId||!bId){ const ap=await api("poll_rankings?select=team_id,rank&season=eq.2025&poll=eq.AP%20Top%2025&order=rank.asc&limit=2");
+      aId=aId||(ap[0]&&ap[0].team_id); bId=bId||(ap[1]&&ap[1].team_id);
+      const keys=Object.keys(teamMeta); aId=aId||keys[0]; bId=bId||keys[1]; }
+    matchup={a:String(aId), b:String(bId), venue:"neutral"};
+    await drawMatchup();
+  }catch(e){ app.innerHTML=backHeader("Matchup")+`<div class="list"><div class="err">Couldn't load matchup: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=load; }
+}
+async function fetchWinProb(a,b){
+  const lo=Math.min(+a,+b), hi=Math.max(+a,+b);
+  const r=await api(`matchup_winprob?select=win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.2026&team_a=eq.${lo}&team_b=eq.${hi}`);
+  return r[0]||null;
+}
+function pWinA(row,a,b,venue){   // P(team a wins) for the chosen venue
+  const lo=Math.min(+a,+b), aIsLo=(+a===lo);
+  const loVenue = venue==="neutral"?"neutral":(venue==="aHome"?(aIsLo?"home":"away"):(aIsLo?"away":"home"));
+  const pLo=Number(loVenue==="home"?row.win_prob_a_home:loVenue==="away"?row.win_prob_a_away:row.win_prob_a);
+  return aIsLo?pLo:1-pLo;
+}
+async function fetchH2H(a,b){
+  return api(`games_history?select=season,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site&or=(and(home_team_id.eq.${a},away_team_id.eq.${b}),and(home_team_id.eq.${b},away_team_id.eq.${a}))&order=start_date.desc`);
+}
+async function drawMatchup(){
+  const a=matchup.a, b=matchup.b, S=await activeStatSeason();
+  const [statsRows, wp, hh] = await Promise.all([
+    api(`team_stat_season?select=team_id,stat_key,value,rank,percentile&season=eq.${S}&team_id=in.(${a},${b})&stat_key=in.(${MATCHUP_STATS.join(",")})`),
+    SHOW_PREDICTIONS?fetchWinProb(a,b):Promise.resolve(null),
+    fetchH2H(a,b) ]);
+  renderMatchup(statsRows, wp, hh, S);
+}
+function mPickCard(slot){
+  const id=matchup[slot], t=teamMeta[id]||{school:"?"}, c=hx(t.color);
+  return `<div class="pick" data-mpick="${slot}">
+    <div class="pcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
+    <div class="pname">${esc(t.school)}</div><div class="pconf">${esc(t.conference||"")}</div>
+    <div class="pchg">Change</div></div>`;
+}
+function renderMatchup(statsRows, wp, hh, S){
+  const a=matchup.a, b=matchup.b, tA=teamMeta[a]||{school:"?"}, tB=teamMeta[b]||{school:"?"};
+  const idx={}; statsRows.forEach(r=>{ idx[`${r.team_id}|${r.stat_key}`]=r; });
+  let h=`<div class="cmp"><div class="cmptop"><button class="back">←</button>
+      <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Matchup</div></div>
+    <div class="pickrow">${mPickCard("a")}<div class="pickvs">VS</div>${mPickCard("b")}</div>`;
+  // win probability (ONLY thing from the model; never a rating or margin)
+  if(SHOW_PREDICTIONS && wp){
+    const pA=pWinA(wp,a,b,matchup.venue), paPct=Math.round(pA*100), pbPct=100-paPct;
+    const favA=pA>=0.5, fav=favA?tA:tB, favPct=Math.max(paPct,pbPct);
+    const venues=[["aHome",`${esc(tA.school)} home`],["neutral","Neutral"],["bHome",`${esc(tB.school)} home`]];
+    h+=`<div class="mwpcard">
+      <div class="mwphdr">Win probability${matchup.venue==="neutral"?" · neutral site":""}</div>
+      <div class="mwprow"><div class="mwpteam a">${esc(tA.school)}</div>
+        <div class="mwppct ${favA?"win":""}">${paPct}%</div>
+        <div class="mwppct b ${!favA?"win":""}">${pbPct}%</div>
+        <div class="mwpteam b">${esc(tB.school)}</div></div>
+      <div class="mwpbar"><i style="width:${paPct}%"></i></div>
+      <div class="venue"><div class="toggle">${venues.map(([v,l])=>`<button data-mv="${v}" class="${matchup.venue===v?"on":""}">${l}</button>`).join("")}</div></div>
+      <div class="mwpnote">Model estimate of how often <b>${esc(fav.school)}</b> wins this matchup (${favPct}%). A probability only — not a prediction, spread, or score. Independent &amp; gambling-free.</div>
+    </div>`;
+  }
+  // side-by-side official stats with national rank context
+  h+=`<div class="sec"><div class="sectitle">Team stats — ${S}</div>
+    <div class="mhead"><div>${esc(tA.school)}</div><div></div><div>${esc(tB.school)}</div></div>`;
+  MATCHUP_STATS.forEach(k=>{ const d=_catalog.by[k]; if(!d) return;
+    const ra=idx[`${a}|${k}`], rb=idx[`${b}|${k}`]; if(!ra&&!rb) return;
+    let wa="",wb="";
+    if(ra&&rb){ const va=Number(ra.value), vb=Number(rb.value);
+      if(va!==vb){ const aWin=d.higher_is_better?va>vb:va<vb; if(aWin)wa="win"; else wb="win"; } }
+    const cell=(r,cls)=> r? `<div class="mval ${cls}"><b>${fmtStat(r.value,d.format)}</b><small>#${r.rank}</small></div>` : `<div class="mval ${cls}">—</div>`;
+    h+=`<div class="mrow">${cell(ra,wa)}<div class="mk">${esc(d.short_label)}</div>${cell(rb,wb)}</div>`;
+  });
+  h+=`</div>`;
+  // historical head-to-head
+  let aw=0,bw=0;
+  hh.forEach(g=>{ const hWon=g.home_points>g.away_points;
+    const winner=hWon?g.home_team_id:g.away_team_id;
+    if(String(winner)===String(a)) aw++; else if(String(winner)===String(b)) bw++; });
+  h+=`<div class="sec"><div class="sectitle">Head-to-head</div>`;
+  if(hh.length){
+    const lead = aw===bw?`Series tied <b>${aw}–${bw}</b>`:`${esc((aw>bw?tA:tB).school)} leads <b>${Math.max(aw,bw)}–${Math.min(aw,bw)}</b>`;
+    h+=`<div class="secsub">${lead} since 2015 (${hh.length} meeting${hh.length>1?"s":""}). Most recent:</div>`;
+    hh.slice(0,5).forEach(g=>{ const hWon=g.home_points>g.away_points, winner=hWon?g.home_team:g.away_team;
+      h+=`<div class="h2hrow"><div class="h2hsea">${g.season}</div>
+        <div class="h2hsc">${esc(g.away_team)} ${g.away_points} @ ${esc(g.home_team)} ${g.home_points}${g.neutral_site?" (N)":""}</div>
+        <div class="h2hw">${esc(winner)} W</div></div>`; });
+  } else { h+=`<div class="secsub">No meetings since 2015.</div>`; }
+  h+=`</div><div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${SHOW_PREDICTIONS?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-mpick]").forEach(el=>el.onclick=()=>{ const slot=el.dataset.mpick;
+    teamPicker(matchup[slot==="a"?"b":"a"], id=>{ matchup[slot]=String(id); drawMatchup(); }); });
+  document.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ matchup.venue=b.dataset.mv; drawMatchup(); });
 }
 
 // ---------- team detail page ----------
