@@ -577,6 +577,61 @@
   .precol .prelist small{color:var(--text2);font-weight:500}
   .precol .prelist b{font-family:"JetBrains Mono",monospace;color:var(--amber);margin-right:5px}
   .morelink{text-align:right;color:var(--amber);font-weight:700;font-size:12px;margin-top:9px;cursor:pointer}
+  /* ---- accounts (optional auth) ---- */
+  .htop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .acctslot{flex:none}
+  .acctbtn{background:var(--surface);border:1px solid var(--line);color:var(--text);font-family:inherit;
+    font-weight:700;font-size:12.5px;border-radius:999px;padding:7px 14px;cursor:pointer}
+  .acctbtn.signin:hover{border-color:var(--amber);color:var(--amber)}
+  .acctbtn:not(.signin){padding:0;width:38px;height:38px;border-radius:50%}
+  .acctav{display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:15px;color:var(--amber)}
+  .authov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);
+    display:flex;align-items:flex-end;justify-content:center}
+  @media(min-width:560px){ .authov{align-items:center} }
+  .authsheet{width:100%;max-width:430px;background:var(--bg);border:1px solid var(--line);
+    border-radius:18px 18px 0 0;padding:18px 18px 26px;max-height:92vh;overflow:auto}
+  @media(min-width:560px){ .authsheet{border-radius:18px} }
+  .authhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .authttl{font-family:"Archivo",sans-serif;font-weight:800;font-size:18px}
+  .authsub{color:var(--text2);font-size:12.5px;line-height:1.45;margin-bottom:14px}
+  .gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1a1a1a;
+    border:0;border-radius:11px;padding:12px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer}
+  .gbtn .gico{font-family:"Archivo",sans-serif;font-weight:800;color:#4285F4}
+  .authdiv{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:11px;margin:14px 0}
+  .authdiv::before,.authdiv::after{content:"";flex:1;height:1px;background:var(--line)}
+  .authin{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:12px;color:var(--text);font-size:14px;font-family:inherit;margin-bottom:9px;outline:none}
+  .authin:focus{border-color:var(--amber)}
+  .authprimary{width:100%;background:var(--amber);color:#10130c;border:0;border-radius:11px;padding:12px;
+    font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;margin-top:2px}
+  .authmsg{font-size:12px;margin:9px 2px 0;min-height:14px}
+  .authmsg.err{color:#E5705C} .authmsg.ok{color:#5BD39A}
+  .authrow{display:flex;justify-content:space-between;gap:10px;margin-top:12px}
+  .authlink{background:none;border:0;color:var(--amber);font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer;padding:4px 0}
+  .authlink.center{display:block;margin:8px auto 0;text-align:center}
+  .authfine{color:var(--text2);font-size:10.5px;line-height:1.5;margin-top:14px}
+  .authfine a{color:var(--amber);text-decoration:none}
+  .authrowbtn{width:100%;display:flex;align-items:center;justify-content:space-between;background:var(--surface);
+    border:1px solid var(--line);border-radius:11px;padding:13px 14px;color:var(--text);font-family:inherit;
+    font-weight:700;font-size:14px;cursor:pointer;margin-bottom:9px}
+  .authrowbtn span{color:var(--text2);font-weight:600;font-size:12.5px}
+  .authrowbtn.signout{color:#E5705C;justify-content:center}
+  .homegreet{font-size:14px;color:var(--text2);padding:4px 2px 8px}
+  .homegreet b{color:var(--text);font-weight:700}
+  .favcard{display:flex;align-items:center;gap:12px;padding:13px;border-radius:14px;margin-bottom:10px;cursor:pointer;
+    background:linear-gradient(165deg,rgba(246,180,60,.12),var(--surface));border:1px solid #4a4330}
+  .favcard:hover{border-color:var(--amber)}
+  .favcr{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    font-family:"Archivo",sans-serif;font-weight:800;font-size:14px;flex:none}
+  .favmeta{flex:1;min-width:0}
+  .favnm{font-weight:800;font-size:15px;font-family:"Archivo",sans-serif}
+  .favtag{font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#10130c;background:var(--amber);
+    padding:2px 6px;border-radius:5px;vertical-align:middle;margin-left:4px}
+  .favsub{font-size:12px;color:var(--text2);font-family:"JetBrains Mono",monospace;margin-top:3px}
+  .favgo{color:var(--amber);font-weight:700;font-size:12.5px;flex:none}
+  .favpickcta{background:var(--surface);border:1px dashed var(--amber);border-radius:12px;padding:13px;
+    margin-bottom:10px;font-size:13px;cursor:pointer}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
   .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
@@ -633,6 +688,9 @@
 <body>
 <div class="wrap" id="app"><div class="loading">Loading Hashmark…</div></div>
 
+<!-- Supabase JS (Auth) — optional accounts. If this fails to load, the app still works fully
+     logged-out (stats never depend on it). Uses the anon/publishable key only; no secrets. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.108.2/dist/umd/supabase.js"></script>
 <script>
 const SUPABASE_URL = "https://oojuelfcnprrgetwevux.supabase.co";
 const KEY = "sb_publishable_3zRtup_n7j9E3aNxcmBsCw_TyZGUhTl"; // browser-safe (RLS-gated)
@@ -676,6 +734,134 @@ async function api(q){
   const res = await fetch(SUPABASE_URL+"/rest/v1/"+q, {headers:{apikey:KEY,Authorization:"Bearer "+KEY}});
   if(!res.ok) throw new Error("HTTP "+res.status);
   return res.json();
+}
+
+// ===================================================================================
+//  ACCOUNTS — OPTIONAL Supabase Auth. Every stat/feature works fully logged-out; nothing
+//  here gates stats. Browser uses the anon/publishable key + Supabase Auth ONLY — the
+//  service-role key is never shipped. Per-user data lives in `profiles` under strict
+//  user-scoped RLS (a user can read/write only their own row).
+// ===================================================================================
+let sb=null, authUser=null, authProfile=null, _authUid=null;
+const REDIRECT = location.origin + location.pathname;   // OAuth / magic-link return to this page
+function initAuth(){
+  if(!(window.supabase && window.supabase.createClient)) return;   // lib unavailable: stats still work
+  try{
+    sb = window.supabase.createClient(SUPABASE_URL, KEY,
+      {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:"pkce"}});
+    // onAuthStateChange emits INITIAL_SESSION on load (restored session) + SIGNED_IN/OUT later.
+    // IMPORTANT: never await other Supabase auth calls *inside* this callback (it deadlocks the
+    // auth lock) — defer with setTimeout(0) so ensureProfile()'s getSession() runs cleanly.
+    sb.auth.onAuthStateChange((_evt, session)=>{ setTimeout(()=>applySession(session), 0); });
+  }catch(e){ sb=null; }
+}
+async function applySession(session){
+  authUser = session ? session.user : null;
+  if(authUser){ await ensureProfile(); } else { authProfile=null; }
+  syncAccountUI();
+  const uid = authUser ? authUser.id : null;
+  if(uid !== _authUid){ _authUid = uid; if(view==="2025" && app.querySelector(".hsec")) load(); }
+}
+// Profile reads/writes via direct REST with the SESSION's access token, so the user's JWT is
+// always on the request (avoids any from() token-attachment timing on reload). RLS still applies.
+async function authFetch(method, path, body){
+  const { data } = await sb.auth.getSession();
+  const tok = data && data.session && data.session.access_token;
+  if(!tok) return { error:"no-session" };
+  const res = await fetch(SUPABASE_URL+"/rest/v1/"+path, { method,
+    headers:{ apikey:KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=representation" },
+    body: body ? JSON.stringify(body) : undefined });
+  if(!res.ok) return { error:"HTTP "+res.status, status:res.status };
+  const json = res.status===204 ? null : await res.json().catch(()=>null);
+  return { data: json };
+}
+async function ensureProfile(){
+  try{
+    const sel = `profiles?select=id,display_name,favorite_team_id&id=eq.${authUser.id}`;
+    let r = await authFetch("GET", sel);
+    if(r.error) return;                          // transient/auth error: keep prior profile, don't clobber
+    if(r.data && r.data.length){ authProfile = r.data[0]; return; }
+    // genuinely no row -> create it on first sign-in
+    const m = authUser.user_metadata || {};
+    const dn = m.full_name || m.name || (authUser.email||"").split("@")[0] || "Fan";
+    await authFetch("POST", "profiles", {id:authUser.id, display_name:dn});   // RLS insert (auth.uid()=id)
+    r = await authFetch("GET", sel);
+    authProfile = (r.data && r.data[0]) || {id:authUser.id, display_name:dn, favorite_team_id:null};
+  }catch(e){ /* keep prior authProfile */ }
+}
+function accountControl(){
+  if(!sb) return "";   // auth unavailable -> no control; stats unaffected
+  if(authUser){ const nm=(authProfile&&authProfile.display_name)||authUser.email||"Account";
+    return `<button class="acctbtn" data-acct="menu" title="${esc(nm)}"><span class="acctav">${esc(nm.trim().slice(0,1).toUpperCase())}</span></button>`; }
+  return `<button class="acctbtn signin" data-acct="signin">Sign in</button>`;
+}
+function syncAccountUI(){ const s=document.getElementById("acctslot"); if(s) s.innerHTML=accountControl(); }
+function closeAuth(){ const o=document.getElementById("authov"); if(o) o.remove(); }
+function authMsg(t, ok){ const m=document.getElementById("authmsg"); if(m){ m.textContent=t; m.className="authmsg "+(ok?"ok":"err"); } }
+function openAuthModal(){
+  if(!sb){ return; }
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
+  ov.innerHTML=`<div class="authsheet">
+    <div class="authhd"><div class="authttl">Sign in to Hashmark</div><button class="pickx" data-authx>✕</button></div>
+    <div class="authsub">Optional — every stat stays free without an account. Sign in to save your favorite team &amp; unlock personalized features.</div>
+    <button class="gbtn" data-auth="google"><span class="gico">G</span> Continue with Google</button>
+    <div class="authdiv"><span>or use email</span></div>
+    <input class="authin" id="authemail" type="email" placeholder="you@email.com" autocomplete="email" autocapitalize="off">
+    <input class="authin" id="authpw" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="authprimary" data-auth="password">Sign in</button>
+    <div id="authmsg" class="authmsg"></div>
+    <div class="authrow"><button class="authlink" data-auth="signup">Create account</button>
+      <button class="authlink" data-auth="magic">Email me a magic link</button></div>
+    <button class="authlink center" data-auth="reset">Forgot password?</button>
+    <div class="authfine">By continuing you agree to our <a href="privacy.html" target="_blank">Privacy Policy</a>. We never sell your data or use it for ads.</div>
+  </div>`;
+  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+}
+function openAccountMenu(){
+  if(!authUser) return;
+  const nm=(authProfile&&authProfile.display_name)||authUser.email;
+  const fav=authProfile&&authProfile.favorite_team_id;
+  const favT=(fav&&teamMeta&&teamMeta[fav])?teamMeta[fav].school:null;
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
+  ov.innerHTML=`<div class="authsheet">
+    <div class="authhd"><div class="authttl">${esc(nm)}</div><button class="pickx" data-authx>✕</button></div>
+    <div class="authsub">${esc(authUser.email||"")}</div>
+    <button class="authrowbtn" data-auth="favpick">⭐ Favorite team <span>${favT?esc(favT):"Choose"}</span></button>
+    <button class="authrowbtn signout" data-auth="signout">Sign out</button>
+    <div class="authfine">Manage or delete your account &amp; data anytime — see the <a href="privacy.html" target="_blank">Privacy Policy</a>.</div>
+  </div>`;
+  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+}
+async function authAction(kind){
+  if(!sb) return;
+  const email=(document.getElementById("authemail")||{}).value, pw=(document.getElementById("authpw")||{}).value;
+  try{
+    if(kind==="google"){ const {error}=await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:REDIRECT}});
+      if(error) authMsg(/provider|not enabled|unsupported/i.test(error.message)?"Google sign-in isn't enabled yet — use email below.":error.message); return; }
+    if(kind==="password"){ if(!email||!pw) return authMsg("Enter your email and password.");
+      const {error}=await sb.auth.signInWithPassword({email,password:pw}); if(error) return authMsg(error.message); closeAuth(); return; }
+    if(kind==="signup"){ if(!email||!pw) return authMsg("Enter an email and a password (6+ characters).");
+      const {data,error}=await sb.auth.signUp({email,password:pw,options:{emailRedirectTo:REDIRECT}});
+      if(error) return authMsg(error.message);
+      if(data.session) closeAuth(); else authMsg("Account created — check your email to confirm, then sign in.", true); return; }
+    if(kind==="magic"){ if(!email) return authMsg("Enter your email to get a magic link.");
+      const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:REDIRECT}});
+      authMsg(error?error.message:"Magic link sent — check your email to finish signing in.", !error); return; }
+    if(kind==="reset"){ if(!email) return authMsg("Enter your email to reset your password.");
+      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:REDIRECT});
+      authMsg(error?error.message:"Password-reset email sent.", !error); return; }
+    if(kind==="signout"){ await sb.auth.signOut(); closeAuth(); return; }
+    if(kind==="favpick"){ closeAuth(); await ensureTeamMeta(); teamPicker(null, id=>setFavoriteTeam(id)); return; }
+  }catch(e){ authMsg(e.message||"Something went wrong — try again."); }
+}
+async function setFavoriteTeam(teamId){
+  if(!sb || !authUser) return;
+  try{
+    await authFetch("PATCH", `profiles?id=eq.${authUser.id}`, {favorite_team_id:Number(teamId), updated_at:new Date().toISOString()});
+    authProfile = authProfile || {id:authUser.id};
+    authProfile.favorite_team_id = Number(teamId);
+    if(view==="2025") load(); else syncAccountUI();
+  }catch(e){}
 }
 
 // ---------- official games + records (FACTUAL — render in preview AND full mode) ----------
@@ -824,7 +1010,8 @@ function header(){
           : "Our <b>way-too-early</b> projection — last season's opponent-adjusted rating, recruited talent, and proven coaching.";
   const v26small = SHOW_HASHMARK_RATINGS ? "Preseason · Hashmark" : "In preview";
   return `<header>
-    <div class="wordmark">Hashmark<span class="dot">.</span></div>
+    <div class="htop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
+      <div id="acctslot" class="acctslot">${accountControl()}</div></div>
     <div class="toggle">
       <button data-v="2025" class="${view==="2025"?"on":""}">2025<small>Final · AP</small></button>
       <button data-v="2026" class="${view==="2026"?"on":""}">2026<small>${v26small}</small></button>
@@ -932,6 +1119,22 @@ async function renderHome(){
       api("external_rankings?select=player,position,team_id,school,rank,ranking_type,source&season=eq.2026") ]);
     const lmap={}; leaders.forEach(r=>lmap[r.stat_key]=r);
     let h = header() + `<div class="list" style="padding-top:4px">`;
+    // personalized greeting + favorite team (signed-in only; logged-out home is unchanged)
+    if(authUser){
+      const dn=(authProfile&&authProfile.display_name)||"there";
+      h += `<div class="homegreet">👋 Welcome back, <b>${esc(dn)}</b></div>`;
+      const fav=authProfile&&authProfile.favorite_team_id;
+      if(fav && teamMeta[fav]){
+        const t=teamMeta[fav]; let st=null;
+        try{ st=(await api(`standings?select=wins,losses,conference,conf_rank,sos_rank&season=eq.${SEASON_RESULTS}&team_id=eq.${fav}`))[0]; }catch(e){}
+        h += `<div class="favcard" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
+          <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span></div>
+            <div class="favsub">${st?`${st.wins}–${st.losses} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"} · SoS #${st.sos_rank||"—"}`:esc(t.conference||"")}</div></div>
+          <div class="favgo">View →</div></div>`;
+      } else {
+        h += `<div class="favpickcta" data-auth="favpick">⭐ <b>Pick your favorite team</b> — we'll surface it here every visit.</div>`;
+      }
+    }
     // prominent combined team/player search
     h += `<div class="homesearch"><span class="si">🔍</span>
       <input id="homesearch" type="text" placeholder="Search any team or player…" autocomplete="off" autocapitalize="words">
@@ -2632,6 +2835,10 @@ document.body.addEventListener("click",    e=>{const el=e.target.closest("[data-
 // tap a ranking row (anywhere but its number/tooltip) -> open the team detail page
 document.body.addEventListener("click", e=>{
   if(e.target.closest("[data-tip]")) return;
+  // accounts (optional): account button, auth-modal actions, modal close
+  const ax=e.target.closest("[data-authx]"); if(ax){ closeAuth(); return; }
+  const au=e.target.closest("[data-auth]"); if(au){ authAction(au.dataset.auth); return; }
+  const ac=e.target.closest("[data-acct]"); if(ac){ ac.dataset.acct==="signin"?openAuthModal():openAccountMenu(); return; }
   const pl=e.target.closest("[data-player]");
   if(pl && pl.dataset.player && pl.dataset.player!=="undefined"){ openPlayer(pl.dataset.player); return; }
   const box=e.target.closest("[data-box]");
@@ -2640,6 +2847,7 @@ document.body.addEventListener("click", e=>{
   if(row && row.dataset.team && row.dataset.team!=="undefined") openDetail(row.dataset.team);
 });
 
+initAuth();
 load();
 </script>
 
