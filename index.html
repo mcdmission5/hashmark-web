@@ -1636,15 +1636,18 @@ function simCompute(picks){
   // Duke" rule); Notre Dame if ranked in the top 12; and the highest-ranked Group of Six
   // TEAM — a conference title is NO LONGER required. Remaining spots at-large by ranking.
   const P4_CONFS=new Set(["SEC","Big Ten","Big 12","ACC"]);
-  const allRanked=[...sim.fbs].sort(cmp);
-  const guaranteed=champions.filter(id=>P4_CONFS.has(sim.conf[id]));   // P4 champs, any ranking
-  const bestG6=allRanked.find(id=>{ const cf=sim.conf[id];
+  // FBS transition teams are bowl/CFP-INELIGIBLE in 2026 (NDSU→MW, Sac State→MAC)
+  const INELIGIBLE_2026=new Set(["North Dakota State","Sacramento State"]);
+  const elig=id=>!INELIGIBLE_2026.has((teamMeta[id]||{}).school);
+  const allRanked=[...sim.fbs].sort(cmp), rankedElig=allRanked.filter(elig);
+  const guaranteed=champions.filter(id=>P4_CONFS.has(sim.conf[id])&&elig(id)); // P4 champs, any ranking
+  const bestG6=rankedElig.find(id=>{ const cf=sim.conf[id];
     return cf && !P4_CONFS.has(cf) && (byConf[cf]||[]).length>=REAL_CONF_MIN; });
   if(bestG6 && !guaranteed.includes(bestG6)) guaranteed.push(bestG6);  // best G6 TEAM, champ or not
   const ndId=sim.fbs.find(id=>(teamMeta[id]||{}).school==="Notre Dame");
   if(ndId && allRanked.indexOf(ndId)<12 && !guaranteed.includes(ndId)) guaranteed.push(ndId); // ND top-12 guarantee
   const guarSet=new Set(guaranteed);
-  const top12=allRanked.slice(0,12), inTop=new Set(top12);
+  const top12=rankedElig.slice(0,12), inTop=new Set(top12);
   const missing=guaranteed.filter(id=>!inTop.has(id));
   let field;
   if(!missing.length){ field=top12.slice(); }

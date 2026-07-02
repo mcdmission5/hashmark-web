@@ -26,7 +26,9 @@ const CONFS = {
   ND: "FBS Independents",
 };
 const TEAMS = Object.keys(CONFS);
-const teamMeta = Object.fromEntries(TEAMS.map(id => [id, { school: id === "ND" ? "Notre Dame" : id }]));
+// W2 doubles as the 2026 transition-team case (bowl/CFP-ineligible North Dakota State)
+const SCHOOLS = { ND: "Notre Dame", W2: "North Dakota State" };
+const teamMeta = Object.fromEntries(TEAMS.map(id => [id, { school: SCHOOLS[id] || id }]));
 
 // Round-robin conference schedules. Winners: A3 sweeps the ACC (the unranked P4 champ);
 // M2 beats M1 (so the MAC champ is the LOWER-ranked G6 team); S1/B1/T1/W1 win their leagues.
@@ -41,8 +43,8 @@ play("W1","W2");                                     // MW champ W1 ranked below
 const BASE_SOR = { S1:.98, B1:.96, T1:.94, A1:.92, S2:.90, B2:.88, T2:.86, A2:.84,
                    S3:.82, B3:.80, T3:.78, M1:.60, A3:.40, M2:.35, W1:.30, W2:.25 };
 
-function run(ndSor) {
-  const SOR = { ...BASE_SOR, ND: ndSor };
+function run(ndSor, overrides = {}) {
+  const SOR = { ...BASE_SOR, ND: ndSor, ...overrides };
   const sandbox = new Function("sim", "REAL_CONF_MIN", "simSOR", "teamMeta", m[0] + "; return simCompute;");
   const sim = { fbs: TEAMS, conf: CONFS, games };
   const simCompute = sandbox(sim, 2, (id) => SOR[id], teamMeta);
@@ -70,6 +72,12 @@ check("bumped-in autobids seed at the bottom", c1.field[10] === "M1" && c1.field
 const c2 = run(0.59);
 check("Notre Dame ranked #13 → OUT", !c2.field.includes("ND"), `field=${c2.field}`);
 check("#13 scenario still fields 12 with all P4 champs + best G6", c2.field.length === 12 && ["S1","B1","T1","A3","M1"].every(t => c2.field.includes(t)), `field=${c2.field}`);
+
+// W2 = "North Dakota State" (transition team, CFP-ineligible 2026): even ranked top-5 and
+// the best G6 team, it must be excluded — the G6 autobid flows to the next G6 team (M1)
+const c3 = run(0.76, { W2: 0.95 });
+check("ineligible transition team excluded even at a top-5 ranking", !c3.field.includes("W2"), `field=${c3.field}`);
+check("G6 autobid flows past the ineligible team to M1", c3.field.includes("M1") && c3.field.length === 12, `field=${c3.field}`);
 
 console.log(failures ? `\n${failures} FAILURE(S)` : "\nall 2026-CFP-format tests pass");
 process.exit(failures ? 1 : 0);
