@@ -4,9 +4,14 @@ hashmark-web/index.html = ../hashmark-app.html + PWA head tags + service-worker 
 (those are the ONLY differences). www/index.html is a verbatim copy of index.html.
 
 Run after editing ../hashmark-app.html:  python hashmark-web/sync_web.py
+Drift check (used by the pre-commit hook):  python hashmark-web/sync_web.py --check
+  — recomputes the expected index.html from the canonical file and exits 1 if the deployed
+  copies don't hash-match, so the two files can never silently diverge again.
 """
+import hashlib
 import os
 import shutil
+import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(ROOT, "..", "hashmark-app.html")
@@ -36,12 +41,35 @@ if ("serviceWorker" in navigator) {
 </script>'''
 
 
-def main():
+def expected_html():
     html = open(SRC).read()
     assert "<title>Hashmark — Rankings</title>" in html, "canonical title marker not found"
     html = html.replace("<title>Hashmark — Rankings</title>", PWA_HEAD)
     # inject the SW registration just before the closing </body>
     html = html.replace("</body>", SW_SCRIPT + "\n</body>", 1)
+    return html
+
+
+def sha(text):
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def check():
+    """Exit 1 if the deployed copies have drifted from the canonical hashmark-app.html."""
+    want = sha(expected_html())
+    drifted = [p for p in ("index.html", os.path.join("www", "index.html"))
+               if sha(open(os.path.join(ROOT, p)).read()) != want]
+    if drifted:
+        print(f"DRIFT: {', '.join(drifted)} != transform(../hashmark-app.html). "
+              "Run `python sync_web.py` (edit the canonical ../hashmark-app.html, never "
+              "index.html directly), then re-commit.")
+        return 1
+    print("sync check OK — deployed copies match the canonical hashmark-app.html")
+    return 0
+
+
+def main():
+    html = expected_html()
     idx = os.path.join(ROOT, "index.html")
     open(idx, "w").write(html)
     shutil.copyfile(idx, os.path.join(ROOT, "www", "index.html"))
@@ -49,4 +77,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(check()) if "--check" in sys.argv[1:] else main()

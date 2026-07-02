@@ -1631,14 +1631,24 @@ function simCompute(picks){
     if(h2h[x]&&h2h[x].has(y)) return -1; if(h2h[y]&&h2h[y].has(x)) return 1;
     const cx=champSet.has(x), cy=champSet.has(y); if(cx!==cy) return cx?-1:1;
     return commonEdge(x,y); };
-  // 2025-26+ CFP selection: straight-seed by SOR; guarantee the 5 highest-SOR conf champions
+  // 2026 CFP format (rules changed Jan 2026): 12 teams, straight seeding by ranking (SOR).
+  // Guaranteed spots: all FOUR Power Four champions regardless of final ranking (the "8-5
+  // Duke" rule); Notre Dame if ranked in the top 12; and the highest-ranked Group of Six
+  // TEAM — a conference title is NO LONGER required. Remaining spots at-large by ranking.
+  const P4_CONFS=new Set(["SEC","Big Ten","Big 12","ACC"]);
   const allRanked=[...sim.fbs].sort(cmp);
-  const guaranteed=champions.slice().sort(cmp).slice(0,5), guarSet=new Set(guaranteed);
+  const guaranteed=champions.filter(id=>P4_CONFS.has(sim.conf[id]));   // P4 champs, any ranking
+  const bestG6=allRanked.find(id=>{ const cf=sim.conf[id];
+    return cf && !P4_CONFS.has(cf) && (byConf[cf]||[]).length>=REAL_CONF_MIN; });
+  if(bestG6 && !guaranteed.includes(bestG6)) guaranteed.push(bestG6);  // best G6 TEAM, champ or not
+  const ndId=sim.fbs.find(id=>(teamMeta[id]||{}).school==="Notre Dame");
+  if(ndId && allRanked.indexOf(ndId)<12 && !guaranteed.includes(ndId)) guaranteed.push(ndId); // ND top-12 guarantee
+  const guarSet=new Set(guaranteed);
   const top12=allRanked.slice(0,12), inTop=new Set(top12);
   const missing=guaranteed.filter(id=>!inTop.has(id));
   let field;
   if(!missing.length){ field=top12.slice(); }
-  else { // bump the lowest-SOR non-guaranteed teams; slot the missing champions at the bottom (#12, #11…)
+  else { // bump the lowest-SOR non-guaranteed teams; slot the missing auto-bids at the bottom (#12, #11…)
     const drop=new Set(top12.filter(id=>!guarSet.has(id)).sort(cmp).slice(-missing.length));
     const kept=top12.filter(id=>!drop.has(id)).sort(cmp);
     field=[...kept, ...missing.slice().sort(cmp)].slice(0,12);
@@ -1651,21 +1661,21 @@ function renderSim(){
   const nPicked=Object.keys(sim.userPicks).length;
   const tnm=id=>{ const t=teamMeta[id]; return t?t.school:id; };
   let h=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners → see the standings, conference champions and the <b>12-team Playoff</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Hypothetical — no ratings or betting lines.</div>
+    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners → see the standings, conference champions and the <b>12-team Playoff (2026 CFP format)</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Hypothetical — no ratings or betting lines.</div>
     <div class="navrow"><button class="navbtn primary" id="simpick">✏️ Pick a team's games</button>
       <button class="navbtn" id="simreset">↺ Reset picks</button>
       ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun">🎲 Simulate 1000×</button>`:""}</div>
     <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game"}</div>`;
   // 12-team field bracket
   const sorTip="Strength of Record (resume): how hard it would be for an average top-tier team to match this team's record against this exact schedule — rewards tough schedules and quality wins, not just wins. Built from matchup win probabilities, not the hidden ratings.";
-  h+=`<div class="sec"><div class="sectitle">Projected 12-team Playoff</div>
-    <div class="secsub" data-tip="${esc(sorTip)}">Seeded by <b>Strength of Record</b> (resume) ⓘ — straight-seeded, with the five highest-SOR conference champions guaranteed in. Seeds 1–4 get first-round byes. Source: your picks.</div>`;
+  h+=`<div class="sec"><div class="sectitle">Projected 12-team Playoff — 2026 CFP format</div>
+    <div class="secsub" data-tip="${esc(sorTip)}">Seeded by <b>Strength of Record</b> (resume) ⓘ — straight-seeded. <b>2026 CFP format:</b> all four Power Four champions are guaranteed in (any ranking), Notre Dame is in if ranked top 12, and the highest-ranked Group of Six team is in — a conference title is no longer required. Seeds 1–4 get first-round byes. Source: your picks.</div>`;
   const seedRow=(id,seed,bye)=>{ const t=teamMeta[id]||{school:tnm(id)}, ch=c.champions.includes(id);
     const sorTxt=(sim.hasSOR&&c.sor[id]!=null)?`SOR ${Math.round(c.sor[id]*100)}`:"";
     const tag=[bye?"BYE":"", ch?"champ":"", sorTxt].filter(Boolean).join(" · ");
     return `<div class="simseed${c.bumped.has(id)?" bumped":""}" data-team="${id}"><div class="ssn">${seed}</div>
       ${crestEl("glcr",t.school,oppColor(id))}
-      <div class="ssnm">${esc(t.school)}<small>${esc(shortConf(sim.conf[id]||""))}${c.bumped.has(id)?" · champ auto-bid":""}</small></div>
+      <div class="ssnm">${esc(t.school)}<small>${esc(shortConf(sim.conf[id]||""))}${c.bumped.has(id)?" · auto-bid":""}</small></div>
       <div class="ssr">${simRecord(id,c)}${tag?`<small>${tag}</small>`:""}</div></div>`; };
   c.field.forEach((id,i)=>{ h+=seedRow(id,i+1,i<4); });
   if(c.field.length>=12){
@@ -1677,7 +1687,7 @@ function renderSim(){
   c.champSorted.forEach(id=>{ h+=`<div class="simchip" data-team="${id}">${esc(tnm(id))} <small>${esc(shortConf(sim.conf[id]||""))} · ${simRecord(id,c)}</small></div>`; });
   h+=`</div></div>`;
   h+=`<div id="simodds"></div>`;
-  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: your game picks determine the standings, conference champions and 12-team field. Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?"\"Simulate\" runs a Monte-Carlo of the unpicked games using the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.":""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
+  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: your game picks determine the standings, conference champions and 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?"\"Simulate\" runs a Monte-Carlo of the unpicked games using the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.":""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
