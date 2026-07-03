@@ -54,6 +54,42 @@ def sha(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+def check_engine():
+    """The app's pinned ENGINE constants must match the model repo's serving params
+    (HFA-fix brief: hfa follows inseason_params.json; beta is pinned in build_winprob.py).
+    Exit-1s on drift so a stale hfa/beta can never redeploy silently."""
+    import json
+    import re
+    model = os.path.expanduser("~/hashmark/hashmark-model")
+    html = open(os.path.join(ROOT, "..", "hashmark-app.html")).read()
+    m = re.search(r"const ENGINE = \{ beta: ([\d.]+), hfa: ([\d.]+), sigma: ([\d.]+) \}", html)
+    if not m:
+        print("ENGINE check: constant not found in hashmark-app.html — pattern changed?")
+        return 1
+    app_beta, app_hfa, app_sigma = (float(x) for x in m.groups())
+    try:
+        hfa = float(json.load(open(os.path.join(model, "inseason_params.json")))["hfa"])
+        bw = open(os.path.join(model, "build_winprob.py")).read()
+        beta = float(re.search(r"SERVING_BETA = ([\d.]+)", bw).group(1))
+        sigma = float(re.search(r"SIGMA = ([\d.]+)", bw).group(1))
+    except Exception as e:
+        print(f"ENGINE check skipped (model repo unreadable: {e})")
+        return 0
+    bad = []
+    if abs(app_hfa - round(hfa, 3)) > 5e-4:
+        bad.append(f"hfa app {app_hfa} != params {hfa:.3f}")
+    if abs(app_beta - beta) > 1e-9:
+        bad.append(f"beta app {app_beta} != build_winprob {beta}")
+    if abs(app_sigma - sigma) > 1e-9:
+        bad.append(f"sigma app {app_sigma} != build_winprob {sigma}")
+    if bad:
+        print("ENGINE DRIFT: " + "; ".join(bad) + " — update the ENGINE constant in "
+              "../hashmark-app.html to match the model repo, then re-sync.")
+        return 1
+    print(f"ENGINE check OK — beta {app_beta} / hfa {app_hfa} / sigma {app_sigma} match the model repo")
+    return 0
+
+
 def check():
     """Exit 1 if the deployed copies have drifted from the canonical hashmark-app.html."""
     want = sha(expected_html())
@@ -65,7 +101,7 @@ def check():
               "index.html directly), then re-commit.")
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
-    return 0
+    return check_engine()
 
 
 def main():

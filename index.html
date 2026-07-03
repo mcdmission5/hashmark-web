@@ -2207,23 +2207,18 @@ function renderDetail(teamId, comps, board, poll, ts, games){
 
 // ---------- compare tool (free-tier flagship: single-game projection) ----------
 // Engine constants from the Hashmark model (wf-ridge-v1). The margin model is
-//   margin = beta * zdiff + hfa * home_field   (walkforward.py / ratings.project_margin)
-// where zdiff is the difference of the teams' z-scored power ratings. beta & hfa are
-// the latest fitted values logged to prediction_log; sigma is the CALIBRATED win-prob
-// sigma (calibration_report.md: fitted 16.75, not the raw residual SD ~18.1). We map a
-// projected margin to win prob with the normal approximation P(win)=Phi(margin/sigma),
-// exactly as ratings.win_probability() does.
-const ENGINE = { beta: 8.342, hfa: 2.975, sigma: 16.75 };
-let engineLoaded = false;
-async function ensureEngine(){
-  if(engineLoaded) return ENGINE;
-  try{ // best-effort: pull the most recent margin-model coefficients from the log
-    const r = await api("prediction_log?select=features&order=season.desc,week.desc&limit=1");
-    const f = r && r[0] && r[0].features;
-    if(f && isFinite(f.beta) && isFinite(f.hfa)){ ENGINE.beta=Number(f.beta); ENGINE.hfa=Number(f.hfa); }
-  }catch(e){ /* keep the cited defaults */ }
-  engineLoaded = true; return ENGINE;
-}
+//   margin = beta * zdiff + hfa * home_field   (build_winprob.py serving engine)
+// where zdiff is the difference of the teams' z-scored power ratings; sigma is the
+// CALIBRATED win-prob sigma (calibration_report.md: fitted 16.75, not the raw residual
+// SD ~18.1). P(win)=Phi(margin/sigma), exactly as ratings.win_probability() does.
+// PINNED (HFA-fix brief, 2026-07-03) — must equal build_winprob.py's serving params:
+//   beta 9.429 pts/board-z (refit pooled 2016-23 on the board scale; the old 8.342 was
+//   stale) · hfa 1.957 (inseason_params.json, pooled through 2024 — the old 2.975 was a
+//   noisy single 2025 fold). NEVER pull these from prediction_log: in-season rows carry a
+//   beta calibrated to a DIFFERENT zdiff scale (11.096) and would inflate every margin.
+//   sync_web.py --check verifies these against the model repo on every deploy.
+const ENGINE = { beta: 9.429, hfa: 1.957, sigma: 16.75 };
+async function ensureEngine(){ return ENGINE; }
 function erf(x){ // Abramowitz & Stegun 7.1.26, |err| < 1.5e-7
   const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
   const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
