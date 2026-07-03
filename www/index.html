@@ -699,7 +699,7 @@ const app = document.getElementById("app");
 // Universal brand/legal disclaimer — one source of truth, appended to every screen's note.
 // Names & stats only (no team logos, no player photos, no implied endorsement); gambling-free
 // (no betting lines, spreads, or wagering advice); independent of every official body.
-const BRAND_LINE = "Independent analytics — team &amp; player names and statistics only; no team " +
+const BRAND_LINE = "<b>Entertainment only — not gambling advice.</b> Independent analytics — team &amp; player names and statistics only; no team " +
   "logos, no player photos, no implied endorsement. Gambling-free: no betting lines, spreads, or " +
   "wagering advice. Not affiliated with or endorsed by any school, conference, the NCAA, or the AP. " +
   "<a href=\"privacy.html\" style=\"color:var(--amber);text-decoration:none;font-weight:600\">Privacy Policy</a>.";
@@ -1158,6 +1158,8 @@ async function renderHome(){
         <div class="featd">Pick two teams — side-by-side stats, head-to-head${SHOW_PREDICTIONS?" &amp; win probability":""}.</div><div class="featcta">Compare →</div></div>
       <div class="featcard" data-go="simulator"><div class="featic">🎯</div><div class="featt">Build your 12-team Playoff</div>
         <div class="featd">Pick winners → standings, champions${SHOW_PREDICTIONS?" &amp; playoff odds":""}.</div><div class="featcta">Simulate →</div></div>
+      ${SHOW_HASHMARK_RATINGS?`<div class="featcard" data-go="accuracy"><div class="featic">🎯</div><div class="featt">Accuracy tracker</div>
+        <div class="featd">Every projection logged &amp; scored — incl. vs the closing line.</div><div class="featcta">See the record →</div></div>`:""}
     </div></div>`;
     // preseason module
     const cons=ext.filter(r=>r.ranking_type==="all_american"&&r.source==="Consensus");
@@ -1182,7 +1184,40 @@ async function renderHome(){
 }
 const HOME_GO = {explorer:()=>openStats("explorer"), leaders:()=>openStats("leaders"), players:()=>openStats("players"),
   standings:()=>openStandings(), conf:()=>openStats("conf"), splits:()=>openStats("splits"),
-  matchup:()=>openMatchup(), simulator:()=>openSimulator(), scores:()=>openScores(), preseason:()=>openPreseason()};
+  matchup:()=>openMatchup(), simulator:()=>openSimulator(), scores:()=>openScores(), preseason:()=>openPreseason(),
+  accuracy:()=>openAccuracy()};
+
+// U4.2 — transparent accuracy tracker (ships WITH the ratings reveal; SHOW_HASHMARK_RATINGS
+// gates both the home card and this page). nfelo's trust-engine pattern: the model's honest,
+// third-party-comparable record — MAE / RMSE / Brier / SU% per season, vs the closing line,
+// with class labeling (preseason-info vs weekly in-season).
+async function openAccuracy(){
+  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading accuracy record…</div>`;
+  let rows=[];
+  try{ rows = await api(`accuracy_summary?select=*&order=season.desc`); }catch(e){ rows=[]; }
+  const MV_LABEL={"wf-ridge-v1":"Preseason-information model (walk-forward)",
+                  "wf-inseason-v1":"Weekly in-season model (walk-forward)"};
+  let h=`<div class="cmp">${backHeader("Accuracy")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Every Hashmark projection is logged BEFORE the game and scored after — this is the complete out-of-sample record, including against the Vegas closing line (shown for context only; we publish no lines). Honest labeling: nobody public sustainably beats the close.</div>`;
+  Object.keys(MV_LABEL).forEach(mv=>{
+    const mine=rows.filter(r=>r.model_version===mv);
+    if(!mine.length) return;
+    h+=`<div class="sec"><div class="sectitle">${MV_LABEL[mv]}</div>
+      <div class="boxhead"><div>season</div><div>record</div><div>vs close</div></div>`;
+    mine.forEach(r=>{
+      const f2=v=>v==null?"—":Number(v).toFixed(2), f3=v=>v==null?"—":Number(v).toFixed(3);
+      h+=`<div class="boxrow"><div class="bva">${r.season} <small>(${r.n})</small></div>
+        <div class="bk">MAE ${f2(r.mae)} · Brier ${f3(r.brier)} · SU ${r.su_pct==null?"—":Number(r.su_pct).toFixed(1)}%</div>
+        <div class="bvb">${r.vs_close_mae==null?"—":"+"+f2(r.vs_close_mae)+" MAE"}</div></div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`<div class="note"><b>Accuracy tracker.</b> Walk-forward = trained only on earlier seasons; 2024-25 were a locked holdout during development. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+}
 function wireHome(){
   document.querySelectorAll(".toggle button").forEach(b=>{ b.onclick=()=>{ if(b.dataset.v!==view){ view=b.dataset.v; load(); } }; });
   document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
@@ -1477,7 +1512,7 @@ function renderMatchup(statsRows, wp, hh, S){
         <div class="mwpteam b">${esc(tB.school)}</div></div>
       <div class="mwpbar"><i style="width:${paPct}%"></i></div>
       <div class="venue"><div class="toggle">${venues.map(([v,l])=>`<button data-mv="${v}" class="${matchup.venue===v?"on":""}">${l}</button>`).join("")}</div></div>
-      <div class="mwpnote">Model estimate of how often <b>${esc(fav.school)}</b> wins this matchup (${favPct}%). A probability only — not a prediction, spread, or score. Independent &amp; gambling-free.</div>
+      <div class="mwpnote">Model estimate of how often <b>${esc(fav.school)}</b> wins this matchup (${favPct}%). A probability only — not a prediction, spread, or score. Entertainment only, not gambling advice. Independent &amp; gambling-free.</div>
     </div>`;
   }
   // side-by-side official stats with national rank context
@@ -1506,12 +1541,69 @@ function renderMatchup(statsRows, wp, hh, S){
         <div class="h2hsc">${esc(g.away_team)} ${g.away_points} @ ${esc(g.home_team)} ${g.home_points}${g.neutral_site?" (N)":""}</div>
         <div class="h2hw">${esc(winner)} W</div></div>`; });
   } else { h+=`<div class="secsub">No meetings since 2015.</div>`; }
-  h+=`</div><div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${SHOW_PREDICTIONS?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
+  h+=`</div><div class="navrow" style="padding:4px 2px"><button class="navbtn" id="mshare">📤 Share matchup card</button></div>`;
+  h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${SHOW_PREDICTIONS?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   document.querySelectorAll("[data-mpick]").forEach(el=>el.onclick=()=>{ const slot=el.dataset.mpick;
     teamPicker(matchup[slot==="a"?"b":"a"], id=>{ matchup[slot]=String(id); drawMatchup(); }); });
   document.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ matchup.venue=b.dataset.mv; drawMatchup(); });
+  const msh=document.getElementById("mshare");
+  if(msh) msh.onclick=()=>{
+    // top stat edges by rank gap (official stats only — shareable without the hidden ratings)
+    const edges=[];
+    MATCHUP_STATS.forEach(k=>{ const d=_catalog.by[k]; if(!d) return;
+      const ra=idx[`${a}|${k}`], rb=idx[`${b}|${k}`];
+      if(ra&&rb&&ra.rank&&rb.rank) edges.push([d.short_label, ra.rank, rb.rank, Math.abs(ra.rank-rb.rank)]);
+    });
+    edges.sort((x,y)=>y[3]-x[3]);
+    const paPct=(SHOW_PREDICTIONS&&wp)?Math.round(pWinA(wp,a,b,matchup.venue)*100):null;
+    shareMatchupCard(a, b, paPct, edges.slice(0,3));
+  };
+}
+// U4.4 — shareable matchup card: 1200x630 canvas (OG size), self-drawn (no external assets),
+// official-stat edges + optional win prob; hash-mark.com branded, gambling-free footer.
+function shareMatchupCard(a, b, paPct, edges){
+  const tA=teamMeta[a]||{school:"?"}, tB=teamMeta[b]||{school:"?"};
+  const cv=document.createElement("canvas"); cv.width=1200; cv.height=630;
+  const x=cv.getContext("2d");
+  x.fillStyle="#0B0F14"; x.fillRect(0,0,1200,630);
+  x.fillStyle="#E8B94C"; x.font="700 34px Inter, system-ui, sans-serif";
+  x.fillText("Hashmark.", 48, 70);
+  x.fillStyle="#8A97A6"; x.font="500 22px Inter, system-ui, sans-serif";
+  x.fillText("Matchup", 190, 70);
+  const crest=(cx,team)=>{ const c=hx(team.color)||"#22303F";
+    x.beginPath(); x.arc(cx,210,84,0,7); x.fillStyle=c; x.fill();
+    x.fillStyle=textOn(team.color)||"#fff"; x.font="800 56px Inter, system-ui, sans-serif";
+    x.textAlign="center"; x.fillText(monogram(team.school), cx, 230); x.textAlign="left"; };
+  crest(260,tA); crest(940,tB);
+  x.fillStyle="#EDF2F7"; x.font="800 40px Inter, system-ui, sans-serif"; x.textAlign="center";
+  x.fillText(tA.school, 260, 350); x.fillText(tB.school, 940, 350);
+  x.fillStyle="#8A97A6"; x.font="700 30px Inter, system-ui, sans-serif"; x.fillText("VS", 600, 220);
+  if(paPct!=null){
+    x.fillStyle="#EDF2F7"; x.font="800 46px JetBrains Mono, monospace";
+    x.fillText(`${paPct}%`, 260, 420); x.fillText(`${100-paPct}%`, 940, 420);
+    x.fillStyle="#22303F"; x.fillRect(160,445,880,14);
+    x.fillStyle="#E8B94C"; x.fillRect(160,445,880*paPct/100,14);
+    x.fillStyle="#8A97A6"; x.font="500 19px Inter, system-ui, sans-serif";
+    x.fillText("win probability — model estimate, probabilities only", 600, 490);
+  }
+  x.textAlign="left"; x.fillStyle="#B9C4D0"; x.font="600 22px Inter, system-ui, sans-serif";
+  edges.forEach(([label, ra, rb], i)=>{
+    x.fillText(`${label}:  #${ra} vs #${rb}`, 340, (paPct!=null?528:420)+i*32);
+  });
+  x.fillStyle="#5B6875"; x.font="500 19px Inter, system-ui, sans-serif"; x.textAlign="center";
+  x.fillText("hash-mark.com · independent & gambling-free · entertainment only, not gambling advice", 600, 606);
+  cv.toBlob(async blob=>{
+    if(!blob) return;
+    const file=new File([blob], `hashmark-${(tA.school+"-"+tB.school).replace(/[^A-Za-z]+/g,"-")}.png`, {type:"image/png"});
+    try{
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file], title:"Hashmark matchup"}); return; }
+    }catch(_e){/* fall through to download */}
+    const u=URL.createObjectURL(blob); const dl=document.createElement("a");
+    dl.href=u; dl.download=file.name; dl.click(); setTimeout(()=>URL.revokeObjectURL(u),5000);
+  }, "image/png");
 }
 
 // ---------- User-driven Simulator: pick winners -> standings, champions, 12-team CFP field ----------
@@ -1940,17 +2032,18 @@ async function openBox(gameId, fromTeam){
   app.innerHTML = `<div class="loading">Loading box score…</div>`;
   try{
     await ensureTeamMeta();
-    const [tg, pg] = await Promise.all([
+    const [tg, pg, um] = await Promise.all([
       api(`team_game_stats?select=team_id,opponent_id,opponent_name,season,week,season_type,home_away,points,opp_points,result,stats,off_epa,def_epa,off_plays,def_plays&game_id=eq.${gameId}`),
-      api(`player_game_stats?select=team_id,athlete_id,player,category,stats&game_id=eq.${gameId}`) ]);
-    renderBox(gameId, tg, pg, fromTeam);
+      api(`player_game_stats?select=team_id,athlete_id,player,category,stats&game_id=eq.${gameId}`),
+      api(`game_unit_metrics?select=offense_id,plays,epa_play,success_rate,explosive_rate,iso_ppp,havoc_rate,field_pos,drives,pts_per_drive,scoring_opps,pts_per_opp&game_id=eq.${gameId}`).catch(()=>[]) ]);
+    renderBox(gameId, tg, pg, fromTeam, um);
   }catch(e){
     app.innerHTML = backHeader("Box score")+`<div class="list"><div class="err">Couldn't load box score: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load();
   }
 }
 function boxCrest(id){ const t=teamMeta[id]||{school:"?"}; return crestEl("boxcr", t.school, oppColor(id)); }
-function renderBox(gameId, tg, pg, fromTeam){
+function renderBox(gameId, tg, pg, fromTeam, um){
   if(!tg||tg.length<2){ app.innerHTML=backHeader("Box score")+`<div class="list"><div class="err">No box score for this game yet.</div></div>`;
     document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load(); return; }
   // home on the left (fall back to the row order)
@@ -1981,8 +2074,30 @@ function renderBox(gameId, tg, pg, fromTeam){
     h+=`<div class="boxrow"><div class="bva ${wa}">${va==null?"—":esc(String(va))}</div>
       <div class="bk">${label}</div><div class="bvb ${wb}">${vb==null?"—":esc(String(vb))}</div></div>`;
   });
-  // advanced (PPA/EPA) — opponent-adjusted is internal; per-game EPA/play is official-derived
-  if(A.off_epa!=null||B.off_epa!=null){
+  // ADVANCED box score (U4.1) — per-unit efficiency / explosiveness / finishing / havoc from
+  // garbage-time-filtered play-by-play (game_unit_metrics; descriptive stats, no ratings)
+  const uA=(um||[]).find(r=>String(r.offense_id)===String(A.team_id));
+  const uB=(um||[]).find(r=>String(r.offense_id)===String(B.team_id));
+  if(uA||uB){
+    const f3=v=>v==null?"—":Number(v).toFixed(3), f2=v=>v==null?"—":Number(v).toFixed(2),
+          pc=v=>v==null?"—":(100*Number(v)).toFixed(1)+"%";
+    const ADV=[["epa_play","EPA / play (offense)",f3,1],["success_rate","Success rate",pc,1],
+               ["explosive_rate","Explosive-play rate",pc,1],["iso_ppp","IsoPPP (EPA on successes)",f3,1],
+               ["pts_per_drive","Points / drive",f2,1],["pts_per_opp","Points / scoring opp",f2,1],
+               ["field_pos","Avg start (yds to goal)",f2,-1],["havoc_rate","Havoc allowed",pc,-1],
+               ["plays","Plays (non-garbage)",v=>v==null?"—":v,0]];
+    h+=`<div class="boxhead adv" data-tip="Per-unit advanced stats from play-by-play, garbage-time filtered. Offense perspective: each column is that team's OFFENSE (havoc = disruptions allowed). Descriptive game stats — not Hashmark ratings.">
+      <div>${esc(tA.school)} off.</div><div>advanced ⓘ</div><div>${esc(tB.school)} off.</div></div>`;
+    ADV.forEach(([k,label,fmt,dir])=>{
+      const va=uA?uA[k]:null, vb=uB?uB[k]:null;
+      if(va==null&&vb==null) return;
+      let wa="",wb="";
+      if(dir&&va!=null&&vb!=null&&Number(va)!==Number(vb)){
+        const aWin=dir>0?Number(va)>Number(vb):Number(va)<Number(vb);
+        if(aWin)wa="win"; else wb="win"; }
+      h+=`<div class="boxrow"><div class="bva ${wa}">${fmt(va)}</div><div class="bk">${label}</div><div class="bvb ${wb}">${fmt(vb)}</div></div>`;
+    });
+  } else if(A.off_epa!=null||B.off_epa!=null){
     const ep=v=>v==null?"—":Number(v).toFixed(3);
     h+=`<div class="boxhead adv"><div>${esc(tA.school)}</div><div></div><div>${esc(tB.school)}</div></div>
       <div class="boxrow"><div class="bva">${ep(A.off_epa)}</div><div class="bk">EPA/play (off)</div><div class="bvb">${ep(B.off_epa)}</div></div>

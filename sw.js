@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v12";   // v12: 2026 CFP format + transition-team ineligibility
+const VERSION = "hashmark-v13";   // v13: advanced box scores, matchup share cards, accuracy tracker (flag-gated), disclaimers
 const SHELL = [
   "./",
   "./index.html",
