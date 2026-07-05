@@ -86,3 +86,23 @@ self.addEventListener("fetch", (e) => {
 
   // Everything else (Supabase live data): straight to the network, no caching.
 });
+
+
+// ---- P2-E6: web push (self-hosted VAPID). Payloads are Declarative-Web-Push-shaped;
+// this handler renders them on platforms that don't parse them natively. ----
+self.addEventListener("push", (e) => {
+  let n = {};
+  try { n = (e.data.json() || {}).notification || {}; } catch (_) { n = { title: "Hashmark", body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(n.title || "Hashmark", {
+    body: n.body || "", icon: "./icons/icon-192.png", badge: "./icons/icon-192.png",
+    data: { url: n.navigate || "https://hash-mark.com/#pickem" },
+  }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "https://hash-mark.com/";
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((ws) => {
+    for (const w of ws) { if (w.url.startsWith("https://hash-mark.com")) { w.focus(); w.navigate(url); return; } }
+    return clients.openWindow(url);
+  }));
+});

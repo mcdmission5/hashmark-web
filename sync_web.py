@@ -90,6 +90,27 @@ def check_engine():
     return 0
 
 
+BANNED_VOCAB = ["odds", " line ", "the line", "point spread", " spread", "units", "parlay",
+                "cover the", " +EV", "moneyline", "book says", " bet ", "wager"]
+
+
+def check_vocab():
+    """E3 compliance linter: no betting vocabulary in the pick'em/assist UI section."""
+    import re
+    html = open(os.path.join(ROOT, "..", "hashmark-app.html")).read()
+    m = re.search(r"P2-E2/E3/E6 — PICK'EM GROUPS[\s\S]*?// ---------- User-driven Simulator", html)
+    if not m:
+        print("vocab linter: pick'em section marker not found")
+        return 1
+    seg = m.group(0).lower()
+    hits = [w for w in BANNED_VOCAB if w.lower() in seg]
+    if hits:
+        print(f"VOCAB LINT FAIL: banned betting vocabulary in pick'em/assist UI: {hits}")
+        return 1
+    print("vocab linter OK — no betting vocabulary in pick'em/assist strings")
+    return 0
+
+
 def check():
     """Exit 1 if the deployed copies have drifted from the canonical hashmark-app.html."""
     want = sha(expected_html())
@@ -101,7 +122,8 @@ def check():
               "index.html directly), then re-commit.")
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
-    return check_engine()
+    rc = check_engine()
+    return rc or check_vocab()
 
 
 def main():

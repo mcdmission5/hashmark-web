@@ -743,7 +743,33 @@ async function api(q){
 //  user-scoped RLS (a user can read/write only their own row).
 // ===================================================================================
 let sb=null, authUser=null, authProfile=null, _authUid=null;
-const REDIRECT = location.origin + location.pathname;   // OAuth / magic-link return to this page
+// P2-E1: ALL sign-in routes through this helper pair — the future Capacitor swap (deep-link
+// scheme) touches exactly these two functions and nothing else.
+function getRedirectTarget(){ return location.origin + location.pathname; }
+function handleAuthReturn(){ /* PKCE return is consumed by detectSessionInUrl; scrub the hash
+  so tokens never linger in history. Capacitor: replace with App.addListener('appUrlOpen'). */
+  if(location.hash && /access_token|error_description/.test(location.hash))
+    history.replaceState(null, "", location.pathname + location.search);
+}
+const REDIRECT = getRedirectTarget();
+// Cloudflare Turnstile (abuse protection on signup/OTP) — set the site key to enable; the
+// widget renders in the auth modal and captchaToken rides every signup/OTP call.
+const TURNSTILE_SITE_KEY = "";           // owner pastes the widget site key to activate
+let _turnstileToken = null;
+function turnstileSlot(){
+  if(!TURNSTILE_SITE_KEY) return "";
+  if(!document.getElementById("cfts")){
+    const s=document.createElement("script"); s.id="cfts"; s.async=true;
+    s.src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=_tsReady";
+    window._tsReady=()=>{ const el=document.getElementById("tswidget");
+      if(el && window.turnstile) turnstile.render(el, {sitekey:TURNSTILE_SITE_KEY,
+        callback:t=>{_turnstileToken=t;}}); };
+    document.head.appendChild(s);
+  }
+  return `<div id="tswidget" style="margin:8px 0"></div>`;
+}
+function captchaOpts(){ return TURNSTILE_SITE_KEY && _turnstileToken
+  ? {captchaToken:_turnstileToken} : {}; }
 function initAuth(){
   if(!(window.supabase && window.supabase.createClient)) return;   // lib unavailable: stats still work
   try{
@@ -753,11 +779,12 @@ function initAuth(){
     // IMPORTANT: never await other Supabase auth calls *inside* this callback (it deadlocks the
     // auth lock) — defer with setTimeout(0) so ensureProfile()'s getSession() runs cleanly.
     sb.auth.onAuthStateChange((_evt, session)=>{ setTimeout(()=>applySession(session), 0); });
+    handleAuthReturn();
   }catch(e){ sb=null; }
 }
 async function applySession(session){
   authUser = session ? session.user : null;
-  if(authUser){ await ensureProfile(); } else { authProfile=null; }
+  if(authUser){ await ensureProfile(); refreshPushSub(); } else { authProfile=null; }
   syncAccountUI();
   const uid = authUser ? authUser.id : null;
   if(uid !== _authUid){ _authUid = uid; if(view==="2025" && app.querySelector(".hsec")) load(); }
@@ -769,7 +796,7 @@ async function authFetch(method, path, body){
   const tok = data && data.session && data.session.access_token;
   if(!tok) return { error:"no-session" };
   const res = await fetch(SUPABASE_URL+"/rest/v1/"+path, { method,
-    headers:{ apikey:KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=representation" },
+    headers:{ apikey:KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json", Prefer:"return=representation"+(path.includes("on_conflict")?",resolution=merge-duplicates":"") },
     body: body ? JSON.stringify(body) : undefined });
   if(!res.ok) return { error:"HTTP "+res.status, status:res.status };
   const json = res.status===204 ? null : await res.json().catch(()=>null);
@@ -807,12 +834,20 @@ function openAuthModal(){
     <button class="gbtn" data-auth="google"><span class="gico">G</span> Continue with Google</button>
     <div class="authdiv"><span>or use email</span></div>
     <input class="authin" id="authemail" type="email" placeholder="you@email.com" autocomplete="email" autocapitalize="off">
-    <input class="authin" id="authpw" type="password" placeholder="Password" autocomplete="current-password">
-    <button class="authprimary" data-auth="password">Sign in</button>
+    <div id="otpstep" style="display:none">
+      <input class="authin" id="authcode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code">
+      <button class="authprimary" data-auth="verifycode">Verify code</button>
+    </div>
+    <button class="authprimary" id="sendcodebtn" data-auth="sendcode">Email me a sign-in code</button>
+    ${turnstileSlot()}
     <div id="authmsg" class="authmsg"></div>
-    <div class="authrow"><button class="authlink" data-auth="signup">Create account</button>
-      <button class="authlink" data-auth="magic">Email me a magic link</button></div>
-    <button class="authlink center" data-auth="reset">Forgot password?</button>
+    <div class="authrow"><button class="authlink" data-auth="signupcode">New here? Create account</button>
+      <button class="authlink" data-auth="pwtoggle">Use password instead</button></div>
+    <div id="pwstep" style="display:none">
+      <input class="authin" id="authpw" type="password" placeholder="Password" autocomplete="current-password">
+      <button class="authprimary" data-auth="password">Sign in with password</button>
+      <button class="authlink center" data-auth="reset">Forgot password?</button>
+    </div>
     <div class="authfine">By continuing you agree to our <a href="privacy.html" target="_blank">Privacy Policy</a>. We never sell your data or use it for ads.</div>
   </div>`;
   document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
@@ -827,6 +862,7 @@ function openAccountMenu(){
     <div class="authhd"><div class="authttl">${esc(nm)}</div><button class="pickx" data-authx>✕</button></div>
     <div class="authsub">${esc(authUser.email||"")}</div>
     <button class="authrowbtn" data-auth="favpick">⭐ Favorite team <span>${favT?esc(favT):"Choose"}</span></button>
+    <button class="authrowbtn" data-auth="notifyprefs">🔔 Notifications</button>
     <button class="authrowbtn signout" data-auth="signout">Sign out</button>
     <div class="authfine">Manage or delete your account &amp; data anytime — see the <a href="privacy.html" target="_blank">Privacy Policy</a>.</div>
   </div>`;
@@ -836,22 +872,37 @@ async function authAction(kind){
   if(!sb) return;
   const email=(document.getElementById("authemail")||{}).value, pw=(document.getElementById("authpw")||{}).value;
   try{
-    if(kind==="google"){ const {error}=await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:REDIRECT}});
+    if(kind==="google"){ const {error}=await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:getRedirectTarget()}});
       if(error) authMsg(/provider|not enabled|unsupported/i.test(error.message)?"Google sign-in isn't enabled yet — use email below.":error.message); return; }
+    // E1: email OTP CODES, never links — immune to SafeLinks prefetch, cross-device PKCE
+    // breaks, and Capacitor webviews. sendcode = sign-IN only (shouldCreateUser:false);
+    // signupcode = the explicit account-creation path.
+    if(kind==="sendcode"||kind==="signupcode"){
+      if(!email) return authMsg("Enter your email first.");
+      const {error}=await sb.auth.signInWithOtp({email,
+        options:{shouldCreateUser:kind==="signupcode", ...captchaOpts()}});
+      if(error) return authMsg(/signups not allowed|user not found/i.test(error.message)
+        ?"No account with that email yet — tap “Create account” instead.":error.message);
+      const st=document.getElementById("otpstep"); if(st) st.style.display="block";
+      const sb2=document.getElementById("sendcodebtn"); if(sb2) sb2.textContent="Resend code";
+      authMsg("We emailed you a 6-digit code — enter it above.", true); return; }
+    if(kind==="verifycode"){
+      const code=((document.getElementById("authcode")||{}).value||"").trim();
+      if(!email||code.length!==6) return authMsg("Enter your email and the 6-digit code.");
+      const {error}=await sb.auth.verifyOtp({email, token:code, type:"email"});
+      if(error) return authMsg(/expired|invalid/i.test(error.message)
+        ?"That code didn't match or expired — send a fresh one.":error.message);
+      closeAuth(); return; }
+    if(kind==="pwtoggle"){ const p=document.getElementById("pwstep");
+      if(p) p.style.display = p.style.display==="none"?"block":"none"; return; }
     if(kind==="password"){ if(!email||!pw) return authMsg("Enter your email and password.");
       const {error}=await sb.auth.signInWithPassword({email,password:pw}); if(error) return authMsg(error.message); closeAuth(); return; }
-    if(kind==="signup"){ if(!email||!pw) return authMsg("Enter an email and a password (6+ characters).");
-      const {data,error}=await sb.auth.signUp({email,password:pw,options:{emailRedirectTo:REDIRECT}});
-      if(error) return authMsg(error.message);
-      if(data.session) closeAuth(); else authMsg("Account created — check your email to confirm, then sign in.", true); return; }
-    if(kind==="magic"){ if(!email) return authMsg("Enter your email to get a magic link.");
-      const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:REDIRECT}});
-      authMsg(error?error.message:"Magic link sent — check your email to finish signing in.", !error); return; }
     if(kind==="reset"){ if(!email) return authMsg("Enter your email to reset your password.");
-      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:REDIRECT});
+      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:getRedirectTarget()});
       authMsg(error?error.message:"Password-reset email sent.", !error); return; }
     if(kind==="signout"){ await sb.auth.signOut(); closeAuth(); return; }
     if(kind==="favpick"){ closeAuth(); await ensureTeamMeta(); teamPicker(null, id=>setFavoriteTeam(id)); return; }
+    if(kind==="notifyprefs"){ closeAuth(); openNotifyPrefs(); return; }
   }catch(e){ authMsg(e.message||"Something went wrong — try again."); }
 }
 async function setFavoriteTeam(teamId){
@@ -1156,6 +1207,8 @@ async function renderHome(){
     h += `<div class="hsec"><div class="hsectitle">Featured</div><div class="featrow">
       <div class="featcard" data-go="matchup"><div class="featic">⚔️</div><div class="featt">Matchup compare</div>
         <div class="featd">Pick two teams — side-by-side stats, head-to-head${SHOW_PREDICTIONS?" &amp; win probability":""}.</div><div class="featcta">Compare →</div></div>
+      <div class="featcard" data-go="pickem"><div class="featic">🏆</div><div class="featt">Pick'em groups</div>
+        <div class="featd">10 games a week, confidence 1–10, beat the Hashmark Model. Free forever.</div><div class="featcta">Play →</div></div>
       <div class="featcard" data-go="simulator"><div class="featic">🎯</div><div class="featt">Build your 12-team Playoff</div>
         <div class="featd">Pick winners → standings, champions${SHOW_PREDICTIONS?" &amp; playoff odds":""}.</div><div class="featcta">Simulate →</div></div>
       ${SHOW_HASHMARK_RATINGS?`<div class="featcard" data-go="checking"><div class="featic">🎯</div><div class="featt">Checking Our Work</div>
@@ -1181,13 +1234,15 @@ async function renderHome(){
     h += `</div>`;
     // footer
     h += `<div class="note"><b>Hashmark — official college-football stats &amp; analytics.</b> Team &amp; player stats, game logs, standings, situational splits, matchups and a season simulator — all official (CFBD). <b>Hashmark's own power ratings are coming soon.</b> ${BRAND_LINE}</div></div>`;
-    app.innerHTML = h; wireHome();
+    app.innerHTML = h; wireHome(); injectNews();
+    if(location.hash==="#pickem"){ history.replaceState(null,"",location.pathname); openPickem(); }
   }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
 }
 const HOME_GO = {explorer:()=>openStats("explorer"), leaders:()=>openStats("leaders"), players:()=>openStats("players"),
   standings:()=>openStandings(), conf:()=>openStats("conf"), splits:()=>openStats("splits"),
   matchup:()=>openMatchup(), simulator:()=>openSimulator(), scores:()=>openScores(), preseason:()=>openPreseason(),
-  accuracy:()=>openAccuracy(), methodology:()=>openMethodology(), checking:()=>openCheckingWork()};
+  accuracy:()=>openAccuracy(), methodology:()=>openMethodology(), checking:()=>openCheckingWork(),
+  pickem:()=>openPickem()};
 
 // ---- W2.5 (dormant behind SHOW_HASHMARK_RATINGS): methodology + Checking Our Work ----
 // The 5 required methodology elements (research: scale anchors; inputs; adjustments incl.
@@ -1695,6 +1750,355 @@ function shareMatchupCard(a, b, paPct, edges){
   }, "image/png");
 }
 
+// ---- P2-E5: Ask Hashmark (DARK until the owner keys the edge function) ----
+const ASK_URL = SUPABASE_URL.replace(".supabase.co", ".supabase.co") + "/functions/v1/ask-hashmark";
+let askEnabled = null;
+async function askProbe(){
+  if(askEnabled !== null) return askEnabled;
+  try{ const r = await fetch(ASK_URL, {method:"POST", headers:{"Content-Type":"application/json",
+    apikey:KEY}, body:JSON.stringify({question:"__probe__", team_ids:[]})});
+    askEnabled = r.status !== 503 && r.status !== 404;
+  }catch(_e){ askEnabled = false; }
+  return askEnabled;
+}
+async function openAsk(teamId){
+  if(!(await askProbe())){ return; }
+  if(!authUser){ openAuthModal(); return; }
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
+  ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Ask Hashmark</div>
+    <button class="pickx" data-authx>✕</button></div>
+    <div class="authsub">Answers come only from Hashmark's public stats — season-labeled, source-cited.
+    No betting talk, ever.</div>
+    <div id="askout" style="min-height:60px;font-size:13px;white-space:pre-wrap"></div>
+    <input class="authin" id="askq" placeholder="e.g. How did Indiana do last season?">
+    <button class="authprimary" id="askgo">Ask</button>
+    <div class="authfine">For entertainment only. ${""}</div></div>`;
+  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  ov.querySelector("#askgo").onclick=async()=>{
+    const q=ov.querySelector("#askq").value.trim(); if(!q) return;
+    const out=ov.querySelector("#askout"); out.textContent="…";
+    const { data } = await sb.auth.getSession();
+    const r = await fetch(ASK_URL, {method:"POST", headers:{"Content-Type":"application/json",
+      apikey:KEY, Authorization:"Bearer "+(data.session&&data.session.access_token)},
+      body:JSON.stringify({question:q, team_ids: teamId?[Number(teamId)]:[]})});
+    if(!r.ok){ const e=await r.json().catch(()=>({})); out.textContent=e.error||("Error "+r.status); return; }
+    out.textContent="";
+    const reader=r.body.getReader(); const dec=new TextDecoder();
+    while(true){ const {done,value}=await reader.read(); if(done) break;
+      out.textContent += dec.decode(value); }
+  };
+}
+
+// ---- P2-E4: news modules (headline + source + outbound link ONLY — the legal envelope) ----
+function newsRow(n){
+  const age = Math.round((Date.now()-new Date(n.published_at))/36e5);
+  const rel = age<1?"now":age<24?`${age}h`:`${Math.round(age/24)}d`;
+  return `<div class="boxrow"><div class="bva"><small>${rel}</small></div>
+    <div class="bk" style="text-align:left"><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer"
+      style="color:var(--text);text-decoration:none">${esc(n.headline)}</a></div>
+    <div class="bvb"><small>${esc(n.source)}</small></div></div>`;
+}
+async function injectNews(){
+  try{
+    const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=8`);
+    if(!items.length) return;
+    const anchor = app.querySelector(".hsec");
+    if(!anchor) return;
+    const div = document.createElement("div");
+    div.className = "hsec";
+    div.innerHTML = `<div class="hsectitle">Latest <small>around college football</small></div>`
+      + items.slice(0,6).map(newsRow).join("")
+      + `<div class="secsub" style="padding:4px 2px 0">Headlines link to the original source.</div>`;
+    anchor.parentNode.insertBefore(div, anchor.nextSibling);
+  }catch(_e){}
+}
+async function teamNewsHTML(teamId){
+  try{
+    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=5`);
+    if(items.length)
+      return `<div class="sec"><div class="sectitle">Team news</div>`+items.map(newsRow).join("")+`</div>`;
+    const t = teamMeta && teamMeta[teamId];
+    return `<div class="sec"><div class="sectitle">Team news</div>
+      <div class="secsub">No recent headlines${t&&t.conference?` — see ${esc(t.conference)} coverage on the home page`:""}.</div></div>`;
+  }catch(_e){ return ""; }
+}
+
+// ===================================================================================
+//  P2-E2/E3/E6 — PICK'EM GROUPS + PICK ASSIST + retention hooks. Prize-free forever;
+//  entertainment only; no betting vocabulary. Picks lock SERVER-SIDE at kickoff (RLS);
+//  this UI only mirrors those truths. One pick board per user per week, counts in all
+//  their groups (Yahoo-style single entry).
+// ===================================================================================
+const VAPID_PUBLIC_KEY = "BAnoWkIFho4NtLjU7Jf63Zp_DypISgMby6IfUoNJVnr7DTpBSpOtsB9Yd9XM9lYobV16w98Lv6q4I5fRJ9tQhzg";
+const MODEL_UID = "11111111-1111-1111-1111-111111111111";
+let pk = {season: SEASON_SCHED, week: null, slate: [], picks: {}, conf: {}, groups: [], tb: null};
+
+async function openPickem(){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading pick'em…</div>`;
+  try{
+    await ensureTeamMeta();
+    const slates = await api(`pickem_slates?select=season,week,status,tiebreak_game_id&season=eq.${pk.season}&status=neq.draft&order=week.desc&limit=1`);
+    if(!slates.length){ renderPickemEmpty(); return; }
+    pk.week = slates[0].week; pk.tbGame = slates[0].tiebreak_game_id;
+    const [slate, myPicks, myGroups] = await Promise.all([
+      api(`pickem_slate_games?select=*&season=eq.${pk.season}&week=eq.${pk.week}&order=kickoff.asc`),
+      authUser ? authFetch("GET", `pickem_picks?select=game_id,pick_team,confidence&season=eq.${pk.season}&week=eq.${pk.week}&user_id=eq.${authUser.id}`) : {data:[]},
+      authUser ? authFetch("GET", `pickem_groups?select=id,name,invite_code,commissioner`) : {data:[]} ]);
+    pk.slate = slate;
+    pk.picks = {}; pk.conf = {};
+    (myPicks.data||[]).forEach(p=>{ if(p.pick_team!=null) pk.picks[p.game_id]=p.pick_team; pk.conf[p.game_id]=p.confidence; });
+    pk.groups = myGroups.data||[];
+    renderPickem();
+  }catch(e){
+    app.innerHTML = backHeader("Pick'em")+`<div class="list"><div class="err">Couldn't load pick'em: ${esc(e.message||e)}</div></div>`;
+    document.querySelector(".back").onclick=load;
+  }
+}
+function renderPickemEmpty(){
+  app.innerHTML = backHeader("Pick'em")+`<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">Hashmark Pick'em</div><div class="secsub">
+    The first weekly slate publishes Sunday, Aug 30 — 10 marquee games, pick winners,
+    rank your confidence 1–10, and try to beat the Hashmark Model. Private groups with
+    friends, season standings with your two worst weeks dropped. Free forever, no prizes,
+    for entertainment only.</div></div>
+    <div class="note">${BRAND_LINE}</div></div>`;
+  document.querySelector(".back").onclick=load;
+}
+const pkLocked = g => new Date(g.kickoff) <= new Date();
+function renderPickem(){
+  const signedIn = !!authUser;
+  let h = `<div class="cmp">${backHeader("Pick'em")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 6px"><b>${pk.season} · Week ${pk.week}</b> — pick the winner of all 10, then rank your confidence
+    (10 = most sure). Correct picks score their rank; misses score zero. Picks lock at each game's kickoff and stay hidden from
+    others until then.</div>`;
+  if(!signedIn) h += `<div class="sec"><div class="secsub">Sign in to make picks and join groups — every stat stays free without it.</div>
+    <div class="navrow"><button class="navbtn primary" data-acct="signin">Sign in</button></div></div>`;
+  // ---- E3: Pick Assist (plain-language, gambling-free) ----
+  const unlocked = pk.slate.filter(g=>!pkLocked(g));
+  if(signedIn && unlocked.length){
+    h += `<div class="sec"><div class="sectitle">Pick Assist</div><div class="secsub">
+      The Model's board is shown on each game below. Its most confident call this week:
+      ${pkAssistTop()} A confidence tip: your top-5 slots carry over half your possible
+      points — put the picks you're most sure of there.</div>
+      <div class="navrow"><button class="navbtn" id="usemodel">📋 Use the Model's board</button>
+      <button class="navbtn primary" id="savepicks">💾 Save my picks</button></div>
+      <div id="pkmsg" class="authmsg"></div></div>`;
+  }
+  h += `<div class="sec"><div class="sectitle">This week's slate</div>`;
+  pk.slate.forEach(g=>{
+    const locked = pkLocked(g), my = pk.picks[g.game_id], conf = pk.conf[g.game_id];
+    const t = id => (teamMeta[id]||{}).school || (id===g.home_team_id?g.home_team:g.away_team);
+    const modelSide = g.model_pick_team===g.home_team_id ? g.home_team : g.away_team;
+    const model100 = g.model_conf ? `${esc(modelSide)} — the Model's #${g.model_conf} confidence` : "";
+    const crowd = locked && g.crowd_home_pct!=null
+      ? ` · crowd: ${Math.round(g.crowd_home_pct)}% ${esc(g.home_team)}` : "";
+    const upset = locked && g.model_pick_team && g.crowd_home_pct!=null
+      && ((g.model_pick_team===g.home_team_id) !== (g.crowd_home_pct>=50))
+      ? ` · <b>Upset Watch:</b> Model and crowd disagree` : "";
+    const res = g.result_team ? ` · <b>${esc(t(g.result_team))} won</b>` : (g.voided ? " · voided (postponed)" : "");
+    h += `<div class="sec" style="padding:8px 10px;margin:6px 0">
+      <div class="secsub" style="padding:0 0 6px">${new Date(g.kickoff).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})}
+        ${locked?" · 🔒 locked":""}${crowd}${upset}${res}</div>
+      <div class="navrow">
+        <button class="navbtn ${my===g.away_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.away_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.away_team)}</button>
+        <span style="align-self:center;color:var(--text2)">@</span>
+        <button class="navbtn ${my===g.home_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.home_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.home_team)}</button>
+        <select class="navbtn" data-pkconf="${g.game_id}" ${locked||!signedIn?"disabled":""}>
+          <option value="">rank</option>
+          ${Array.from({length:10},(_,i)=>10-i).map(v=>`<option value="${v}" ${conf===v?"selected":""}>${v}</option>`).join("")}
+        </select></div>
+      ${model100?`<div class="secsub" style="padding:4px 0 0">Model: ${model100}</div>`:""}
+      ${pk.tbGame===g.game_id && signedIn ? `<div class="navrow" style="padding-top:4px">
+        <input class="authin" style="max-width:190px" id="tbguess" type="number" min="0" max="200"
+          placeholder="Tiebreak: total points" ${locked?"disabled":""}></div>`:""}
+    </div>`;
+  });
+  h += `</div>`;
+  // ---- groups ----
+  if(signedIn){
+    h += `<div class="sec"><div class="sectitle">My groups</div>`;
+    if(pk.groups.length){ pk.groups.forEach(g=>{
+      h += `<div class="boxrow"><div class="bva">${esc(g.name)}</div>
+        <div class="bk">invite code: <b>${esc(g.invite_code)}</b></div>
+        <div class="bvb"><button class="navbtn" data-grpboard="${g.id}">standings</button></div></div>`; });
+    } else h += `<div class="secsub">No groups yet — create one and share the invite code.</div>`;
+    h += `<div class="navrow"><button class="navbtn" id="newgroup">➕ Create group</button>
+      <button class="navbtn" id="joingroup">🔗 Join with code</button>
+      <button class="navbtn" data-go="pkboard">🌍 Global board</button></div></div>`;
+  }
+  h += `<div class="note"><b>Hashmark Pick'em — free forever, no prizes.</b> Weekly slate of 10, straight-up winners with
+    confidence ranks. Season standings drop your two worst weeks. The Hashmark Model plays in every group — beating it earns
+    the week's badge. For entertainment only. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML = h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.team); renderPickem(); });
+  const um=document.getElementById("usemodel");
+  if(um) um.onclick=()=>{ pk.slate.forEach(g=>{ if(!pkLocked(g)&&g.model_pick_team){ pk.picks[g.game_id]=g.model_pick_team; pk.conf[g.game_id]=g.model_conf; } }); renderPickem(); };
+  document.querySelectorAll("[data-pkconf]").forEach(s=>s.onchange=()=>{ pk.conf[Number(s.dataset.pkconf)]=Number(s.value)||undefined; });
+  const sv=document.getElementById("savepicks"); if(sv) sv.onclick=savePicks;
+  const ng=document.getElementById("newgroup"); if(ng) ng.onclick=createGroup;
+  const jg=document.getElementById("joingroup"); if(jg) jg.onclick=joinGroupPrompt;
+  document.querySelectorAll("[data-grpboard]").forEach(b=>b.onclick=()=>openPickemBoard(b.dataset.grpboard));
+  const gb=document.querySelector('[data-go="pkboard"]'); if(gb) gb.onclick=()=>openPickemBoard(null);
+}
+function pkAssistTop(){
+  const g = pk.slate.filter(x=>x.model_conf).sort((a,b)=>b.model_conf-a.model_conf)[0];
+  if(!g) return "";
+  const side = g.model_pick_team===g.home_team_id ? g.home_team : g.away_team;
+  const other = g.model_pick_team===g.home_team_id ? g.away_team : g.home_team;
+  // "wins X of 100" phrasing derived from the model's rank position (approximate, honest)
+  const wins = 60 + g.model_conf*3;   // rank 10 ≈ "wins about 90 of 100"
+  return `<b>${esc(side)}</b> over ${esc(other)} — a matchup it wins about ${wins} of 100 times.`;
+}
+async function savePicks(){
+  const msg=t=>{const m=document.getElementById("pkmsg"); if(m){m.textContent=t; m.className="authmsg";}};
+  const chosen = Object.entries(pk.conf).filter(([g,c])=>c);
+  const vals = chosen.map(([g,c])=>c);
+  if(new Set(vals).size !== vals.length) return msg("Each confidence rank 1–10 can be used once.");
+  let saved=0, rejected=0;
+  for(const g of pk.slate){
+    if(pkLocked(g)) continue;
+    const team = pk.picks[g.game_id], conf = pk.conf[g.game_id];
+    if(!team || !conf) continue;
+    const r = await authFetch("POST", "pickem_picks?on_conflict=season,week,game_id,user_id",
+      {season:pk.season, week:pk.week, game_id:g.game_id, user_id:authUser.id,
+       pick_team:team, confidence:conf});
+    if(r.error){ rejected++; } else saved++;
+  }
+  const tb=document.getElementById("tbguess");
+  if(tb && tb.value) await authFetch("POST", "pickem_tiebreaks?on_conflict=season,week,user_id",
+    {season:pk.season, week:pk.week, user_id:authUser.id, total_points_guess:Number(tb.value)});
+  msg(rejected? `${saved} saved · ${rejected} rejected (locked or duplicate rank).`
+              : `${saved} pick${saved===1?"":"s"} saved. Good luck!`);
+  if(saved) softAskPush();
+}
+async function createGroup(){
+  const name = prompt("Group name (3–40 characters):");
+  if(!name) return;
+  const r = await authFetch("POST", "pickem_groups", {name, commissioner:authUser.id});
+  if(r.error) alert("Couldn't create group: "+r.error);
+  else openPickem();
+}
+async function joinGroupPrompt(){
+  const code = prompt("Enter the invite code:");
+  if(!code) return;
+  const { data } = await sb.auth.getSession();
+  const tok = data && data.session && data.session.access_token;
+  const res = await fetch(SUPABASE_URL+"/rest/v1/rpc/join_group", {method:"POST",
+    headers:{apikey:KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json"},
+    body: JSON.stringify({code: code.trim()})});
+  if(!res.ok) alert("That code didn't match a group.");
+  else openPickem();
+}
+async function openPickemBoard(groupId){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading standings…</div>`;
+  let members=null;
+  if(groupId && authUser){
+    const r = await authFetch("GET", `pickem_members?select=user_id&group_id=eq.${groupId}`);
+    members = new Set((r.data||[]).map(m=>m.user_id));
+  }
+  const board = await api(`pickem_season_board?select=*&season=eq.${pk.season}&order=counted_points.desc&limit=200`);
+  const rows = members ? board.filter(r=>members.has(r.user_id)||r.user_id===MODEL_UID) : board;
+  let h = `<div class="cmp">${backHeader(groupId?"Group standings":"Global board")}<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">${pk.season} season · ${groupId?"group":"everyone"} <small>2 worst weeks dropped</small></div>`;
+  if(!rows.length) h += `<div class="secsub">No scored weeks yet — standings appear after Week 1 finals.</div>`;
+  rows.forEach((r,i)=>{
+    const model = r.user_id===MODEL_UID;
+    h += `<div class="boxrow"><div class="bva">${i+1}</div>
+      <div class="bk">${model?"🤖 ":""}${esc(r.display_name)}${r.streak_weeks>=3?` · 🔥${r.streak_weeks}w`:""}${r.beat_model_ct?` · beat the Model ×${r.beat_model_ct}`:""}</div>
+      <div class="bvb">${r.counted_points} <small>(${r.total_points} raw)</small></div></div>`;
+  });
+  h += `</div><div class="navrow"><button class="navbtn" id="sharebrag">📤 Share my week</button></div>
+    <div class="note">For entertainment only — no prizes, ever. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=openPickem;
+  const sb2=document.getElementById("sharebrag");
+  if(sb2) sb2.onclick=()=>sharePickemCard(rows);
+}
+function sharePickemCard(rows){
+  const me = authUser && rows.find(r=>r.user_id===authUser.id);
+  const idx = me ? rows.indexOf(me) : -1;
+  const beat = idx>=0 ? Math.round(100*(rows.length-1-idx)/Math.max(1,rows.length-1)) : null;
+  const cv=document.createElement("canvas"); cv.width=1200; cv.height=630;
+  const x=cv.getContext("2d");
+  x.fillStyle="#0B0F14"; x.fillRect(0,0,1200,630);
+  x.fillStyle="#E8B94C"; x.font="700 40px Inter, system-ui, sans-serif"; x.fillText("Hashmark Pick'em", 48, 80);
+  x.fillStyle="#EDF2F7"; x.font="800 64px Inter, system-ui, sans-serif";
+  x.fillText(me ? `Ahead of ${beat}% of the board` : "Join my pick'em group", 48, 300);
+  x.fillStyle="#8A97A6"; x.font="500 30px Inter, system-ui, sans-serif";
+  x.fillText(me&&me.beat_model_ct?`Beat the Hashmark Model ×${me.beat_model_ct} this season`:"10 games a week · beat the Model", 48, 370);
+  x.fillStyle="#5B6875"; x.font="500 22px Inter, system-ui, sans-serif";
+  x.fillText("hash-mark.com · free forever · entertainment only", 48, 590);
+  cv.toBlob(async blob=>{
+    if(!blob) return;
+    const file=new File([blob],"hashmark-pickem.png",{type:"image/png"});
+    try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file]}); return; } }catch(_e){}
+    const u=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=u; a.download="hashmark-pickem.png"; a.click(); setTimeout(()=>URL.revokeObjectURL(u),5000);
+  });
+}
+// ---- E6: push soft-ask (two-step, only after picks submitted — never on load) ----
+async function softAskPush(){
+  try{
+    if(!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if(Notification.permission !== "default") return;
+    if(localStorage.getItem("pk_push_asked")) return;
+    localStorage.setItem("pk_push_asked","1");
+    const ov=document.createElement("div"); ov.className="authov";
+    ov.innerHTML=`<div class="authsheet"><div class="authttl">Want a nudge before kickoff?</div>
+      <div class="authsub">We'll send at most three notifications a week: when the slate opens
+      (Thu), if your picks aren't in before Saturday's first kickoff, and Sunday's results.
+      You can turn each one off any time.</div>
+      <button class="authprimary" id="pushyes">Turn on notifications</button>
+      <button class="authlink center" id="pushno">Not now</button></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("#pushno").onclick=()=>ov.remove();
+    ov.querySelector("#pushyes").onclick=async()=>{ ov.remove(); await subscribePush(); };
+  }catch(_e){}
+}
+async function subscribePush(){
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({userVisibleOnly:true,
+      applicationServerKey: Uint8Array.from(atob(VAPID_PUBLIC_KEY.replace(/-/g,"+").replace(/_/g,"/") + "=".repeat((4-VAPID_PUBLIC_KEY.length%4)%4)), c=>c.charCodeAt(0))});
+    const j = sub.toJSON();
+    await authFetch("POST", "push_subscriptions?on_conflict=user_id,endpoint",
+      {user_id:authUser.id, endpoint:j.endpoint, keys:j.keys, last_seen:new Date().toISOString()});
+  }catch(e){ /* user dismissed or unsupported */ }
+}
+async function openNotifyPrefs(){
+  const r = await authFetch("GET", `profiles?select=notify_prefs&id=eq.${authUser.id}`);
+  const p = (r.data && r.data[0] && r.data[0].notify_prefs) || {};
+  const items = [["push_slate","Push: slate is live (Thu)"],["push_lock","Push: picks lock soon (Sat)"],
+    ["push_results","Push: results (Sun)"],["email_reminder","Email: weekly reminder"],
+    ["email_digest","Email: Sunday digest"]];
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
+  ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Notifications</div>
+    <button class="pickx" data-authx>✕</button></div>
+    <div class="authsub">All optional — three touches a week maximum, and unsubscribing is one tap, always honored immediately.</div>
+    ${items.map(([k,l])=>`<label class="authrowbtn" style="display:flex;justify-content:space-between">
+      <span>${l}</span><input type="checkbox" data-npref="${k}" ${p[k]!==false?"checked":""}></label>`).join("")}
+  </div>`;
+  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  ov.querySelectorAll("[data-npref]").forEach(cb=>cb.onchange=async()=>{
+    const cur={...p}; ov.querySelectorAll("[data-npref]").forEach(c=>cur[c.dataset.npref]=c.checked);
+    await authFetch("PATCH", `profiles?id=eq.${authUser.id}`, {notify_prefs:cur});
+  });
+}
+// re-validate subscription freshness on open (iOS silently expires)
+async function refreshPushSub(){
+  try{
+    if(!authUser || !("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if(sub){ const j=sub.toJSON();
+      await authFetch("PATCH", `push_subscriptions?user_id=eq.${authUser.id}&endpoint=eq.${encodeURIComponent(j.endpoint)}`,
+        {last_seen:new Date().toISOString()}); }
+  }catch(_e){}
+}
+
 // ---------- User-driven Simulator: pick winners -> standings, champions, 12-team CFP field ----------
 // Deterministic core uses NO model. The optional odds layer (SHOW_PREDICTIONS) Monte-Carlos the
 // unpicked games with the precomputed matchup_winprob (probabilities only — never a rating).
@@ -1987,6 +2391,12 @@ async function openDetail(teamId){
 // team stat page: official record + schedule + FULL stat profile (ranks) + leaders + preseason
 // honors. The "ratings coming soon" slot sits ready for the Hashmark rating section (SHOW=false).
 function renderDetailPreview(t, ap, ts, games, teamId, ext){
+  setTimeout(async()=>{ try{
+    const html = await teamNewsHTML(teamId);
+    const note = app.querySelector(".note");
+    if(html && note){ const d=document.createElement("div"); d.innerHTML=html;
+      note.parentNode.insertBefore(d.firstChild, note); }
+  }catch(_e){} }, 0);
   if(!t){ app.innerHTML = `<div class="dtop"><button class="back">←</button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=load; return; }
@@ -2306,7 +2716,7 @@ function renderDetail(teamId, comps, board, poll, ts, games){
 //   noisy single 2025 fold). NEVER pull these from prediction_log: in-season rows carry a
 //   beta calibrated to a DIFFERENT zdiff scale (11.096) and would inflate every margin.
 //   sync_web.py --check verifies these against the model repo on every deploy.
-const ENGINE = { beta: 9.429, hfa: 2.017, sigma: 16.75 };
+const ENGINE = { beta: 9.429, hfa: 2.005, sigma: 16.75 };
 async function ensureEngine(){ return ENGINE; }
 function erf(x){ // Abramowitz & Stegun 7.1.26, |err| < 1.5e-7
   const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
