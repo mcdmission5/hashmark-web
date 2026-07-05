@@ -1158,8 +1158,10 @@ async function renderHome(){
         <div class="featd">Pick two teams — side-by-side stats, head-to-head${SHOW_PREDICTIONS?" &amp; win probability":""}.</div><div class="featcta">Compare →</div></div>
       <div class="featcard" data-go="simulator"><div class="featic">🎯</div><div class="featt">Build your 12-team Playoff</div>
         <div class="featd">Pick winners → standings, champions${SHOW_PREDICTIONS?" &amp; playoff odds":""}.</div><div class="featcta">Simulate →</div></div>
-      ${SHOW_HASHMARK_RATINGS?`<div class="featcard" data-go="accuracy"><div class="featic">🎯</div><div class="featt">Accuracy tracker</div>
-        <div class="featd">Every projection logged &amp; scored — incl. vs the closing line.</div><div class="featcta">See the record →</div></div>`:""}
+      ${SHOW_HASHMARK_RATINGS?`<div class="featcard" data-go="checking"><div class="featic">🎯</div><div class="featt">Checking Our Work</div>
+        <div class="featd">Every projection logged &amp; scored — incl. vs the closing line. Grade validation, forecast archive.</div><div class="featcta">See the record →</div></div>
+      <div class="featcard" data-go="methodology"><div class="featic">📐</div><div class="featt">How our ratings work</div>
+        <div class="featd">Scale, inputs, adjustments — and what these numbers can't honestly claim.</div><div class="featcta">Methodology →</div></div>`:""}
     </div></div>`;
     // preseason module
     const cons=ext.filter(r=>r.ranking_type==="all_american"&&r.source==="Consensus");
@@ -1185,7 +1187,94 @@ async function renderHome(){
 const HOME_GO = {explorer:()=>openStats("explorer"), leaders:()=>openStats("leaders"), players:()=>openStats("players"),
   standings:()=>openStandings(), conf:()=>openStats("conf"), splits:()=>openStats("splits"),
   matchup:()=>openMatchup(), simulator:()=>openSimulator(), scores:()=>openScores(), preseason:()=>openPreseason(),
-  accuracy:()=>openAccuracy()};
+  accuracy:()=>openAccuracy(), methodology:()=>openMethodology(), checking:()=>openCheckingWork()};
+
+// ---- W2.5 (dormant behind SHOW_HASHMARK_RATINGS): methodology + Checking Our Work ----
+// The 5 required methodology elements (research: scale anchors; inputs; adjustments incl.
+// explicit garbage-time policy; admitted limitations in plain language; update cadence).
+function openMethodology(){
+  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="cmp">${backHeader("How our ratings work")}<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">The scale</div><div class="secsub">
+      Every grade runs 0–100 with <b>50 = FBS average</b> among qualified players/units that season.
+      Tiers: <b>90+</b> elite · <b>70s</b> starter-quality · <b>50s</b> average. A percentile within
+      position is shown next to each grade. A season grade is computed from every play at once —
+      it is <b>not</b> the average of weekly grades.</div></div>
+    <div class="sec"><div class="sectitle">What goes in</div><div class="secsub">
+      Play-by-play expected-points value (EPA) for 2014–present, official box scores, rosters and
+      schedules. Team ratings add opponent-adjusted efficiency, results, returning production,
+      transfers, coaching and special teams. Player grades use only plays attributed to that player
+      in the public data.</div></div>
+    <div class="sec"><div class="sectitle">Adjustments</div><div class="secsub">
+      <b>Opponent adjustment:</b> ridge regression — production is judged against who it came
+      against. <b>Garbage time:</b> team efficiency <i>excludes</i> garbage-time plays
+      (score-margin thresholds by quarter); player grades <i>down-weight</i> them to one-third
+      instead of deleting them. <b>Small samples:</b> every rate is shrunk toward average until the
+      sample earns trust; explosiveness terms are shrunk hardest (they are the least stable).
+      <b>Home field</b> is fit from data every season, not assumed.</div></div>
+    <div class="sec"><div class="sectitle">What these numbers can't do</div><div class="secsub">
+      Public college football data has no player-tracking, charting, or snap-participation layer.
+      So player grades measure <b>value produced in a role — including the surrounding
+      context</b>: a QB grade includes his line and receivers; a rushing grade includes the blocking;
+      a receiving grade includes the QB. Pass protection is a <b>QB-line hybrid</b> (sacks are partly
+      pocket behavior). Our secondary rating is <b>pass defense</b>, not "coverage" — the
+      pass-rush/coverage split needs charting data that doesn't exist publicly. Individual linemen
+      and defenders get production counts, not grades, because credit can't honestly be divided.
+      </div></div>
+    <div class="sec"><div class="sectitle">Update cadence</div><div class="secsub">
+      Grades update weekly after games, Sunday. Early-week numbers are <b>preliminary</b> and can
+      move with data corrections; a season's numbers are final after the national championship.
+      Every projection we make is logged before kickoff and scored after — see
+      <span data-go="checking" style="color:var(--amber);font-weight:600">Checking Our Work</span>.</div></div>
+    <div class="note"><b>Performance evaluation only.</b> Grades are analysis of past play — not
+      projections of player futures and not framed for wagering of any kind. ${BRAND_LINE}</div>
+  </div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
+}
+
+async function openCheckingWork(){
+  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading our record…</div>`;
+  let acc=[], arch=[];
+  try{ acc = await api(`accuracy_summary?select=*&order=season.desc`); }catch(e){}
+  try{ arch = await api(`playoff_forecast_archive?select=asof,season,team_id,make_cfp&order=asof.desc&limit=600`); }catch(e){}
+  let h=`<div class="cmp">${backHeader("Checking Our Work")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">The full, honest record: every projection logged before
+    kickoff, scored after — including against the Vegas closing line (context only; we publish no lines).
+    Nobody public sustainably beats the close; honest is the bar.</div>`;
+  const f2=v=>v==null?"—":Number(v).toFixed(2), f3=v=>v==null?"—":Number(v).toFixed(3);
+  const mine = acc.filter(r=>r.model_version==="wf-inseason-v1");
+  if(mine.length){
+    h+=`<div class="sec"><div class="sectitle">Game projections — weekly in-season model</div>
+      <div class="boxhead"><div>season</div><div>record</div><div>vs close</div></div>`;
+    mine.forEach(r=>{ h+=`<div class="boxrow"><div class="bva">${r.season} <small>(${r.n})</small></div>
+      <div class="bk">MAE ${f2(r.mae)} · Brier ${f3(r.brier)} · SU ${r.su_pct==null?"—":Number(r.su_pct).toFixed(1)}%</div>
+      <div class="bvb">${r.vs_close_mae==null?"—":"+"+f2(r.vs_close_mae)+" MAE"}</div></div>`; });
+    h+=`</div>`;
+  }
+  h+=`<div class="sec"><div class="sectitle">Grade validation (updated each offseason)</div><div class="secsub">
+    QB value vs ESPN's independent QBR metric: correlation <b>+0.84</b> (2024), <b>+0.77</b> (2025).
+    Year-over-year stability: QB <b>+0.45</b>, rushing <b>+0.29</b> — college seasons are half noise,
+    and our shrinkage is tuned for that. Kicker value shows <b>little year-to-year persistence</b>
+    (+0.08) — that's a real property of kicking, and we say so rather than hide it.
+    Committee-ranking model (playoff odds): walk-forward rank correlation <b>0.90</b>, top-12 hit rate
+    <b>87%</b> across 2015–2025.</div></div>`;
+  if(arch.length){
+    const dates=[...new Set(arch.map(r=>r.asof))];
+    h+=`<div class="sec"><div class="sectitle">Playoff forecast archive</div><div class="secsub">
+      Every weekly playoff forecast is archived from the moment it's published (${dates.length}
+      snapshot${dates.length>1?"s":""} so far, starting ${dates[dates.length-1]}) — so our season-long
+      record can be audited, not curated after the fact.</div></div>`;
+  }
+  h+=`<div class="note"><b>Checking Our Work.</b> Methodology: <span data-go="methodology"
+    style="color:var(--amber);font-weight:600">how our ratings work</span>. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
+}
 
 // U4.2 — transparent accuracy tracker (ships WITH the ratings reveal; SHOW_HASHMARK_RATINGS
 // gates both the home card and this page). nfelo's trust-engine pattern: the model's honest,
@@ -2491,14 +2580,23 @@ async function openPlayer(aid){
       api(`player_index?select=athlete_id,player,team_id,position,last_season,categories&athlete_id=eq.${aid}`),
       api(`player_season?select=season,category,stats,team_id,position&athlete_id=eq.${aid}&order=season.desc`),
       api(`player_game_stats?select=game_id,week,season_type,opponent_id,home_away,category,stats&athlete_id=eq.${aid}&order=week.asc`) ]);
-    renderPlayer(aid, idx[0], seasons, games);
+    // W2.5 — Hashmark player grades (DORMANT until the reveal flag flips)
+    let grades=[];
+    if(SHOW_HASHMARK_RATINGS && idx[0] && idx[0].player){
+      const nm=encodeURIComponent(idx[0].player);
+      const [qb, pv] = await Promise.all([
+        api(`qb_value_rating?select=season,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]),
+        api(`player_value_rating?select=season,role,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]) ]);
+      grades=[...qb.map(r=>({...r, role:"qb"})), ...pv];
+    }
+    renderPlayer(aid, idx[0], seasons, games, grades);
   }catch(e){
     app.innerHTML = backHeader("Player")+`<div class="list"><div class="err">Couldn't load player: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=load;
   }
 }
 function _catStat(stats, t){ const v=stats&&stats[t]; return v==null||v===""?null:v; }
-function renderPlayer(aid, idx, seasons, games){
+function renderPlayer(aid, idx, seasons, games, grades){
   if(!idx){ app.innerHTML=backHeader("Player")+`<div class="list"><div class="err">Player not found.</div></div>`;
     document.querySelector(".back").onclick=load; return; }
   const t=teamMeta[idx.team_id]||{school:"—"}, c=hx(t.color);
@@ -2508,6 +2606,27 @@ function renderPlayer(aid, idx, seasons, games){
       <div><div class="pnamebig">${esc(idx.player||"")}</div>
         <div class="pmeta">${esc(idx.position||"")}${idx.position?" · ":""}<span class="pteamlink" data-team="${idx.team_id}">${esc(t.school)}</span></div></div>
     </div>`;
+  // W2.5 — Hashmark grades (flag-gated; labeling per policy: value-in-role, tier names,
+  // qualifier badges, performance evaluation only — no odds vocabulary near player numbers)
+  if(SHOW_HASHMARK_RATINGS && grades && grades.length){
+    const tier=v=>v>=90?"elite":v>=70?"starter-quality":v>=45?"average":"below average";
+    const ROLE_LBL={qb:"QB value — includes OL/receiver context",
+                    rush:"Rush value — includes OL/scheme context",
+                    receiving:"Target value — includes QB/scheme context",
+                    kicker:"Kicking — points vs distance-based expectation"};
+    h+=`<div class="sec"><div class="sectitle">Hashmark grades <small>0–100 · 50 = FBS average</small></div>`;
+    grades.slice(0,6).forEach(g=>{
+      const badge = g.qualified
+        ? `<small>${Math.round(g.percentile||0)}th pct · ${tier(g.rating)}</small>`
+        : `<small class="qbadge">below qualifying threshold — shown, not ranked</small>`;
+      h+=`<div class="boxrow"><div class="bva ${g.qualified&&g.rating>=70?"win":""}">${g.qualified?Number(g.rating).toFixed(0):"·"+Number(g.rating).toFixed(0)+"·"}</div>
+        <div class="bk">${g.season} · ${ROLE_LBL[g.role]||g.role} ${badge}</div>
+        <div class="bvb"><small>${g.plays} plays</small></div></div>`;
+    });
+    h+=`<div class="secsub" style="padding:4px 2px 2px">Performance evaluation of past play —
+      value produced in role, not isolated skill. <span data-go="methodology"
+      style="color:var(--amber);font-weight:600">How grades work</span>.</div></div>`;
+  }
   // season stat blocks (most recent first), each clearly season-labeled
   const bySeason={}; seasons.forEach(r=>{ (bySeason[r.season]=bySeason[r.season]||[]).push(r); });
   Object.keys(bySeason).map(Number).sort((a,b)=>b-a).forEach(s=>{
