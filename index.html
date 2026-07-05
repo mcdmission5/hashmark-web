@@ -2213,11 +2213,11 @@ function renderDetail(teamId, comps, board, poll, ts, games){
 // SD ~18.1). P(win)=Phi(margin/sigma), exactly as ratings.win_probability() does.
 // PINNED (HFA-fix brief, 2026-07-03) — must equal build_winprob.py's serving params:
 //   beta 9.429 pts/board-z (refit pooled 2016-23 on the board scale; the old 8.342 was
-//   stale) · hfa 1.957 (inseason_params.json, pooled through 2024 — the old 2.975 was a
+//   stale) · hfa 2.017 (inseason_params.json, pooled through 2024 — the old 2.975 was a
 //   noisy single 2025 fold). NEVER pull these from prediction_log: in-season rows carry a
 //   beta calibrated to a DIFFERENT zdiff scale (11.096) and would inflate every margin.
 //   sync_web.py --check verifies these against the model repo on every deploy.
-const ENGINE = { beta: 9.429, hfa: 1.957, sigma: 16.75 };
+const ENGINE = { beta: 9.429, hfa: 2.017, sigma: 16.75 };
 async function ensureEngine(){ return ENGINE; }
 function erf(x){ // Abramowitz & Stegun 7.1.26, |err| < 1.5e-7
   const s=x<0?-1:1; x=Math.abs(x); const t=1/(1+0.3275911*x);
