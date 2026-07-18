@@ -91,24 +91,79 @@ def check_engine():
 
 
 BANNED_VOCAB = ["odds", " line ", "the line", "point spread", " spread", "units", "parlay",
-                "cover the", " +EV", "moneyline", "book says", " bet ", "wager"]
+                "cover the", " +EV", "moneyline", "money line", "book says", " bet ", "wager",
+                # design-foundation §2 additions (redesign brief)
+                "underdog", " favored", "payout", " fade ", " juice ", " chalk"]
+
+# every file the linters scan (v2 ships alongside until cutover)
+LINT_FILES = [os.path.join("..", "hashmark-app.html"), "index.html", "index-v2.html",
+              os.path.join("www", "index.html")]
 
 
 def check_vocab():
-    """E3 compliance linter: no betting vocabulary in the pick'em/assist UI section."""
+    """Compliance linter: no betting vocabulary in the pick'em/assist UI section of any
+    app file (v1 canonical + deployed + v2)."""
     import re
-    html = open(os.path.join(ROOT, "..", "hashmark-app.html")).read()
-    m = re.search(r"P2-E2/E3/E6 — PICK'EM GROUPS[\s\S]*?// ---------- User-driven Simulator", html)
-    if not m:
-        print("vocab linter: pick'em section marker not found")
-        return 1
-    seg = m.group(0).lower()
-    hits = [w for w in BANNED_VOCAB if w.lower() in seg]
-    if hits:
-        print(f"VOCAB LINT FAIL: banned betting vocabulary in pick'em/assist UI: {hits}")
-        return 1
-    print("vocab linter OK — no betting vocabulary in pick'em/assist strings")
-    return 0
+    rc = 0
+    for rel in LINT_FILES:
+        p = os.path.join(ROOT, rel)
+        if not os.path.exists(p):
+            continue
+        html = open(p).read()
+        m = re.search(r"P2-E2/E3/E6 — PICK'EM GROUPS[\s\S]*?// ---------- User-driven Simulator", html)
+        if not m:
+            print(f"vocab linter: pick'em section marker not found in {rel}")
+            rc = 1
+            continue
+        seg = m.group(0).lower()
+        hits = [w for w in BANNED_VOCAB if w.lower() in seg]
+        if hits:
+            print(f"VOCAB LINT FAIL [{rel}]: banned betting vocabulary: {hits}")
+            rc = 1
+    if not rc:
+        print("vocab linter OK — no betting vocabulary in pick'em/assist strings (all app files)")
+    return rc
+
+
+# Emoji/pictograph blocks — HARD RULE (redesign brief): no emoji anywhere in the app;
+# icons are the monoline SVG set. Arrows/dingbats/geometric glyphs count (they render as
+# emoji on mobile); typographic punctuation (dashes, quotes, middots) stays legal.
+EMOJI_RANGES = [(0x1F000, 0x1FAFF), (0x2190, 0x21FF), (0x2300, 0x23FF), (0x2460, 0x24FF),
+                (0x25A0, 0x25FF), (0x2600, 0x27BF), (0x2900, 0x2BFF),
+                (0xFE0F, 0xFE0F), (0x200D, 0x200D)]
+
+
+# v1 is grandfathered (still the deployed app, replaced at cutover). At cutover: set
+# EMOJI_ENFORCE_ALL = True so EVERY file hard-fails — this line is on the cutover checklist.
+EMOJI_ENFORCE_ALL = False
+EMOJI_HARD_FILES = {"index-v2.html"}
+
+
+def check_emoji():
+    """Build fails on ANY emoji codepoint (v2 now; every file once cutover flips the flag)."""
+    rc = 0
+    for rel in LINT_FILES:
+        p = os.path.join(ROOT, rel)
+        if not os.path.exists(p):
+            continue
+        s = open(p).read()
+        hits = []
+        for i, ch in enumerate(s):
+            cp = ord(ch)
+            if any(lo <= cp <= hi for lo, hi in EMOJI_RANGES):
+                line = s.count("\n", 0, i) + 1
+                hits.append(f"U+{cp:04X} {ch!r} line {line}")
+                if len(hits) >= 8:
+                    break
+        if hits:
+            hard = EMOJI_ENFORCE_ALL or rel in EMOJI_HARD_FILES
+            print(f"EMOJI LINT {'FAIL' if hard else 'WARN (v1 grandfathered until cutover)'} "
+                  f"[{rel}]: {hits}")
+            rc = rc or (1 if hard else 0)
+    if not rc:
+        print("emoji linter OK — zero emoji codepoints in enforced files "
+              f"({'ALL' if EMOJI_ENFORCE_ALL else ', '.join(sorted(EMOJI_HARD_FILES))})")
+    return rc
 
 
 def check():
@@ -123,7 +178,7 @@ def check():
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
     rc = check_engine()
-    return rc or check_vocab()
+    return rc or check_vocab() or check_emoji()
 
 
 def main():

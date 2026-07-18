@@ -16,27 +16,31 @@
 <meta name="apple-mobile-web-app-title" content="Hashmark" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0B0F14; --surface:#141A22; --surface2:#1C2530; --line:#2A3542;
-    --text:#E8EEF4; --text2:#9AA8B6; --amber:#F6B43C; --teal:#56C2C0;
+    --bg:#0B0F14; --surface:#121820; --surface2:#151C25; --line:rgba(255,255,255,.07);
+    --line2:rgba(255,255,255,.12); --tabbar:#0D1218;
+    --text:#E9EEF4; --text2:#93A1B0; --text3:#5C6B7A; --legal:#3F4C5A;
+    --amber:#FFB020; --amber-tint:rgba(255,176,32,.13);
+    --teal:#35D9C4; --teal-tint:rgba(53,217,196,.12);
+    --live:#FF5C5C; --loss:#E05B5B;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);
-    font-family:"Hanken Grotesk",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    font-family:"Barlow",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   .wrap{max-width:460px;margin:0 auto;min-height:100vh;
     background:linear-gradient(180deg,#0B0F14 0%,#0c1117 100%);
     border-left:1px solid var(--line);border-right:1px solid var(--line)}
   header{position:sticky;top:0;z-index:5;padding:18px 18px 0;
     background:rgba(11,15,20,.9);backdrop-filter:blur(10px)}
-  .wordmark{font-family:"Archivo",sans-serif;font-weight:800;font-size:26px;letter-spacing:-.5px}
+  .wordmark{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:26px;letter-spacing:-.5px}
   .wordmark .dot{color:var(--amber)}
   /* season toggle */
   .toggle{display:flex;gap:6px;margin:14px 0 10px;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;padding:4px}
   .toggle button{flex:1;background:transparent;border:0;color:var(--text2);
-    font-family:"Hanken Grotesk";font-weight:700;font-size:13px;padding:9px 6px;
+    font-family:"Barlow";font-weight:700;font-size:13px;padding:9px 6px;
     border-radius:9px;cursor:pointer;line-height:1.2}
   .toggle button small{display:block;font-weight:500;font-size:10px;opacity:.8;margin-top:2px}
   .toggle button.on{background:var(--amber);color:#10130c}
@@ -46,25 +50,25 @@
   .fdline{height:2px;background:var(--amber);box-shadow:0 0 12px rgba(246,180,60,.5);border-radius:2px}
   .list{padding:6px 12px 90px}
   .row{display:flex;align-items:center;gap:12px;padding:12px 8px;border-bottom:1px solid var(--line)}
-  .rank{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:15px;
+  .rank{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:15px;
     color:var(--text2);width:26px;text-align:right;flex:none}
   .row.top .rank{color:var(--amber)}
   .crest{width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;letter-spacing:.3px;
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.3px;
     border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 -8px 14px rgba(0,0,0,.28)}
   .meta{flex:1;min-width:0}
   .team{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .conf{color:var(--text2);font-size:12px;margin-top:2px}
   .rating{text-align:right;flex:none}
-  .rval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:17px;
+  .rval{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px;
     border-bottom:2px solid var(--amber);padding-bottom:1px}
   .rlbl{color:var(--text2);font-size:10px;letter-spacing:.4px;margin-top:3px;text-transform:uppercase}
   .splits{display:flex;gap:8px;justify-content:flex-end;margin-top:5px}
-  .chip{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--text2)}
+  .chip{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text2)}
   .chip b{color:var(--teal);font-weight:700}
   .chip.d b{color:#7CA8FF}
   .note{color:var(--text2);font-size:11px;line-height:1.5;padding:16px 20px 30px;border-top:1px solid var(--line)}
-  .loading,.err{color:var(--text2);text-align:center;padding:50px 20px;font-family:"JetBrains Mono",monospace;font-size:13px}
+  .loading,.err{color:var(--text2);text-align:center;padding:50px 20px;font-family:"IBM Plex Mono",monospace;font-size:13px}
   .err{color:#E5705C}
   [data-tip]{cursor:help}
   .tip{position:fixed;z-index:60;max-width:264px;background:var(--surface2);
@@ -84,22 +88,22 @@
   .dtop .wordmark{font-size:20px}
   .dhead{display:flex;align-items:center;gap:14px;padding:8px 18px 4px}
   .dcrest{width:60px;height:60px;border-radius:16px;flex:none;display:grid;place-items:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:19px;letter-spacing:.3px;
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:19px;letter-spacing:.3px;
     border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 -10px 18px rgba(0,0,0,.3)}
-  .dschool{font-family:"Archivo",sans-serif;font-weight:800;font-size:23px;letter-spacing:-.3px;line-height:1.1}
+  .dschool{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:23px;letter-spacing:-.3px;line-height:1.1}
   .dconf{color:var(--text2);font-size:13px;margin-top:4px}
   .dconf .rk{color:var(--amber);font-weight:700}
   .drating{text-align:center;padding:10px 18px 18px}
-  .dbig{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:46px;line-height:1;
+  .dbig{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:46px;line-height:1;
     border-bottom:3px solid var(--amber);display:inline-block;padding-bottom:5px}
   .dlbl{color:var(--text2);font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;margin-top:9px}
   .od{display:flex;gap:12px;padding:6px 18px 14px}
   .odcard{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 14px;text-align:center}
   .odk{font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text2)}
-  .odv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:22px;margin-top:4px}
+  .odv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:22px;margin-top:4px}
   .odcard.o .odv{color:var(--teal)} .odcard.d .odv{color:#7CA8FF}
   .sec{padding:4px 18px}
-  .sectitle{font-family:"Archivo",sans-serif;font-weight:700;font-size:15px;margin:16px 0 2px}
+  .sectitle{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:15px;margin:16px 0 2px}
   .secsub{color:var(--text2);font-size:11.5px;margin-bottom:8px;line-height:1.5}
   .driver{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
   .dvk{width:84px;flex:none;font-weight:600;font-size:13px}
@@ -107,12 +111,12 @@
   .dvbar i{position:absolute;top:0;bottom:0;border-radius:6px}
   .dvbar i.pos{background:var(--amber)} .dvbar i.neg{background:#5C6B7A}
   .dvbar .mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--line)}
-  .dvv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;width:54px;text-align:right;flex:none}
+  .dvv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:13px;width:54px;text-align:right;flex:none}
   .ctx{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:4px 0;
     background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 10px}
   .ctxcol{text-align:center;flex:1}
   .ctxcol .y{color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
-  .ctxcol .v{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:17px;margin-top:4px}
+  .ctxcol .v{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px;margin-top:4px}
   .ctxcol .vs{font-size:11px;color:var(--text2);font-weight:500;margin-top:2px}
   .ctxarrow{color:var(--amber);font-size:22px;flex:none}
   .prem{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;
@@ -130,37 +134,37 @@
   .bnav{display:flex;gap:6px;margin:0 0 9px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;padding:4px}
   .bnav button{flex:1;background:transparent;border:0;color:var(--text2);
-    font-family:"Hanken Grotesk";font-weight:700;font-size:12.5px;padding:8px 4px;
+    font-family:"Barlow";font-weight:700;font-size:12.5px;padding:8px 4px;
     border-radius:8px;cursor:pointer;line-height:1.1}
   .bnav button.on{background:var(--surface2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
   .bnav button.on.off{color:var(--teal)} .bnav button.on.def{color:#7CA8FF}
   .confbar{display:flex;gap:7px;overflow-x:auto;padding:1px 0 10px;scrollbar-width:none}
   .confbar::-webkit-scrollbar{display:none}
   .confpill{flex:none;background:var(--surface);border:1px solid var(--line);color:var(--text2);
-    font-family:"Hanken Grotesk";font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;
+    font-family:"Barlow";font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;
     cursor:pointer;white-space:nowrap}
   .confpill.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
   .cstr{margin:2px 0 4px}
-  .cstrtitle{font-family:"Archivo",sans-serif;font-weight:700;font-size:12.5px;color:var(--text2);
+  .cstrtitle{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12.5px;color:var(--text2);
     text-transform:uppercase;letter-spacing:.4px;margin:2px 2px 6px}
   .cstrrow{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line);cursor:pointer}
-  .cstrrow .ci{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12px;color:var(--text2);width:18px;text-align:right;flex:none}
+  .cstrrow .ci{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:12px;color:var(--text2);width:18px;text-align:right;flex:none}
   .cstrrow .cn{flex:none;width:108px;font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cstrrow .cn small{color:var(--text2);font-weight:500;font-size:10px}
   .cstrrow .cbar{flex:1;height:8px;background:var(--surface2);border-radius:5px;position:relative;overflow:hidden}
   .cstrrow .cbar i{position:absolute;top:0;bottom:0;border-radius:5px}
   .cstrrow .cbar i.neg{background:#5C6B7A;opacity:.8}
-  .cstrrow .cvv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12px;width:54px;text-align:right;flex:none}
+  .cstrrow .cvv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:12px;width:54px;text-align:right;flex:none}
   .csum{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 15px;margin:0 0 8px}
   .csum .ch{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-  .csum .cnm{font-family:"Archivo",sans-serif;font-weight:800;font-size:18px;line-height:1.1}
+  .csum .cnm{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:18px;line-height:1.1}
   .csum .crk{color:var(--amber);font-weight:700;font-size:12px;flex:none}
-  .csum .cv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:16px;margin-top:7px}
+  .csum .cv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:16px;margin-top:7px}
   .csum .csub{color:var(--text2);font-size:11.5px;margin-top:2px;line-height:1.4}
   /* ---- compare affordances (rankings + team detail) ---- */
   .cmpcta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
     background:var(--surface);border:1px solid var(--amber);color:var(--amber);
-    font-family:"Hanken Grotesk";font-weight:700;font-size:13px;padding:11px;border-radius:12px;
+    font-family:"Barlow";font-weight:700;font-size:13px;padding:11px;border-radius:12px;
     cursor:pointer;margin:0 0 8px}
   .cmpcta .ar{font-size:15px;line-height:1}
   .cmpcta:hover{background:rgba(246,180,60,.08)}
@@ -169,7 +173,7 @@
   .cmptop{display:flex;align-items:center;gap:12px;padding:14px 16px 4px;position:sticky;top:0;z-index:5;
     background:rgba(11,15,20,.92);backdrop-filter:blur(10px)}
   .cmptop .wordmark{font-size:20px}
-  .cmptag{font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;color:var(--text2);
+  .cmptag{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;color:var(--text2);
     margin-left:auto;letter-spacing:.4px;text-transform:uppercase}
   /* team pickers */
   .pickrow{display:flex;align-items:stretch;gap:9px;padding:12px 14px 4px}
@@ -177,26 +181,26 @@
     padding:13px 8px 11px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;text-align:center}
   .pick:hover{border-color:var(--amber)}
   .pick .pcrest{width:54px;height:54px;border-radius:15px;display:grid;place-items:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:16px;letter-spacing:.3px;
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:16px;letter-spacing:.3px;
     border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 -9px 15px rgba(0,0,0,.28)}
   .pick .pname{font-weight:700;font-size:14.5px;line-height:1.15;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .pick .pconf{color:var(--text2);font-size:11px}
   .pick .pchg{color:var(--amber);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
     border:1px solid var(--line);border-radius:20px;padding:2px 9px;margin-top:1px}
-  .pickvs{align-self:center;font-family:"Archivo",sans-serif;font-weight:800;color:var(--text2);font-size:13px;flex:none}
+  .pickvs{align-self:center;font-family:"Barlow Condensed",sans-serif;font-weight:800;color:var(--text2);font-size:13px;flex:none}
   /* venue toggle (reuses .toggle) */
   .venue{margin:6px 14px 2px}
   .venuesub{text-align:center;color:var(--text2);font-size:11.5px;margin:3px 0 4px;line-height:1.4}
   .venuesub b{color:var(--text);font-weight:600}
   /* headline */
   .headcard{margin:9px 14px 4px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px 15px 14px}
-  .hl{font-family:"Archivo",sans-serif;font-weight:800;font-size:19px;line-height:1.25;text-align:center}
+  .hl{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:19px;line-height:1.25;text-align:center}
   .hl .by{color:var(--amber)}
   .hlsub{text-align:center;color:var(--text2);font-size:12px;margin-top:5px}
   .hlsub b{color:var(--text)}
   .wpbar{display:flex;height:30px;border-radius:9px;overflow:hidden;margin-top:13px;border:1px solid var(--line)}
-  .wpbar .seg{display:flex;align-items:center;font-family:"JetBrains Mono",monospace;font-weight:700;
+  .wpbar .seg{display:flex;align-items:center;font-family:"IBM Plex Mono",monospace;font-weight:700;
     font-size:12.5px;padding:0 10px;min-width:0;overflow:hidden;white-space:nowrap}
   .wpbar .seg.b{justify-content:flex-end}
   .wplbl{display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:var(--text2)}
@@ -207,14 +211,14 @@
   .cmpk{text-align:center;font-size:11px;color:var(--text2);font-weight:700;margin-bottom:7px;
     text-transform:uppercase;letter-spacing:.5px}
   .cmpgrid{display:grid;grid-template-columns:54px 1fr 1fr 54px;align-items:center;gap:6px}
-  .cmpval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12.5px;color:var(--text2);letter-spacing:-.4px}
+  .cmpval{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:12.5px;color:var(--text2);letter-spacing:-.4px}
   .cmpval.a{text-align:right} .cmpval.b{text-align:left}
   .cmpval.win{color:var(--amber)}
   .cmptrk{height:10px;background:var(--surface2);border-radius:6px;position:relative;overflow:hidden}
   .cmptrk i{position:absolute;top:0;bottom:0;border-radius:6px}
   .cmptrk.l i{right:0} .cmptrk.r i{left:0}
   .cmptrk i.neg{background:#5C6B7A !important;opacity:.7}
-  .cmprow.big .cmpk{font-size:12.5px;color:var(--text);font-family:"Archivo",sans-serif}
+  .cmprow.big .cmpk{font-size:12.5px;color:var(--text);font-family:"Barlow Condensed",sans-serif}
   .cmprow.big .cmpval{font-size:14.5px}
   .cmprow.big .cmptrk{height:12px}
   /* team-picker overlay */
@@ -225,7 +229,7 @@
     display:flex;flex-direction:column;overflow:hidden}
   .pickhd{display:flex;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
   .picksearch{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;
-    color:var(--text);font-family:"Hanken Grotesk";font-size:14px;padding:11px 12px;outline:none}
+    color:var(--text);font-family:"Barlow";font-size:14px;padding:11px 12px;outline:none}
   .picksearch:focus{border-color:var(--amber)}
   .pickx{background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:10px;
     width:42px;font-size:15px;cursor:pointer;flex:none}
@@ -234,13 +238,13 @@
     cursor:pointer;border-radius:8px}
   .pitem:hover{background:var(--surface2)}
   .pitem.dis{opacity:.32;pointer-events:none}
-  .pitem .prk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12px;
+  .pitem .prk{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:12px;
     color:var(--text2);width:24px;text-align:right;flex:none}
   .pitem .pcr{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:11px;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14)}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:11px;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14)}
   .pitem .pnm{font-weight:600;font-size:14px}
   .pitem .pcf{color:var(--text2);font-size:11px;margin-top:1px}
-  .pitem .pov{margin-left:auto;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;color:var(--text2)}
+  .pitem .pov{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:13px;color:var(--text2)}
   /* ---- preview mode (Hashmark ratings hidden) ---- */
   .previewbar{background:var(--surface);border:1px solid var(--line);border-radius:12px;
     padding:11px 13px;font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 8px}
@@ -251,20 +255,20 @@
   .soonmark{width:84px;height:84px;border-radius:22px;display:grid;place-items:center;
     background:linear-gradient(160deg,#1b2430,#141a22);border:1px solid var(--line);
     box-shadow:inset 0 -10px 22px rgba(0,0,0,.35);margin-bottom:18px}
-  .soonmark span{font-family:"Archivo",sans-serif;font-weight:800;font-size:34px;color:var(--amber)}
+  .soonmark span{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:34px;color:var(--amber)}
   .soonmark span .dot{color:var(--amber)}
   .soonbadge{background:rgba(246,180,60,.14);color:var(--amber);border:1px solid rgba(246,180,60,.4);
     font-weight:700;font-size:10px;letter-spacing:.6px;padding:4px 11px;border-radius:20px;margin-bottom:13px}
-  .soontitle{font-family:"Archivo",sans-serif;font-weight:800;font-size:22px;letter-spacing:-.3px;line-height:1.2}
+  .soontitle{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:22px;letter-spacing:-.3px;line-height:1.2}
   .soontext{color:var(--text2);font-size:13px;line-height:1.6;margin-top:10px;max-width:330px}
   .soonbtn{margin-top:20px;background:var(--amber);color:#10130c;border:0;border-radius:11px;
-    font-family:"Hanken Grotesk";font-weight:700;font-size:13.5px;padding:12px 20px;cursor:pointer}
+    font-family:"Barlow";font-weight:700;font-size:13.5px;padding:12px 20px;cursor:pointer}
   .soondiv{height:1px;background:var(--line);width:100%;max-width:300px;margin:24px 0 0}
   .soonfoot{color:var(--text2);font-size:11px;margin-top:14px;max-width:330px;line-height:1.55}
   .soonfoot b{color:var(--text)}
   /* team-detail factual info (preview) */
   .apstand{margin:10px 18px 4px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;text-align:center}
-  .apstand .apnum{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:30px}
+  .apstand .apnum{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:30px}
   .apstand .apnum.nr{font-size:20px;color:var(--text2)}
   .apstand .aplbl{color:var(--text2);font-size:11px;letter-spacing:.4px;text-transform:uppercase;margin-top:6px}
   .infocard{display:flex;gap:10px;padding:8px 18px 4px}
@@ -274,48 +278,48 @@
   /* ---- official record + schedule ---- */
   .recordcard{margin:10px 16px 2px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
   .recline{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
-  .recbig{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:30px;line-height:1}
+  .recbig{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:30px;line-height:1}
   .recctx{color:var(--text2);font-size:12.5px;line-height:1.5}
   .recctx b{color:var(--text);font-weight:600}
   .recctx .ap{color:var(--amber);font-weight:700}
   .recstats{display:flex;gap:9px;margin-top:13px}
   .recstat{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:9px 8px;text-align:center}
   .recstat .rk{font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:var(--text2)}
-  .recstat .rv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:16px;margin-top:3px}
+  .recstat .rv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:16px;margin-top:3px}
   .schedrow{display:flex;align-items:center;gap:11px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
   .schedrow.bowl{background:rgba(246,180,60,.05)}
-  .schedres{width:22px;flex:none;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;text-align:center}
+  .schedres{width:22px;flex:none;font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:13px;text-align:center}
   .schedres.w{color:#5BD39A} .schedres.l{color:#E5705C} .schedres.wk{color:var(--text2);font-size:12px;font-weight:600}
-  .schedcr{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:"Archivo",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14)}
+  .schedcr{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14)}
   .schedopp{flex:1;min-width:0}
   .schedopp .ha{color:var(--text2);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px}
   .schedopp .on{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .schedsc{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;flex:none;color:var(--text2);text-align:right}
+  .schedsc{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:14px;flex:none;color:var(--text2);text-align:right}
   .schedsc b{color:var(--text)}
   .schedsc .up{font-size:11px;color:var(--text2);font-weight:500}
   /* scoreboard rows (scores/schedule view) */
   .scgame{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 12px 8px;margin:7px 0}
   .scgame .gm{display:flex;justify-content:space-between;color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:.4px;padding:0 0 3px}
   .scteam{display:flex;align-items:center;gap:9px;padding:5px 0;cursor:pointer}
-  .scteam .scc{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;border:1px solid rgba(255,255,255,.14)}
+  .scteam .scc{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;border:1px solid rgba(255,255,255,.14)}
   .scteam .nm{flex:1;font-weight:600;font-size:14px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .scteam .pts{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:17px;color:var(--text2);flex:none}
+  .scteam .pts{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px;color:var(--text2);flex:none}
   .scteam.win .nm,.scteam.win .pts{color:var(--text)}
   .scteam.win .pts{position:relative}
-  .scteam.win .pts::after{content:"◂";color:var(--amber);font-size:11px;position:absolute;right:-13px;top:3px}
+  .scteam.win .pts::after{content:'<svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg>';color:var(--amber);font-size:11px;position:absolute;right:-13px;top:3px}
   .scvs{color:var(--text2);font-size:11px;text-align:center;padding:3px 0 1px}
   /* ---- Stats Hub ---- */
   .navrow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
   .navrow .navbtn{flex:1 1 28%}
   .navbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 8px;
     border-radius:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);
-    font-family:"Archivo",sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
+    font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
   .navbtn .nic{font-size:15px}
   .navbtn.primary{background:linear-gradient(180deg,#1d2735,#141c27);border-color:#3a4a5e}
   .navbtn:hover{border-color:var(--amber)}
   .searchwrap{position:relative;margin:0 0 12px}
   .searchwrap input{width:100%;padding:13px 14px 13px 40px;border-radius:13px;border:1px solid var(--line);
-    background:var(--surface);color:var(--text);font-family:"Hanken Grotesk",sans-serif;font-size:14px;outline:none}
+    background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;font-size:14px;outline:none}
   .searchwrap input:focus{border-color:var(--amber)}
   .searchwrap .si{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:14px}
   .searchres{position:absolute;left:0;right:0;top:50px;z-index:30;background:var(--surface2);
@@ -323,17 +327,17 @@
   .sropt{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line)}
   .sropt:hover{background:var(--surface)}
   .sropt .src{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;flex:none}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;flex:none}
   .sropt .snm{font-weight:600;font-size:13.5px}
   .sropt .scf{font-size:11px;color:var(--text2);margin-left:auto}
   /* stat sub-nav */
   .statnav{display:flex;gap:6px;overflow-x:auto;margin:0 0 14px;-webkit-overflow-scrolling:touch}
   .statnav button{white-space:nowrap;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
-    background:var(--surface);color:var(--text2);font-family:"Hanken Grotesk",sans-serif;font-weight:600;font-size:12.5px;cursor:pointer}
+    background:var(--surface);color:var(--text2);font-family:"Barlow",sans-serif;font-weight:600;font-size:12.5px;cursor:pointer}
   .statnav button.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
   /* team stat profile */
   .statgrp{margin:0 0 16px}
-  .sgtitle{font-family:"Archivo",sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;
+  .sgtitle{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;
     text-transform:uppercase;color:var(--text2);margin:0 2px 7px;display:flex;align-items:center;gap:8px}
   .sgtitle .sd{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
   .sgtitle .sd.off{color:var(--teal)} .sgtitle .sd.def{color:#7CA8FF}
@@ -342,69 +346,69 @@
   .statrow:first-of-type{border-top:1px solid var(--line);border-radius:12px 12px 0 0}
   .statrow:last-of-type{border-radius:0 0 12px 12px}
   .statrow .snm{font-size:13px;flex:1;min-width:0;cursor:help}
-  .statrow .sval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;width:64px;text-align:right;flex:none}
-  .statrow .srk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:11px;width:38px;text-align:right;flex:none}
+  .statrow .sval{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:14px;width:64px;text-align:right;flex:none}
+  .statrow .srk{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:11px;width:38px;text-align:right;flex:none}
   .statbar{width:46px;height:6px;border-radius:3px;background:#222c38;flex:none;overflow:hidden}
   .statbar i{display:block;height:100%;border-radius:3px}
-  .statrow .dlt{font-family:"JetBrains Mono",monospace;font-size:10px;width:30px;text-align:right;flex:none}
+  .statrow .dlt{font-family:"IBM Plex Mono",monospace;font-size:10px;width:30px;text-align:right;flex:none}
   .r-elite{color:#4ED88A} .r-good{color:#9BD86B} .r-avg{color:var(--text2)} .r-below{color:#E8A84C} .r-poor{color:#E2685F}
   .bg-elite{background:#4ED88A} .bg-good{background:#9BD86B} .bg-avg{background:#6b7888} .bg-below{background:#E8A84C} .bg-poor{background:#E2685F}
   .up{color:#4ED88A} .down{color:#E2685F}
   /* team leaders + honors */
   .leadrow{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
-  .leadrow .lpos{font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;letter-spacing:.05em;
+  .leadrow .lpos{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;letter-spacing:.05em;
     color:var(--text2);width:62px;flex:none;text-transform:uppercase}
   .leadrow .lnm{font-weight:600;font-size:14px;flex:1;min-width:0}
   .leadrow .lnm small{color:var(--text2);font-weight:500;font-size:11.5px}
-  .leadrow .lst{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;text-align:right;flex:none;color:var(--amber)}
+  .leadrow .lst{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:13px;text-align:right;flex:none;color:var(--amber)}
   .leadrow .lst small{display:block;color:var(--text2);font-weight:500;font-size:10px}
   .leadrow .lnote{color:var(--text2);font-weight:500;font-size:12.5px;font-style:italic}
   /* ---- game log + box score ---- */
-  .glseason{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.06em;
+  .glseason{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:10px;letter-spacing:.06em;
     text-transform:uppercase;color:var(--text2);margin:10px 2px 7px}
   .glrow{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;margin-bottom:7px;cursor:pointer}
   .glrow:hover{border-color:var(--amber)}
-  .glrow .glres{font-family:"Archivo",sans-serif;font-weight:800;font-size:14px;width:18px;flex:none;text-align:center}
+  .glrow .glres{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:14px;width:18px;flex:none;text-align:center}
   .glrow .glres.w{color:#5BD39A} .glrow .glres.l{color:#E5705C} .glrow .glres.wk{color:var(--text2)}
   .glcr{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;flex:none}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:10px;flex:none}
   .glrow .glopp{flex:1;min-width:0}
   .glrow .glopp .ha{font-size:10px;color:var(--text2);font-weight:600}
   .glrow .glopp .on{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .glrow .glsc{font-family:"JetBrains Mono",monospace;font-size:13.5px;text-align:right;flex:none}
-  .glrow .glsc small{display:block;color:var(--text2);font-size:10px;font-weight:500;font-family:"Hanken Grotesk",sans-serif}
+  .glrow .glsc{font-family:"IBM Plex Mono",monospace;font-size:13.5px;text-align:right;flex:none}
+  .glrow .glsc small{display:block;color:var(--text2);font-size:10px;font-weight:500;font-family:"Barlow",sans-serif}
   .glrow .chev{color:var(--text2);font-size:18px;flex:none}
   .boxscore{display:flex;align-items:stretch;gap:8px;padding:14px 12px;background:var(--surface);
     border:1px solid var(--line);border-radius:14px;margin:4px 0 6px}
   .boxteam{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:0}
   .boxcr{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;flex:none}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;flex:none}
   .boxteam .bnm{font-weight:700;font-size:13px;text-align:center;white-space:nowrap;overflow:hidden;
     text-overflow:ellipsis;max-width:100%}
-  .boxteam .bpts{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:26px;color:var(--text2)}
+  .boxteam .bpts{font-family:"IBM Plex Mono",monospace;font-weight:800;font-size:26px;color:var(--text2)}
   .boxteam .bpts.win{color:var(--text)}
   .boxmid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;padding:0 2px}
   .boxmid .bvs{font-size:11px;color:var(--text2);font-weight:700}
   .boxmid .bseason{font-size:9.5px;color:var(--text2);text-align:center;max-width:80px}
   .boxhead{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:6px;padding:6px 4px 7px;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;
     color:var(--text2);text-align:center}
   .boxhead div:first-child{text-align:left} .boxhead div:last-child{text-align:right}
   .boxhead.adv{border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
   .boxrow{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:6px;padding:6px 4px;border-bottom:1px solid rgba(42,53,66,.5)}
-  .boxrow .bva{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:left}
-  .boxrow .bvb{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:right}
+  .boxrow .bva{font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:left}
+  .boxrow .bvb{font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:right}
   .boxrow .bk{font-size:11.5px;color:var(--text2);text-align:center;align-self:center}
   .boxrow .win{color:var(--amber);font-weight:700}
-  .boxpcat{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  .boxpcat{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
     color:var(--teal);margin:11px 2px 5px}
   .boxptbl{font-size:12px}
   .boxprow{display:grid;grid-template-columns:1.6fr repeat(5,0.7fr);gap:4px;padding:5px 4px;align-items:center}
   .boxprow .bpn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .boxprow div:not(.bpn){font-family:"JetBrains Mono",monospace;text-align:right;font-size:11.5px}
-  .boxprow.head{color:var(--text2);font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;
+  .boxprow div:not(.bpn){font-family:"IBM Plex Mono",monospace;text-align:right;font-size:11.5px}
+  .boxprow.head{color:var(--text2);font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;
     text-transform:uppercase;border-bottom:1px solid var(--line);padding-bottom:6px}
   .boxprow.head div:not(.bpn){color:var(--text2)}
   .scbox{margin-top:8px;padding-top:8px;border-top:1px solid rgba(42,53,66,.6);text-align:right;
@@ -413,15 +417,15 @@
   /* ---- player page ---- */
   .phead{display:flex;align-items:center;gap:13px;padding:6px 2px 14px}
   .pcrestbig{width:54px;height:54px;border-radius:13px;display:flex;align-items:center;justify-content:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:16px;flex:none}
-  .pnamebig{font-family:"Archivo",sans-serif;font-weight:800;font-size:22px;line-height:1.1}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:16px;flex:none}
+  .pnamebig{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:22px;line-height:1.1}
   .pmeta{color:var(--text2);font-size:13px;font-weight:600;margin-top:3px}
   .pteamlink{color:var(--amber);cursor:pointer}
-  .pscat{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;
+  .pscat{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;
     text-transform:uppercase;color:var(--teal);margin:11px 2px 7px}
   .pschips{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
   .pchip{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 6px;text-align:center}
-  .pchip .pcv{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:15px}
+  .pchip .pcv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:15px}
   .pchip .pcl{font-size:9px;color:var(--text2);font-weight:700;text-transform:uppercase;margin-top:2px;letter-spacing:.03em}
   .psearchwrap{position:relative;display:flex;align-items:center;gap:8px;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:2px 0 10px}
@@ -432,21 +436,21 @@
     color:var(--text2);font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer}
   .lbtoggle button.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
   /* ---- standings ---- */
-  .stconf{font-family:"Archivo",sans-serif;font-weight:800;font-size:11px;letter-spacing:.05em;
+  .stconf{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:11px;letter-spacing:.05em;
     text-transform:uppercase;color:var(--amber);margin:14px 2px 6px}
   .sthead{display:grid;grid-template-columns:26px 30px 1fr 56px 56px 44px;gap:8px;padding:0 12px 6px;
-    align-items:center;font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;letter-spacing:.04em;
+    align-items:center;font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;letter-spacing:.04em;
     text-transform:uppercase;color:var(--text2)}
   .sthead div:nth-child(n+4){text-align:center}
   .strow{display:grid;grid-template-columns:26px 30px 1fr 56px 56px 44px;gap:8px;align-items:center;
     padding:9px 12px;background:var(--surface);border:1px solid var(--line);border-radius:11px;
     margin-bottom:6px;cursor:pointer}
   .strow:hover{border-color:var(--amber)}
-  .strow .srk{font-family:"JetBrains Mono",monospace;font-weight:700;color:var(--text2);text-align:center;font-size:13px}
+  .strow .srk{font-family:"IBM Plex Mono",monospace;font-weight:700;color:var(--text2);text-align:center;font-size:13px}
   .strow .snm{font-weight:600;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .strow .snm small{display:block;color:var(--text2);font-weight:500;font-size:10px}
-  .strow .srec{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:center}
-  .strow .sstrk{font-family:"Archivo",sans-serif;font-weight:800;font-size:12px;text-align:center}
+  .strow .srec{font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:center}
+  .strow .sstrk{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:12px;text-align:center}
   .strow .sstrk.w{color:#5BD39A} .strow .sstrk.l{color:#E5705C}
   .standchip{display:flex;gap:8px;margin:4px 0 2px}
   .standchip .schip{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:9px 11px}
@@ -454,15 +458,15 @@
   .standchip .sv{display:block;font-weight:700;font-size:14px;margin-top:2px}
   /* ---- situational splits ---- */
   .splithead{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:4px 6px 6px;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--text2)}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:var(--text2)}
   .splithead div:nth-child(2),.splithead div:nth-child(3){text-align:center}
-  .splitgrp{font-family:"Archivo",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.05em;
+  .splitgrp{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.05em;
     text-transform:uppercase;color:var(--teal);margin:9px 2px 4px}
   .splitrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;padding:7px 6px;
     border-bottom:1px solid rgba(42,53,66,.5)}
   .splitrow .slk{font-size:12.5px;font-weight:600}
-  .splitrow .slv{text-align:center;font-family:"JetBrains Mono",monospace;font-size:13px}
-  .splitrow .slv small{display:block;color:var(--text2);font-size:9.5px;font-family:"Hanken Grotesk",sans-serif;font-weight:500}
+  .splitrow .slv{text-align:center;font-family:"IBM Plex Mono",monospace;font-size:13px}
+  .splitrow .slv small{display:block;color:var(--text2);font-size:9.5px;font-family:"Barlow",sans-serif;font-weight:500}
   .splitrow .slv.off b{color:var(--teal)} .splitrow .slv.def b{color:#7CA8FF}
   .spchips{display:flex;flex-wrap:wrap;gap:6px}
   .spchip{padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
@@ -472,15 +476,15 @@
     color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;flex:1}
   .spm.on{background:var(--surface2);color:var(--text);border-color:var(--amber)}
   .lbhead2{display:grid;grid-template-columns:26px 30px 1fr 70px 50px;gap:8px;padding:4px 12px 6px;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
   .lbhead2 div:nth-child(4),.lbhead2 div:nth-child(5){text-align:center}
   /* ---- matchup ---- */
   .mwpcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin:4px 0 6px}
-  .mwphdr{font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;
+  .mwphdr{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:10px;letter-spacing:.05em;
     text-transform:uppercase;color:var(--text2);text-align:center;margin-bottom:9px}
   .mwprow{display:grid;grid-template-columns:1fr auto auto 1fr;align-items:center;gap:8px}
   .mwprow .mwpteam{font-weight:700;font-size:13px;color:var(--text2)} .mwprow .mwpteam.b{text-align:right}
-  .mwprow .mwppct{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:22px;color:var(--text2)}
+  .mwprow .mwppct{font-family:"IBM Plex Mono",monospace;font-weight:800;font-size:22px;color:var(--text2)}
   .mwprow .mwppct.win{color:var(--amber)}
   .mwpbar{height:9px;border-radius:999px;background:#7CA8FF;overflow:hidden;margin:10px 0 4px}
   .mwpbar i{display:block;height:100%;background:var(--amber)}
@@ -490,26 +494,26 @@
   .mwpcard .toggle button.on{background:var(--surface2);color:var(--text);border-color:var(--amber)}
   .mwpnote{font-size:11px;color:var(--text2);margin-top:9px;line-height:1.45}
   .mhead{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;padding:4px 4px 7px;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:10px;color:var(--text2);text-align:center}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:10px;color:var(--text2);text-align:center}
   .mhead div:first-child{text-align:left} .mhead div:last-child{text-align:right}
   .mrow{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid rgba(42,53,66,.5)}
-  .mrow .mval{font-family:"JetBrains Mono",monospace;font-size:14px}
+  .mrow .mval{font-family:"IBM Plex Mono",monospace;font-size:14px}
   .mrow .mval:first-child{text-align:left} .mrow .mval:last-child{text-align:right}
-  .mrow .mval small{color:var(--text2);font-size:10px;margin-left:4px;font-family:"Hanken Grotesk",sans-serif}
+  .mrow .mval small{color:var(--text2);font-size:10px;margin-left:4px;font-family:"Barlow",sans-serif}
   .mrow .mval.win b{color:var(--amber)}
   .mrow .mk{font-size:11px;color:var(--text2);text-align:center}
   .h2hrow{display:grid;grid-template-columns:40px 1fr auto;gap:8px;align-items:center;padding:8px 4px;
     border-bottom:1px solid rgba(42,53,66,.5);font-size:12.5px}
-  .h2hrow .h2hsea{font-family:"JetBrains Mono",monospace;color:var(--text2)}
+  .h2hrow .h2hsea{font-family:"IBM Plex Mono",monospace;color:var(--text2)}
   .h2hrow .h2hw{font-weight:700;color:#5BD39A;font-size:11px}
   /* ---- simulator ---- */
   .simmeta{font-size:12px;color:var(--text2);padding:2px 2px 6px}
   .simseed{display:grid;grid-template-columns:26px 30px 1fr auto;gap:9px;align-items:center;padding:8px 12px;
     background:var(--surface);border:1px solid var(--line);border-radius:11px;margin-bottom:6px;cursor:pointer}
-  .simseed .ssn{font-family:"JetBrains Mono",monospace;font-weight:800;color:var(--amber);text-align:center}
+  .simseed .ssn{font-family:"IBM Plex Mono",monospace;font-weight:800;color:var(--amber);text-align:center}
   .simseed .ssnm{font-weight:600;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .simseed .ssnm small{display:block;color:var(--text2);font-weight:500;font-size:10px}
-  .simseed .ssr{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:right}
+  .simseed .ssr{font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:right}
   .simseed .ssr small{display:block;color:var(--teal);font-size:8.5px;font-weight:800;letter-spacing:.05em}
   .simseed.bumped{border-color:#7CA8FF;border-style:dashed}
   .simbrk{font-size:11px;color:var(--text2);background:var(--surface);border:1px dashed var(--line);
@@ -527,13 +531,13 @@
   .stb.w{background:#5BD39A;color:#10130c;border-color:#5BD39A}
   .stb.l{background:#E5705C;color:#10130c;border-color:#E5705C}
   .oddhead{display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;padding:4px 10px 6px;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
   .oddhead div:nth-child(n+2){text-align:center}
   .oddrow{display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;align-items:center;padding:8px 10px;
     background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:5px;cursor:pointer}
   .oddrow .onm{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;min-width:0}
   .oddrow .onm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .oddrow .ov{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:center}
+  .oddrow .ov{font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:center}
   .oddrow .ov:first-of-type{color:var(--amber);font-weight:700}
   /* ---- stats HOME dashboard ---- */
   .homesearch{position:relative;display:flex;align-items:center;gap:10px;background:var(--surface);
@@ -542,7 +546,7 @@
   .homesearch .si{font-size:17px;color:var(--text2)}
   .homesearch input{flex:1;background:none;border:none;color:var(--text);font-size:15.5px;outline:none;font-family:inherit}
   .hsec{margin-top:18px}
-  .hsectitle{font-family:"Archivo",sans-serif;font-weight:800;font-size:13px;letter-spacing:.02em;
+  .hsectitle{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;letter-spacing:.02em;
     margin:0 2px 9px;display:flex;align-items:baseline;gap:8px}
   .hsectitle small{font-weight:600;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
   .nlead{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -553,7 +557,7 @@
   .ncard .nlbl{font-size:11px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
   .ncard .nteam{display:flex;align-items:center;gap:7px;margin:8px 0 6px;min-width:0}
   .ncard .nteam span{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ncard .nval{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:21px;color:var(--amber)}
+  .ncard .nval{font-family:"IBM Plex Mono",monospace;font-weight:800;font-size:21px;color:var(--amber)}
   .ncard .nrk{font-size:9.5px;color:var(--text2);margin-top:3px}
   .exgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .excard{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);
@@ -566,16 +570,16 @@
   .featcard{background:linear-gradient(165deg,var(--surface2),var(--surface));border:1px solid #3a4a5e;
     border-radius:14px;padding:14px;cursor:pointer}
   .featcard:hover{border-color:var(--amber)}
-  .featcard .featic{font-size:23px} .featcard .featt{font-weight:800;font-size:14px;margin-top:6px;font-family:"Archivo",sans-serif}
+  .featcard .featic{font-size:23px} .featcard .featt{font-weight:800;font-size:14px;margin-top:6px;font-family:"Barlow Condensed",sans-serif}
   .featcard .featd{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.4}
   .featcard .featcta{color:var(--amber);font-weight:700;font-size:12px;margin-top:9px}
   .premod{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .precol{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:12px}
-  .precol .prehd{font-family:"Archivo",sans-serif;font-weight:800;font-size:10.5px;text-transform:uppercase;
+  .precol .prehd{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:10.5px;text-transform:uppercase;
     letter-spacing:.04em;color:var(--teal);margin-bottom:8px}
   .precol .prelist div{font-size:12px;font-weight:600;padding:3px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .precol .prelist small{color:var(--text2);font-weight:500}
-  .precol .prelist b{font-family:"JetBrains Mono",monospace;color:var(--amber);margin-right:5px}
+  .precol .prelist b{font-family:"IBM Plex Mono",monospace;color:var(--amber);margin-right:5px}
   .morelink{text-align:right;color:var(--amber);font-weight:700;font-size:12px;margin-top:9px;cursor:pointer}
   /* ---- accounts (optional auth) ---- */
   .htop{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -585,7 +589,7 @@
   .acctbtn.signin:hover{border-color:var(--amber);color:var(--amber)}
   .acctbtn:not(.signin){padding:0;width:38px;height:38px;border-radius:50%}
   .acctav{display:flex;align-items:center;justify-content:center;width:100%;height:100%;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:15px;color:var(--amber)}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:15px;color:var(--amber)}
   .authov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);
     display:flex;align-items:flex-end;justify-content:center}
   @media(min-width:560px){ .authov{align-items:center} }
@@ -593,11 +597,11 @@
     border-radius:18px 18px 0 0;padding:18px 18px 26px;max-height:92vh;overflow:auto}
   @media(min-width:560px){ .authsheet{border-radius:18px} }
   .authhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-  .authttl{font-family:"Archivo",sans-serif;font-weight:800;font-size:18px}
+  .authttl{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:18px}
   .authsub{color:var(--text2);font-size:12.5px;line-height:1.45;margin-bottom:14px}
   .gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1a1a1a;
     border:0;border-radius:11px;padding:12px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer}
-  .gbtn .gico{font-family:"Archivo",sans-serif;font-weight:800;color:#4285F4}
+  .gbtn .gico{font-family:"Barlow Condensed",sans-serif;font-weight:800;color:#4285F4}
   .authdiv{display:flex;align-items:center;gap:10px;color:var(--text2);font-size:11px;margin:14px 0}
   .authdiv::before,.authdiv::after{content:"";flex:1;height:1px;background:var(--line)}
   .authin{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:11px;
@@ -623,47 +627,47 @@
     background:linear-gradient(165deg,rgba(246,180,60,.12),var(--surface));border:1px solid #4a4330}
   .favcard:hover{border-color:var(--amber)}
   .favcr{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;
-    font-family:"Archivo",sans-serif;font-weight:800;font-size:14px;flex:none}
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:14px;flex:none}
   .favmeta{flex:1;min-width:0}
-  .favnm{font-weight:800;font-size:15px;font-family:"Archivo",sans-serif}
+  .favnm{font-weight:800;font-size:15px;font-family:"Barlow Condensed",sans-serif}
   .favtag{font-size:8.5px;font-weight:800;letter-spacing:.06em;color:#10130c;background:var(--amber);
     padding:2px 6px;border-radius:5px;vertical-align:middle;margin-left:4px}
-  .favsub{font-size:12px;color:var(--text2);font-family:"JetBrains Mono",monospace;margin-top:3px}
+  .favsub{font-size:12px;color:var(--text2);font-family:"IBM Plex Mono",monospace;margin-top:3px}
   .favgo{color:var(--amber);font-weight:700;font-size:12.5px;flex:none}
   .favpickcta{background:var(--surface);border:1px dashed var(--amber);border-radius:12px;padding:13px;
     margin-bottom:10px;font-size:13px;cursor:pointer}
   .honor{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
-  .honor .hb{font-size:9px;font-weight:800;font-family:"Archivo",sans-serif;padding:3px 8px;border-radius:999px;
+  .honor .hb{font-size:9px;font-weight:800;font-family:"Barlow Condensed",sans-serif;padding:3px 8px;border-radius:999px;
     background:rgba(246,180,60,.14);color:var(--amber);flex:none;letter-spacing:.04em}
   .honor .hn{font-weight:600;font-size:13.5px;flex:1}
   .honor .hn small{color:var(--text2);font-weight:500}
-  .honor .hpos{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--text2);flex:none}
+  .honor .hpos{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--text2);flex:none}
   /* explorer + leaderboards */
   .exprow{display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--surface);
     border:1px solid var(--line);border-top:none;cursor:pointer}
   .exprow:first-of-type{border-top:1px solid var(--line);border-radius:12px 12px 0 0}
   .exprow:last-of-type{border-radius:0 0 12px 12px}
   .exprow:hover{background:var(--surface2)}
-  .exprow .erk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:13px;width:26px;text-align:right;color:var(--text2);flex:none}
+  .exprow .erk{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:13px;width:26px;text-align:right;color:var(--text2);flex:none}
   .exprow .enm{font-weight:600;font-size:13.5px;flex:1;min-width:0}
   .exprow .enm small{display:block;color:var(--text2);font-weight:500;font-size:11px}
-  .exprow .eval{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;flex:none}
+  .exprow .eval{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:14px;flex:none}
   .selectwrap{position:relative;margin:0 0 10px}
   .selectwrap select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);
-    background:var(--surface);color:var(--text);font-family:"Hanken Grotesk",sans-serif;font-size:14px;
+    background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;font-size:14px;
     font-weight:600;outline:none;-webkit-appearance:none;appearance:none}
-  .selectwrap::after{content:"▾";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none}
+  .selectwrap::after{content:'<svg class="ic" aria-hidden="true"><use href="#i-chev-d"/></svg>';position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none}
   .lbgrid{display:flex;flex-direction:column;gap:14px}
   .lbcard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 15px 8px}
   .lbhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:pointer}
-  .lbhead .lt{font-family:"Archivo",sans-serif;font-weight:700;font-size:14px}
-  .lbhead .lt small{display:block;color:var(--text2);font-weight:500;font-size:10.5px;font-family:"Hanken Grotesk",sans-serif;letter-spacing:0;text-transform:none}
+  .lbhead .lt{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:14px}
+  .lbhead .lt small{display:block;color:var(--text2);font-weight:500;font-size:10.5px;font-family:"Barlow",sans-serif;letter-spacing:0;text-transform:none}
   .lbhead .more{font-size:11px;color:var(--amber);font-weight:600;flex:none}
   .lbmini{display:flex;align-items:center;gap:9px;padding:6px 0;border-top:1px solid var(--line)}
-  .lbmini .mrk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:11px;width:18px;color:var(--text2);flex:none}
+  .lbmini .mrk{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:11px;width:18px;color:var(--text2);flex:none}
   .lbmini .mnm{font-size:12.5px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .lbmini .mvl{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:12.5px;flex:none;color:var(--amber)}
+  .lbmini .mvl{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:12.5px;flex:none;color:var(--amber)}
   /* preseason */
   .srcpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);
     text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:3px 10px}
@@ -673,19 +677,137 @@
     border:1px solid var(--line);border-top:none}
   .t25row:first-of-type{border-top:1px solid var(--line);border-radius:12px 12px 0 0}
   .t25row:last-of-type{border-radius:0 0 12px 12px}
-  .t25row .trk{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:14px;width:24px;text-align:right;color:var(--amber);flex:none}
+  .t25row .trk{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:14px;width:24px;text-align:right;color:var(--amber);flex:none}
   .t25row .tnm{font-weight:600;font-size:13.5px;flex:1}
   .aagrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .aacell{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
-  .aacell .ap{font-family:"Archivo",sans-serif;font-weight:800;font-size:9px;color:var(--text2);letter-spacing:.05em;margin-bottom:3px}
+  .aacell .ap{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;color:var(--text2);letter-spacing:.05em;margin-bottom:3px}
   .aacell .anm{font-weight:700;font-size:13px;line-height:1.2}
   .aacell .asc{font-size:11px;color:var(--text2);margin-top:2px}
-  .scbadge{display:inline-block;font-size:8.5px;font-weight:800;font-family:"Archivo",sans-serif;
+  .scbadge{display:inline-block;font-size:8.5px;font-weight:800;font-family:"Barlow Condensed",sans-serif;
     padding:2px 6px;border-radius:5px;margin-left:5px;vertical-align:middle}
   .sc-cons{background:rgba(246,180,60,.16);color:var(--amber)}
+
+  /* ============ v2 DESIGN LAYER (redesign brief) ============ */
+  .ic{width:1em;height:1em;display:inline-block;vertical-align:-.12em}
+  .nic .ic{width:15px;height:15px}
+  body{padding-bottom:76px}
+  .wrap{max-width:460px}
+  h1,h2,.wordmark,.screen-title{font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.02em}
+  /* tab bar */
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;justify-content:center;
+    padding:8px 10px calc(10px + env(safe-area-inset-bottom));
+    background:linear-gradient(180deg,rgba(11,15,20,0) 0%,#0B0F14 26%);border-top:1px solid var(--line)}
+  .tabbar .tabs{display:flex;gap:4px;max-width:460px;width:100%}
+  .tabbar button{flex:1;min-height:44px;background:transparent;border:0;border-radius:999px;
+    color:var(--text2);font-family:"Barlow",sans-serif;font-weight:700;font-size:11.5px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px}
+  .tabbar button .ic{width:17px;height:17px}
+  .tabbar button.on{background:var(--amber);color:#10130c}
+  .tabbar button .tchip{width:9px;height:9px;border-radius:3px;display:inline-block}
+  /* cards + hero */
+  .card-hero-amber{background:linear-gradient(160deg,#1A1208,#121820 55%);border-color:rgba(255,176,32,.3)}
+  .card-hero-teal{background:linear-gradient(160deg,#0E1A16,#121820 55%);border-color:rgba(53,217,196,.3)}
+  /* probability bar */
+  .pbar{position:relative;height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:visible}
+  .pbar .fill{position:absolute;inset:0 auto 0 0;border-radius:999px;background:linear-gradient(90deg,#B87708,#FFB020);transition:width .5s ease}
+  .pbar .tick{position:absolute;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,.4)}
+  .pbar.teal .fill{background:linear-gradient(90deg,#0F8E7E,#35D9C4)}
+  .plabel{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-top:5px}
+  .plabel b{color:var(--text);font-family:"IBM Plex Mono",monospace}
+  /* season dot strip */
+  .dotstrip{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+  .dotstrip .d{width:11px;height:11px;border-radius:999px}
+  .dotstrip .d.w{background:var(--teal)} .dotstrip .d.l{background:var(--loss)}
+  .dotstrip .d.n{background:transparent;border:1.6px solid var(--amber);animation:hmPulse 1.6s infinite}
+  /* percentile dial */
+  .dial{--p:50;--dc:var(--amber);width:44px;height:44px;border-radius:50%;position:relative;flex:none;
+    background:conic-gradient(var(--dc) calc(var(--p)*1%),rgba(255,255,255,.08) 0)}
+  .dial::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--surface)}
+  .dial span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:700;z-index:1}
+  /* pills + chips */
+  .chip-model{display:inline-flex;align-items:center;gap:4px;font-family:"IBM Plex Mono",monospace;
+    font-size:9px;font-weight:600;letter-spacing:.08em;color:var(--teal);background:var(--teal-tint);
+    border:1px solid rgba(53,217,196,.35);border-radius:999px;padding:2px 7px;text-transform:uppercase}
+  .chip-live{display:inline-flex;align-items:center;gap:5px;font-family:"IBM Plex Mono",monospace;
+    font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--live)}
+  .chip-live::before{content:"";width:7px;height:7px;border-radius:999px;background:var(--live);animation:hmPulse 1.6s infinite}
+  .chip-plus{display:none;font-family:"IBM Plex Mono",monospace;font-size:8.5px;letter-spacing:.1em;
+    color:var(--amber);border:1px solid rgba(255,176,32,.4);border-radius:999px;padding:1px 6px}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+  .sect-h{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px}
+  .sect-h .ctx{font-family:"IBM Plex Mono",monospace;font-weight:400;letter-spacing:.06em;margin-left:6px}
+  /* omnibox */
+  .omni{position:fixed;inset:0;z-index:80;background:rgba(11,15,20,.94);display:none;flex-direction:column;padding:14px}
+  .omni.show{display:flex;animation:hmRise .25s ease}
+  .omni input{background:var(--surface2);border:1px solid var(--line2);border-radius:12px;color:var(--text);
+    font-family:"Barlow",sans-serif;font-size:16px;padding:13px 14px;width:100%;outline:none}
+  .omni .results{overflow-y:auto;margin-top:10px}
+  .omni .r-row{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 6px;border-bottom:1px solid var(--line);cursor:pointer}
+  /* explore grid */
+  .xgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .xcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px;cursor:pointer;min-height:44px}
+  .xcard .ic{width:18px;height:18px;color:var(--amber)}
+  .xcard.dashed{border-style:dashed;border-color:var(--line2);color:var(--text2)}
+  .xcard h4{margin:7px 0 3px;font-size:13px}
+  .xcard p{margin:0;font-size:11px;color:var(--text2)}
+  /* movers */
+  .mv-up{color:var(--teal)} .mv-dn{color:var(--loss)}
+  /* animations */
+  @keyframes hmPulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @keyframes hmRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important}}
+
 </style>
 </head>
 <body>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<g id="_ic" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></g>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-5h-4v5H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 10h16M8 4v4M16 4v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="6" r="1.2" fill="currentColor"/><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="5" cy="18" r="1.2" fill="currentColor"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 16v-5M12 16V8M16 16v-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 5H5a3 3 0 0 0 3 4M16 5h3a3 3 0 0 1-3 4M12 13v4m-4 3h8m-4-3v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m5 9 7 7 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="m12 4 2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.7l5.4-.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2.5H4.5zM10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-trend" viewBox="0 0 24 24"><path d="m4 16 5-5 3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 7h4v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20a7 7 0 0 1 14 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-stadium" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="8" ry="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 7v9c0 1.7 3.6 3 8 3s8-1.3 8-3V7" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-film" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-ruler" viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 9v3M11 9v3M15 9v3M19 9v3" stroke="currentColor" stroke-width="1.4"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M5 5h11l3 3v11H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 5v4h7V5M8 19v-6h8v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v6h14v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 8h13m0 0-4-4m4 4-4 4M17 16H4m0 0 4 4m-4-4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-vs" viewBox="0 0 24 24"><path d="M5 5l6 6M19 5l-6 6M5 19l14-14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 19l4-1-3-3z" fill="currentColor" stroke="currentColor" stroke-width="1"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1" fill="currentColor"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6m0 0-5 5m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-up-r" viewBox="0 0 24 24"><path d="M7 17 17 7m0 0H9m8 0v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-reset" viewBox="0 0 24 24"><path d="M5 12a7 7 0 1 0 2-4.9M5 4v4h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="1" fill="currentColor"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="m14 6 4 4L8 20H4v-4zM12.5 7.5l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 12h16M12 4c-4.5 4.7-4.5 11.3 0 16 4.5-4.7 4.5-11.3 0-16" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+<symbol id="i-dice" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 .4l3-3a4 4 0 0 0-5.6-5.6l-1.7 1.7M14 10a4 4 0 0 0-6-.4l-3 3a4 4 0 0 0 5.6 5.6l1.7-1.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 3-.5 4.5-2 6-1.6 1.6-3 3.4-3 6a5.5 5.5 0 0 0 11 0c0-2-1-3.5-2-5-1.5 1-2 2-2 3.5C13 10 14 7 12 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8V4m0 0h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="13" r="1.1" fill="currentColor"/><circle cx="14.5" cy="13" r="1.1" fill="currentColor"/></symbol>
+</defs>
+</svg>
+
 <div class="wrap" id="app"><div class="loading">Loading Hashmark…</div></div>
 
 <!-- Supabase JS (Auth) — optional accounts. If this fails to load, the app still works fully
@@ -829,7 +951,7 @@ function openAuthModal(){
   if(!sb){ return; }
   const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
   ov.innerHTML=`<div class="authsheet">
-    <div class="authhd"><div class="authttl">Sign in to Hashmark</div><button class="pickx" data-authx>✕</button></div>
+    <div class="authhd"><div class="authttl">Sign in to Hashmark</div><button class="pickx" data-authx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="authsub">Optional — every stat stays free without an account. Sign in to save your favorite team &amp; unlock personalized features.</div>
     <button class="gbtn" data-auth="google"><span class="gico">G</span> Continue with Google</button>
     <div class="authdiv"><span>or use email</span></div>
@@ -859,10 +981,10 @@ function openAccountMenu(){
   const favT=(fav&&teamMeta&&teamMeta[fav])?teamMeta[fav].school:null;
   const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
   ov.innerHTML=`<div class="authsheet">
-    <div class="authhd"><div class="authttl">${esc(nm)}</div><button class="pickx" data-authx>✕</button></div>
+    <div class="authhd"><div class="authttl">${esc(nm)}</div><button class="pickx" data-authx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="authsub">${esc(authUser.email||"")}</div>
-    <button class="authrowbtn" data-auth="favpick">⭐ Favorite team <span>${favT?esc(favT):"Choose"}</span></button>
-    <button class="authrowbtn" data-auth="notifyprefs">🔔 Notifications</button>
+    <button class="authrowbtn" data-auth="favpick"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> Favorite team <span>${favT?esc(favT):"Choose"}</span></button>
+    <button class="authrowbtn" data-auth="notifyprefs"><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg> Notifications</button>
     <button class="authrowbtn signout" data-auth="signout">Sign out</button>
     <div class="authfine">Manage or delete your account &amp; data anytime — see the <a href="privacy.html" target="_blank">Privacy Policy</a>.</div>
   </div>`;
@@ -1008,7 +1130,7 @@ async function openScores(){
   window.scrollTo(0,0);
   app.innerHTML = `<div class="loading">Loading scores…</div>`;
   try{ await ensureTeamMeta(); scoresWeek=null; await drawScores(); }
-  catch(e){ app.innerHTML = `<div class="cmptop"><button class="back">←</button>
+  catch(e){ app.innerHTML = `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="err">Couldn't load scores: ${e.message}</div>`; document.querySelector(".back").onclick=load; }
 }
@@ -1024,7 +1146,7 @@ async function drawScores(){
     .sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
 
   let h = `<div class="cmp">
-    <div class="cmptop"><button class="back">←</button>
+    <div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark">Hashmark<span class="dot">.</span></div>
       <div class="cmptag">Scores</div></div>
     <div class="venue"><div class="toggle">
@@ -1074,19 +1196,19 @@ function header(){
 // then a Scores & schedule entry (official — available in both modes).
 function listTop(hint){
   const top = SHOW_HASHMARK_RATINGS
-    ? `<div class="cmpcta" id="cmpcta"><span class="ar">⇄</span>Compare two teams — projected matchup</div>`
+    ? `<div class="cmpcta" id="cmpcta"><span class="ar"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg></span>Compare two teams — projected matchup</div>`
     : `<div class="previewbar"><span class="pb-badge">PREVIEW</span>Deep <b>official stats &amp; analytics</b> for every FBS team — Hashmark's own ratings are coming soon.</div>`;
   return `<div class="list">${top}
-    <div class="searchwrap"><span class="si">🔍</span>
+    <div class="searchwrap"><span class="si"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></span>
       <input id="teamsearch" type="text" placeholder="Search a team for its stat page…" autocomplete="off" autocapitalize="words">
       <div class="searchres" id="searchres" style="display:none"></div></div>
-    <div class="navrow">
-      <button class="navbtn primary" id="statsnav"><span class="nic">📊</span>Stats</button>
-      <button class="navbtn" id="scoresnav"><span class="nic">📅</span>Scores</button>
-      <button class="navbtn" id="standnav"><span class="nic">📋</span>Standings</button>
-      <button class="navbtn" id="matchnav"><span class="nic">⚔️</span>Matchup</button>
-      <button class="navbtn" id="simnav"><span class="nic">🎯</span>Simulator</button>
-      <button class="navbtn" id="pressnav"><span class="nic">🏆</span>Preseason</button>
+    <div class="navrow" id="topnav" style="display:none">
+      <button class="navbtn primary" id="statsnav"><span class="nic"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg></span>Stats</button>
+      <button class="navbtn" id="scoresnav"><span class="nic"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg></span>Scores</button>
+      <button class="navbtn" id="standnav"><span class="nic"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg></span>Standings</button>
+      <button class="navbtn" id="matchnav"><span class="nic"><svg class="ic" aria-hidden="true"><use href="#i-vs"/></svg></span>Matchup</button>
+      <button class="navbtn" id="simnav"><span class="nic"><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg></span>Simulator</button>
+      <button class="navbtn" id="pressnav"><span class="nic"><svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg></span>Preseason</button>
     </div>
     ${hint?`<div class="hint">${hint}</div>`:""}`;
 }
@@ -1149,16 +1271,16 @@ const HOME_LEADERS = [
   ["off_ppa","EPA/play offense"],["def_ppa","EPA/play defense"],["turnover_margin","Turnover margin"],
 ];
 const HOME_EXPLORE = [
-  ["📊","Stats explorer","Sort all 138 teams by any stat","explorer"],
-  ["📈","Leaderboards","National leaders at a glance","leaders"],
-  ["🧑","Player leaders","Passing, rushing, receiving &amp; more","players"],
-  ["📋","Standings","Conference races + strength of schedule","standings"],
-  ["🏟️","Conferences","Conference-by-conference strength","conf"],
-  ["🎬","Situational splits","3rd down, red zone, by quarter…","splits"],
-  ["⚔️","Matchup","Compare any two teams head-to-head","matchup"],
-  ["🎯","Simulator","Build your 12-team Playoff","simulator"],
-  ["📅","Scores","Every game + box scores, week by week","scores"],
-  ["🏆","Preseason","All-Americans + preseason Top 25","preseason"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg>',"Stats explorer","Sort all 138 teams by any stat","explorer"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg>',"Leaderboards","National leaders at a glance","leaders"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-person"/></svg>',"Player leaders","Passing, rushing, receiving &amp; more","players"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>',"Standings","Conference races + strength of schedule","standings"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-stadium"/></svg>',"Conferences","Conference-by-conference strength","conf"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-film"/></svg>',"Situational splits","3rd down, red zone, by quarter…","splits"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-vs"/></svg>',"Matchup","Compare any two teams head-to-head","matchup"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-target"/></svg>',"Simulator","Build your 12-team Playoff","simulator"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>',"Scores","Every game + box scores, week by week","scores"],
+  ['<svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg>',"Preseason","All-Americans + preseason Top 25","preseason"],
 ];
 async function renderHome(){
   app.innerHTML = `<div class="loading">Loading Hashmark…</div>`;
@@ -1173,7 +1295,7 @@ async function renderHome(){
     // personalized greeting + favorite team (signed-in only; logged-out home is unchanged)
     if(authUser){
       const dn=(authProfile&&authProfile.display_name)||"there";
-      h += `<div class="homegreet">👋 Welcome back, <b>${esc(dn)}</b></div>`;
+      h += `<div class="homegreet"> Welcome back, <b>${esc(dn)}</b></div>`;
       const fav=authProfile&&authProfile.favorite_team_id;
       if(fav && teamMeta[fav]){
         const t=teamMeta[fav]; let st=null;
@@ -1181,13 +1303,13 @@ async function renderHome(){
         h += `<div class="favcard" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
           <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span></div>
             <div class="favsub">${st?`${st.wins}–${st.losses} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"} · SoS #${st.sos_rank||"—"}`:esc(t.conference||"")}</div></div>
-          <div class="favgo">View →</div></div>`;
+          <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
       } else {
-        h += `<div class="favpickcta" data-auth="favpick">⭐ <b>Pick your favorite team</b> — we'll surface it here every visit.</div>`;
+        h += `<div class="favpickcta" data-auth="favpick"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> <b>Pick your favorite team</b> — we'll surface it here every visit.</div>`;
       }
     }
     // prominent combined team/player search
-    h += `<div class="homesearch"><span class="si">🔍</span>
+    h += `<div class="homesearch"><span class="si"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></span>
       <input id="homesearch" type="text" placeholder="Search any team or player…" autocomplete="off" autocapitalize="words">
       <div class="searchres" id="homeres" style="display:none"></div></div>`;
     // national leaders strip
@@ -1205,16 +1327,16 @@ async function renderHome(){
     h += `</div></div>`;
     // featured: matchup + simulator
     h += `<div class="hsec"><div class="hsectitle">Featured</div><div class="featrow">
-      <div class="featcard" data-go="matchup"><div class="featic">⚔️</div><div class="featt">Matchup compare</div>
-        <div class="featd">Pick two teams — side-by-side stats, head-to-head${SHOW_PREDICTIONS?" &amp; win probability":""}.</div><div class="featcta">Compare →</div></div>
-      <div class="featcard" data-go="pickem"><div class="featic">🏆</div><div class="featt">Pick'em groups</div>
-        <div class="featd">10 games a week, confidence 1–10, beat the Hashmark Model. Free forever.</div><div class="featcta">Play →</div></div>
-      <div class="featcard" data-go="simulator"><div class="featic">🎯</div><div class="featt">Build your 12-team Playoff</div>
-        <div class="featd">Pick winners → standings, champions${SHOW_PREDICTIONS?" &amp; playoff odds":""}.</div><div class="featcta">Simulate →</div></div>
-      ${SHOW_HASHMARK_RATINGS?`<div class="featcard" data-go="checking"><div class="featic">🎯</div><div class="featt">Checking Our Work</div>
-        <div class="featd">Every projection logged &amp; scored — incl. vs the closing line. Grade validation, forecast archive.</div><div class="featcta">See the record →</div></div>
-      <div class="featcard" data-go="methodology"><div class="featic">📐</div><div class="featt">How our ratings work</div>
-        <div class="featd">Scale, inputs, adjustments — and what these numbers can't honestly claim.</div><div class="featcta">Methodology →</div></div>`:""}
+      <div class="featcard" data-go="matchup"><div class="featic"><svg class="ic" aria-hidden="true"><use href="#i-vs"/></svg></div><div class="featt">Matchup compare</div>
+        <div class="featd">Pick two teams — side-by-side stats, head-to-head${SHOW_PREDICTIONS?" &amp; win probability":""}.</div><div class="featcta">Compare <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>
+      <div class="featcard" data-go="pickem"><div class="featic"><svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg></div><div class="featt">Pick'em groups</div>
+        <div class="featd">10 games a week, confidence 1–10, beat the Hashmark Model. Free forever.</div><div class="featcta">Play <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>
+      <div class="featcard" data-go="simulator"><div class="featic"><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg></div><div class="featt">Build your 12-team Playoff</div>
+        <div class="featd">Pick winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> standings, champions${SHOW_PREDICTIONS?" &amp; playoff odds":""}.</div><div class="featcta">Simulate <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>
+      ${SHOW_HASHMARK_RATINGS?`<div class="featcard" data-go="checking"><div class="featic"><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg></div><div class="featt">Checking Our Work</div>
+        <div class="featd">Every projection logged &amp; scored — incl. vs the closing line. Grade validation, forecast archive.</div><div class="featcta">See the record <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>
+      <div class="featcard" data-go="methodology"><div class="featic"><svg class="ic" aria-hidden="true"><use href="#i-ruler"/></svg></div><div class="featt">How our ratings work</div>
+        <div class="featd">Scale, inputs, adjustments — and what these numbers can't honestly claim.</div><div class="featcta">Methodology <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`:""}
     </div></div>`;
     // preseason module
     const cons=ext.filter(r=>r.ranking_type==="all_american"&&r.source==="Consensus");
@@ -1225,7 +1347,7 @@ async function renderHome(){
         cons.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}">${esc(r.player)} <small>${esc(r.position||"")} · ${esc(t.school||r.school||"")}</small></div>`; }).join("")+`</div></div>`; }
       if(poll.length){ h+=`<div class="precol"><div class="prehd">${esc(poll[0].source||"Athlon")} Top 25</div><div class="prelist">`+
         poll.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}"><b>${r.rank}</b> ${esc(t.school||r.school||"")}</div>`; }).join("")+`</div></div>`; }
-      h += `</div><div class="morelink" data-go="preseason">All preseason honors →</div></div>`;
+      h += `</div><div class="morelink" data-go="preseason">All preseason honors <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
     }
     // AP Top 25 — official, now a labeled section lower down
     h += `<div class="hsec"><div class="hsectitle">Official AP Top 25 <small>2025 final</small></div>
@@ -1580,7 +1702,7 @@ function teamPicker(excludeId, cb){
   const teams=Object.values(teamMeta).filter(t=>t.school).sort((a,b)=>a.school.localeCompare(b.school));
   const ov=document.createElement("div"); ov.className="pickov";
   ov.innerHTML=`<div class="picksheet"><div class="pickhd">
-    <input class="picksearch" placeholder="Search teams…" autocomplete="off"><button class="pickx">✕</button></div>
+    <input class="picksearch" placeholder="Search teams…" autocomplete="off"><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="picklist"></div></div>`;
   document.body.appendChild(ov);
   const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
@@ -1640,7 +1762,7 @@ function mPickCard(slot){
 function renderMatchup(statsRows, wp, hh, S){
   const a=matchup.a, b=matchup.b, tA=teamMeta[a]||{school:"?"}, tB=teamMeta[b]||{school:"?"};
   const idx={}; statsRows.forEach(r=>{ idx[`${r.team_id}|${r.stat_key}`]=r; });
-  let h=`<div class="cmp"><div class="cmptop"><button class="back">←</button>
+  let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Matchup</div></div>
     <div class="pickrow">${mPickCard("a")}<div class="pickvs">VS</div>${mPickCard("b")}</div>`;
   // win probability (ONLY thing from the model; never a rating or margin)
@@ -1685,7 +1807,7 @@ function renderMatchup(statsRows, wp, hh, S){
         <div class="h2hsc">${esc(g.away_team)} ${g.away_points} @ ${esc(g.home_team)} ${g.home_points}${g.neutral_site?" (N)":""}</div>
         <div class="h2hw">${esc(winner)} W</div></div>`; });
   } else { h+=`<div class="secsub">No meetings since 2015.</div>`; }
-  h+=`</div><div class="navrow" style="padding:4px 2px"><button class="navbtn" id="mshare">📤 Share matchup card</button></div>`;
+  h+=`</div><div class="navrow" style="padding:4px 2px"><button class="navbtn" id="mshare"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Share matchup card</button></div>`;
   h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${SHOW_PREDICTIONS?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
@@ -1725,7 +1847,7 @@ function shareMatchupCard(a, b, paPct, edges){
   x.fillText(tA.school, 260, 350); x.fillText(tB.school, 940, 350);
   x.fillStyle="#8A97A6"; x.font="700 30px Inter, system-ui, sans-serif"; x.fillText("VS", 600, 220);
   if(paPct!=null){
-    x.fillStyle="#EDF2F7"; x.font="800 46px JetBrains Mono, monospace";
+    x.fillStyle="#EDF2F7"; x.font="800 46px IBM Plex Mono, monospace";
     x.fillText(`${paPct}%`, 260, 420); x.fillText(`${100-paPct}%`, 940, 420);
     x.fillStyle="#22303F"; x.fillRect(160,445,880,14);
     x.fillStyle="#E8B94C"; x.fillRect(160,445,880*paPct/100,14);
@@ -1766,7 +1888,7 @@ async function openAsk(teamId){
   if(!authUser){ openAuthModal(); return; }
   const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
   ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Ask Hashmark</div>
-    <button class="pickx" data-authx>✕</button></div>
+    <button class="pickx" data-authx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="authsub">Answers come only from Hashmark's public stats — season-labeled, source-cited.
     No betting talk, ever.</div>
     <div id="askout" style="min-height:60px;font-size:13px;white-space:pre-wrap"></div>
@@ -1790,12 +1912,16 @@ async function openAsk(teamId){
 }
 
 // ---- P2-E4: news modules (headline + source + outbound link ONLY — the legal envelope) ----
+// Feeds ship pre-encoded entities (&#39; etc.) — decode ONCE before esc() re-escapes,
+// so headlines read clean without ever trusting feed HTML (v2 brief bug fix).
+const _entEl = document.createElement("textarea");
+function decodeEnt(x){ _entEl.innerHTML = String(x||""); return _entEl.value; }
 function newsRow(n){
   const age = Math.round((Date.now()-new Date(n.published_at))/36e5);
   const rel = age<1?"now":age<24?`${age}h`:`${Math.round(age/24)}d`;
   return `<div class="boxrow"><div class="bva"><small>${rel}</small></div>
     <div class="bk" style="text-align:left"><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer"
-      style="color:var(--text);text-decoration:none">${esc(n.headline)}</a></div>
+      style="color:var(--text);text-decoration:none">${esc(decodeEnt(n.headline))}</a></div>
     <div class="bvb"><small>${esc(n.source)}</small></div></div>`;
 }
 async function injectNews(){
@@ -1881,8 +2007,8 @@ function renderPickem(){
       The Model's board is shown on each game below. Its most confident call this week:
       ${pkAssistTop()} A confidence tip: your top-5 slots carry over half your possible
       points — put the picks you're most sure of there.</div>
-      <div class="navrow"><button class="navbtn" id="usemodel">📋 Use the Model's board</button>
-      <button class="navbtn primary" id="savepicks">💾 Save my picks</button></div>
+      <div class="navrow"><button class="navbtn" id="usemodel"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> Use the Model's board</button>
+      <button class="navbtn primary" id="savepicks"><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg> Save my picks</button></div>
       <div id="pkmsg" class="authmsg"></div></div>`;
   }
   h += `<div class="sec"><div class="sectitle">This week's slate</div>`;
@@ -1899,7 +2025,7 @@ function renderPickem(){
     const res = g.result_team ? ` · <b>${esc(t(g.result_team))} won</b>` : (g.voided ? " · voided (postponed)" : "");
     h += `<div class="sec" style="padding:8px 10px;margin:6px 0">
       <div class="secsub" style="padding:0 0 6px">${new Date(g.kickoff).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})}
-        ${locked?" · 🔒 locked":""}${crowd}${upset}${res}</div>
+        ${locked?' · <svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked':""}${crowd}${upset}${res}</div>
       <div class="navrow">
         <button class="navbtn ${my===g.away_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.away_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.away_team)}</button>
         <span style="align-self:center;color:var(--text2)">@</span>
@@ -1923,9 +2049,9 @@ function renderPickem(){
         <div class="bk">invite code: <b>${esc(g.invite_code)}</b></div>
         <div class="bvb"><button class="navbtn" data-grpboard="${g.id}">standings</button></div></div>`; });
     } else h += `<div class="secsub">No groups yet — create one and share the invite code.</div>`;
-    h += `<div class="navrow"><button class="navbtn" id="newgroup">➕ Create group</button>
-      <button class="navbtn" id="joingroup">🔗 Join with code</button>
-      <button class="navbtn" data-go="pkboard">🌍 Global board</button></div></div>`;
+    h += `<div class="navrow"><button class="navbtn" id="newgroup"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Create group</button>
+      <button class="navbtn" id="joingroup"><svg class="ic" aria-hidden="true"><use href="#i-link"/></svg> Join with code</button>
+      <button class="navbtn" data-go="pkboard"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> Global board</button></div></div>`;
   }
   h += `<div class="note"><b>Hashmark Pick'em — free forever, no prizes.</b> Weekly slate of 10, straight-up winners with
     confidence ranks. Season standings drop your two worst weeks. The Hashmark Model plays in every group — beating it earns
@@ -2007,10 +2133,10 @@ async function openPickemBoard(groupId){
   rows.forEach((r,i)=>{
     const model = r.user_id===MODEL_UID;
     h += `<div class="boxrow"><div class="bva">${i+1}</div>
-      <div class="bk">${model?"🤖 ":""}${esc(r.display_name)}${r.streak_weeks>=3?` · 🔥${r.streak_weeks}w`:""}${r.beat_model_ct?` · beat the Model ×${r.beat_model_ct}`:""}</div>
+      <div class="bk">${model?'<svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg> ':""}${esc(r.display_name)}${r.streak_weeks>=3?` · <svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg>${r.streak_weeks}w`:""}${r.beat_model_ct?` · beat the Model ×${r.beat_model_ct}`:""}</div>
       <div class="bvb">${r.counted_points} <small>(${r.total_points} raw)</small></div></div>`;
   });
-  h += `</div><div class="navrow"><button class="navbtn" id="sharebrag">📤 Share my week</button></div>
+  h += `</div><div class="navrow"><button class="navbtn" id="sharebrag"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Share my week</button></div>
     <div class="note">For entertainment only — no prizes, ever. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=openPickem;
@@ -2076,7 +2202,7 @@ async function openNotifyPrefs(){
     ["email_digest","Email: Sunday digest"]];
   const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
   ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Notifications</div>
-    <button class="pickx" data-authx>✕</button></div>
+    <button class="pickx" data-authx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="authsub">All optional — three touches a week maximum, and unsubscribing is one tap, always honored immediately.</div>
     ${items.map(([k,l])=>`<label class="authrowbtn" style="display:flex;justify-content:space-between">
       <span>${l}</span><input type="checkbox" data-npref="${k}" ${p[k]!==false?"checked":""}></label>`).join("")}
@@ -2221,7 +2347,7 @@ function simCompute(picks){
   // Duke" rule); Notre Dame if ranked in the top 12; and the highest-ranked Group of Six
   // TEAM — a conference title is NO LONGER required. Remaining spots at-large by ranking.
   const P4_CONFS=new Set(["SEC","Big Ten","Big 12","ACC"]);
-  // FBS transition teams are bowl/CFP-INELIGIBLE in 2026 (NDSU→MW, Sac State→MAC)
+  // FBS transition teams are bowl/CFP-INELIGIBLE in 2026 (NDSU<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg>MW, Sac State<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg>MAC)
   const INELIGIBLE_2026=new Set(["North Dakota State","Sacramento State"]);
   const elig=id=>!INELIGIBLE_2026.has((teamMeta[id]||{}).school);
   const allRanked=[...sim.fbs].sort(cmp), rankedElig=allRanked.filter(elig);
@@ -2249,15 +2375,15 @@ function renderSim(){
   const nPicked=Object.keys(sim.userPicks).length;
   const tnm=id=>{ const t=teamMeta[id]; return t?t.school:id; };
   let h=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners → see the standings, conference champions and the <b>12-team Playoff (2026 CFP format)</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Hypothetical — no ratings or betting lines.</div>
-    <div class="navrow"><button class="navbtn primary" id="simpick">✏️ Pick a team's games</button>
-      <button class="navbtn" id="simreset">↺ Reset picks</button>
-      ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun">🎲 Simulate 1000×</button>`:""}</div>
+    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> see the standings, conference champions and the <b>12-team Playoff (2026 CFP format)</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Hypothetical — no ratings or betting lines.</div>
+    <div class="navrow"><button class="navbtn primary" id="simpick"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg> Pick a team's games</button>
+      <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button>
+      ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Simulate 1000×</button>`:""}</div>
     <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game"}</div>`;
   // 12-team field bracket
   const sorTip="Strength of Record (resume): how hard it would be for an average top-tier team to match this team's record against this exact schedule — rewards tough schedules and quality wins, not just wins. Built from matchup win probabilities, not the hidden ratings.";
   h+=`<div class="sec"><div class="sectitle">Projected 12-team Playoff — 2026 CFP format</div>
-    <div class="secsub" data-tip="${esc(sorTip)}">Seeded by <b>Strength of Record</b> (resume) ⓘ — straight-seeded. <b>2026 CFP format:</b> all four Power Four champions are guaranteed in (any ranking), Notre Dame is in if ranked top 12, and the highest-ranked Group of Six team is in — a conference title is no longer required. Seeds 1–4 get first-round byes. Source: your picks.</div>`;
+    <div class="secsub" data-tip="${esc(sorTip)}">Seeded by <b>Strength of Record</b> (resume) <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg> — straight-seeded. <b>2026 CFP format:</b> all four Power Four champions are guaranteed in (any ranking), Notre Dame is in if ranked top 12, and the highest-ranked Group of Six team is in — a conference title is no longer required. Seeds 1–4 get first-round byes. Source: your picks.</div>`;
   const seedRow=(id,seed,bye)=>{ const t=teamMeta[id]||{school:tnm(id)}, ch=c.champions.includes(id);
     const sorTxt=(sim.hasSOR&&c.sor[id]!=null)?`SOR ${Math.round(c.sor[id]*100)}`:"";
     const tag=[bye?"BYE":"", ch?"champ":"", sorTxt].filter(Boolean).join(" · ");
@@ -2289,7 +2415,7 @@ function simTeamSheet(teamId){
   const t=teamMeta[teamId]||{school:teamId};
   const ov=document.createElement("div"); ov.className="pickov";
   ov.innerHTML=`<div class="picksheet"><div class="pickhd">
-    <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — pick games</div><button class="pickx">✕</button></div>
+    <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — pick games</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="picklist" id="stsheet"></div></div>`;
   document.body.appendChild(ov);
   const draw=()=>{ const eff=simEffective(); let w=0,l=0;
@@ -2381,7 +2507,7 @@ async function openDetail(teamId){
       ensureBoard(), ensurePoll() ]);
     renderDetail(teamId, comps, board, poll, ts, games);
   }catch(e){
-    app.innerHTML = `<div class="dtop"><button class="back">←</button>
+    app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
       <div class="err">Couldn't load team: ${e.message}</div>`;
     document.querySelector(".back").onclick = load;
@@ -2397,7 +2523,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     if(html && note){ const d=document.createElement("div"); d.innerHTML=html;
       note.parentNode.insertBefore(d.firstChild, note); }
   }catch(_e){} }, 0);
-  if(!t){ app.innerHTML = `<div class="dtop"><button class="back">←</button>
+  if(!t){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=load; return; }
   const c=hx(t.color);
@@ -2417,7 +2543,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   const leaders = teamLeaders(e.players || []);
   const honors  = e.honors ? teamHonors(e.honors) : "";
   let h = `<div class="detail">
-    <div class="dtop"><button class="back">←</button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
       <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
       <div><div class="dschool">${esc(t.school)}</div>
@@ -2586,7 +2712,7 @@ function renderBox(gameId, tg, pg, fromTeam, um){
                ["field_pos","Avg start (yds to goal)",f2,-1],["havoc_rate","Havoc allowed",pc,-1],
                ["plays","Plays (non-garbage)",v=>v==null?"—":v,0]];
     h+=`<div class="boxhead adv" data-tip="Per-unit advanced stats from play-by-play, garbage-time filtered. Offense perspective: each column is that team's OFFENSE (havoc = disruptions allowed). Descriptive game stats — not Hashmark ratings.">
-      <div>${esc(tA.school)} off.</div><div>advanced ⓘ</div><div>${esc(tB.school)} off.</div></div>`;
+      <div>${esc(tA.school)} off.</div><div>advanced <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></div><div>${esc(tB.school)} off.</div></div>`;
     ADV.forEach(([k,label,fmt,dir])=>{
       const va=uA?uA[k]:null, vb=uB?uB[k]:null;
       if(va==null&&vb==null) return;
@@ -2634,7 +2760,7 @@ function premCard(ic, title, tease, fake){
 
 function renderDetail(teamId, comps, board, poll, ts, games){
   const idx = board.findIndex(b=>String(b.team_id)===String(teamId));
-  if(idx<0){ app.innerHTML = `<div class="dtop"><button class="back">←</button></div>
+  if(idx<0){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button></div>
     <div class="err">No 2026 projection for this team.</div>`; document.querySelector(".back").onclick=load; return; }
   const b=board[idx], t=b.teams, rank=idx+1, overall=Number(b.overall);
   const cv={}; comps.forEach(c=>cv[c.component]=Number(c.value));
@@ -2648,7 +2774,7 @@ function renderDetail(teamId, comps, board, poll, ts, games){
   const ratingTip = `Hashmark Rating — ${esc(t.school)}'s 2026 projection (${f3(overall)}, #${rank}). A learned, results-aware blend of unit quality (the offense & defense ratings above), results/Elo, talent, QB, coaching and returning production.`;
 
   let h = `<div class="detail">
-    <div class="dtop"><button class="back">←</button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
       <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
       <div><div class="dschool">${esc(t.school)}</div>
@@ -2663,7 +2789,7 @@ function renderDetail(teamId, comps, board, poll, ts, games){
         <div class="odk">Def</div><div class="odv">${f3(def)}</div></div>
     </div>
     <div class="sec" style="padding-top:6px">
-      <div class="cmpcta" id="dcmpcta"><span class="ar">⇄</span>Compare ${esc(t.school)} vs another team</div>
+      <div class="cmpcta" id="dcmpcta"><span class="ar"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg></span>Compare ${esc(t.school)} vs another team</div>
     </div>
     <div class="sec">
       <div class="sectitle">What's driving this rating</div>
@@ -2678,11 +2804,11 @@ function renderDetail(teamId, comps, board, poll, ts, games){
       <div class="dvv">${f3(d.v)}</div></div>`;
   });
   h += `</div>
-    <div class="sec"><div class="sectitle">2025 → 2026</div>
+    <div class="sec"><div class="sectitle">2025 <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> 2026</div>
       <div class="ctx">
         <div class="ctxcol"><div class="y">2025 finish</div><div class="v">${ts?(ts.wins+'–'+ts.losses):(ap?('#'+ap):'NR')}</div>
           <div class="vs">${ap?'#'+ap+' AP':'unranked (AP)'}</div></div>
-        <div class="ctxarrow">→</div>
+        <div class="ctxarrow"><svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div>
         <div class="ctxcol"><div class="y">2026 projection</div><div class="v">#${rank}</div>
           <div class="vs">Hashmark</div></div>
       </div>
@@ -2690,11 +2816,11 @@ function renderDetail(teamId, comps, board, poll, ts, games){
     ${scheduleSection(games||[], teamId)}
     <div class="sec"><div class="sectitle">Go deeper</div>
       <div class="secsub">Premium unlocks the forward-looking model for ${esc(t.school)}.</div>`;
-  h += premCard("📅","Schedule projections","Unlock game-by-game win probabilities for all 12 games",
+  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>',"Schedule projections","Unlock game-by-game win probabilities for all 12 games",
     `<div class="fakebar" style="width:92%"></div><div class="fakebar" style="width:74%"></div><div class="fakebar" style="width:84%"></div>`);
-  h += premCard("🏆","Playoff simulator","See CFP & national-title odds from a 10,000-season Monte Carlo",
+  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg>',"Playoff simulator","See CFP & national-title odds from a 10,000-season Monte Carlo",
     `<div class="fakebar" style="width:58%"></div><div class="fakebar" style="width:40%"></div>`);
-  h += premCard("💬","Ask Hashmark",`Ask anything about ${esc(t.school)}'s outlook, matchups and roster`,
+  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>',"Ask Hashmark",`Ask anything about ${esc(t.school)}'s outlook, matchups and roster`,
     `<div class="fakebar" style="width:95%"></div><div class="fakebar" style="width:68%"></div>`);
   h += `</div>
     <div class="note"><b>2026 Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings (finishing + success rate + efficiency, with coordinator track records folded in where the staff changed); the breakdown shows each factor's contribution to the overall rating. Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer. ${BRAND_LINE}</div></div>`;
@@ -2754,7 +2880,7 @@ async function openCompare(aId, bId){
     await Promise.all([fetchComps(aId), fetchComps(bId)]);
     drawCompare();
   }catch(e){
-    app.innerHTML = `<div class="cmptop"><button class="back">←</button>
+    app.innerHTML = `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
       <div class="err">Couldn't load matchup: ${e.message}</div>`;
     document.querySelector(".back").onclick = load;
@@ -2820,7 +2946,7 @@ function drawCompare(){
   const hfaTxt=ENGINE.hfa.toFixed(1);
 
   let h=`<div class="cmp">
-    <div class="cmptop"><button class="back">←</button>
+    <div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark">Hashmark<span class="dot">.</span></div>
       <div class="cmptag">Compare</div></div>
     <div class="pickrow">${pickCard("a")}<div class="pickvs">VS</div>${pickCard("b")}</div>
@@ -2871,10 +2997,10 @@ function drawCompare(){
   // tiering: the single-game projection is the free hook; deeper sims stay premium
   h+=`<div class="cmpsec"><div class="sectitle">Go deeper</div>
     <div class="secsub">This single-game projection is <b style="color:var(--teal)">free</b>. Premium runs the full forward model.</div>`;
-  h+=premCard("📅","Full-season simulation",
+  h+=premCard('<svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>',"Full-season simulation",
     `Simulate every game on both schedules for win totals, CFP odds & a projected head-to-head if they actually meet`,
     `<div class="fakebar" style="width:88%"></div><div class="fakebar" style="width:64%"></div><div class="fakebar" style="width:78%"></div>`);
-  h+=premCard("💬","Ask Hashmark",`Ask anything about this matchup — tempo, injuries, how the edge could swing`,
+  h+=premCard('<svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>',"Ask Hashmark",`Ask anything about this matchup — tempo, injuries, how the edge could swing`,
     `<div class="fakebar" style="width:93%"></div><div class="fakebar" style="width:70%"></div>`);
   h+=`</div>`;
 
@@ -2896,7 +3022,7 @@ function openPicker(slot){
   ov.innerHTML=`<div class="picksheet">
     <div class="pickhd">
       <input class="picksearch" placeholder="Search teams…" autocomplete="off" autocapitalize="off" spellcheck="false">
-      <button class="pickx">✕</button></div>
+      <button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="picklist"></div></div>`;
   document.body.appendChild(ov);
   const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
@@ -2956,7 +3082,7 @@ function fmtStat(v, fmt){
 const ordinal = n => { const v=n%100, s=["th","st","nd","rd"]; return n+(s[(v-20)%10]||s[v]||s[0]); };
 const rankBucket = p => p>=80?"elite":p>=60?"good":p>=40?"avg":p>=20?"below":"poor";
 function backHeader(tag){
-  return `<div class="cmptop"><button class="back">←</button>
+  return `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">${tag}</div></div>`;
 }
 async function statRows(key){
@@ -3122,7 +3248,7 @@ function statProfile(cat, statsRows, school){
       const pr=prior[d.stat_key];
       let dlt=`<div class="dlt"></div>`;
       if(pr){ const dv=Number(pr.rank)-Number(r.rank);
-        dlt = dv ? `<div class="dlt ${dv>0?"up":"down"}" data-tip="2024 rank #${pr.rank} → 2025 #${r.rank}.">${dv>0?"▲":"▼"}${Math.abs(dv)}</div>` : `<div class="dlt">—</div>`; }
+        dlt = dv ? `<div class="dlt ${dv>0?"up":"down"}" data-tip="2024 rank #${pr.rank} to 2025 #${r.rank}.">${dv>0?'<svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>':'<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>'}${Math.abs(dv)}</div>` : `<div class="dlt">—</div>`; }
       h+=`<div class="statrow">
         <div class="snm" data-tip="${tip}">${esc(d.display_name)}</div>
         <div class="sval">${val}</div>
@@ -3266,7 +3392,7 @@ const PLAYER_LB_FINAL=[["passing","Passing yards"],["rushing","Rushing yards"],
   ["receiving","Receiving yards"],["defensive","Total tackles"],["kicking","Kicking points"]];
 let playerLBMode = "returning";   // "returning" (2026-active) | "final" (2025 all players)
 async function renderPlayerLeaders(body){
-  const search = `<div class="psearchwrap"><span class="si">🔍</span>
+  const search = `<div class="psearchwrap"><span class="si"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></span>
       <input id="plsearch" type="text" placeholder="Search any player (2024–25)…" autocomplete="off">
       <div class="searchres" id="plres" style="display:none"></div></div>`;
   const toggle = `<div class="lbtoggle">
@@ -3399,7 +3525,7 @@ function renderPreseason(rows){
   const espn=aa.filter(r=>r.source==="ESPN"), steele=aa.filter(r=>r.source==="Phil Steele");
   const poll=rows.filter(r=>r.ranking_type==="preseason_poll").sort((a,b)=>a.rank-b.rank);
   const asof=(rows.find(r=>r.as_of_date)||{}).as_of_date||"";
-  const link=(src,url)=>url?`<a class="srcpill" href="${esc(url)}" target="_blank" rel="noopener"><b>${esc(src)}</b> ↗</a>`:`<span class="srcpill"><b>${esc(src)}</b></span>`;
+  const link=(src,url)=>url?`<a class="srcpill" href="${esc(url)}" target="_blank" rel="noopener"><b>${esc(src)}</b> <svg class="ic" aria-hidden="true"><use href="#i-up-r"/></svg></a>`:`<span class="srcpill"><b>${esc(src)}</b></span>`;
   const teamTap=r=>r.team_id?` data-team="${r.team_id}"`:"";
 
   let h=`<div class="cmp">`+backHeader("Preseason")+`<div class="list" style="padding-top:6px">
@@ -3513,5 +3639,320 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
+
+<nav class="tabbar" id="tabbar" aria-label="Main">
+  <div class="tabs">
+    <button data-tab="home" class="on"><svg class="ic"><use href="#i-home"/></svg>Home</button>
+    <button data-tab="games"><svg class="ic"><use href="#i-cal"/></svg>Games</button>
+    <button data-tab="picks"><svg class="ic"><use href="#i-check"/></svg>Picks</button>
+    <button data-tab="myteam" id="tab-myteam"><svg class="ic"><use href="#i-star"/></svg><span id="tab-myteam-label">Teams</span></button>
+    <button data-tab="explore"><svg class="ic"><use href="#i-search"/></svg>Explore</button>
+  </div>
+</nav>
+<div class="omni" id="omni" role="dialog" aria-label="Search Hashmark">
+  <div style="display:flex;gap:8px;align-items:center">
+    <input id="omniq" placeholder="Search teams, players, tools…" autocomplete="off">
+    <button class="navbtn" id="omniclose" style="flex:none;min-height:44px"><svg class="ic"><use href="#i-close"/></svg></button>
+  </div>
+  <div class="results" id="omnires"></div>
+</div>
+
+<script>
+/* ================= v2 shell: tabs, omnibox, explore, movers, live, receipts ================= */
+const PLUS_GATED = { grade_history:false, scenario_sandbox:false, ask_unlimited:false,
+                     big_groups:false, csv_export:false };   // all FREE now; chips reserved-hidden
+const GUEST_FAV_KEY = "hm_fav_team";
+
+function favTeamId(){
+  return (typeof authProfile!=="undefined" && authProfile && authProfile.favorite_team_id)
+    || Number(localStorage.getItem(GUEST_FAV_KEY)) || null;
+}
+function setTab(name){
+  document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.classList.toggle("on", b.dataset.tab===name));
+}
+async function tabMyTeam(){
+  const fav = favTeamId();
+  if(fav){ openDetail(fav); return; }
+  const ts = await ensureSearchTeams();
+  let h = `<div class="cmp"><div class="cmptop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
+    <div class="cmptag">Pick your team</div></div>
+    <div class="secsub" style="padding:6px 4px">Your team becomes a tab. Change it any time from the team page.</div>
+    <div class="list">`;
+  ts.slice().sort((a,b)=>a.school.localeCompare(b.school)).forEach(t=>{
+    h+=`<div class="row" data-pickfav="${t.id}" style="cursor:pointer;min-height:44px">
+      ${crestEl("src",t.school,hx(t.color))}<div style="flex:1"><b>${esc(t.school)}</b>
+      <div class="conf">${esc(t.conference||"")}</div></div><svg class="ic" style="color:var(--text3)"><use href="#i-chev-r"/></svg></div>`;
+  });
+  h+=`</div></div>`;
+  app.innerHTML=h; window.scrollTo(0,0);
+  document.querySelectorAll("[data-pickfav]").forEach(el=>el.onclick=async()=>{
+    const id=Number(el.dataset.pickfav);
+    localStorage.setItem(GUEST_FAV_KEY,String(id));
+    try{ if(typeof authUser!=="undefined" && authUser){
+      await authFetch("PATCH",`profiles?id=eq.${authUser.id}`,{favorite_team_id:id,updated_at:new Date().toISOString()});
+      if(authProfile) authProfile.favorite_team_id=id; } }catch(e){}
+    refreshMyTeamTab(); openDetail(id);
+  });
+}
+async function refreshMyTeamTab(){
+  const fav=favTeamId(); const lbl=document.getElementById("tab-myteam-label");
+  if(!lbl) return;
+  if(!fav){ lbl.textContent="Teams"; return; }
+  try{ await ensureTeamMeta(); const t=teamMeta[fav];
+    lbl.textContent = t? t.school.split(" ").slice(-1)[0].slice(0,9) : "My team";
+  }catch(e){ lbl.textContent="My team"; }
+}
+const TABS = { home:()=>load(), games:()=>openScores(), picks:()=>openPickem(),
+               myteam:()=>tabMyTeam(), explore:()=>openExplore() };
+document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.onclick=()=>{ setTab(b.dataset.tab); TABS[b.dataset.tab](); });
+
+/* ---------------- omnibox ---------------- */
+const OMNI_TOOLS = [
+  ["Simulator","target",()=>openSimulator()],["Scores & schedule","cal",()=>openScores()],
+  ["Standings & SoS","list",()=>openStandings()],["Matchup Lab","vs",()=>openMatchup()],
+  ["Leaderboards & stats","chart",()=>openStats()],["Rankings","trophy",()=>openPreseason()],
+  ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
+  ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
+];
+function openOmni(){ const o=document.getElementById("omni"); o.classList.add("show");
+  const q=document.getElementById("omniq"); q.value=""; omniRun(""); setTimeout(()=>q.focus(),50); }
+function closeOmni(){ document.getElementById("omni").classList.remove("show"); }
+document.getElementById("omniclose").onclick=closeOmni;
+let _omniT=null;
+document.getElementById("omniq").oninput=e=>{ clearTimeout(_omniT); _omniT=setTimeout(()=>omniRun(e.target.value.trim()),160); };
+async function omniRun(q){
+  const res=document.getElementById("omnires"); const ql=q.toLowerCase();
+  let h="";
+  OMNI_TOOLS.filter(t=>!q||t[0].toLowerCase().includes(ql)).forEach((t,i)=>{
+    h+=`<div class="r-row" data-tool="${i}"><svg class="ic" style="color:var(--amber)"><use href="#i-${t[1]}"/></svg><b>${t[0]}</b></div>`; });
+  if(q){
+    try{
+      const teams=(await ensureSearchTeams()).filter(t=>t.school.toLowerCase().includes(ql)).slice(0,6);
+      teams.forEach(t=>{ h+=`<div class="r-row" data-team="${t.id}">${crestEl("src",t.school,hx(t.color))}
+        <div><b>${esc(t.school)}</b><div class="conf">${esc(t.conference||"")} · team</div></div></div>`; });
+      if(q.length>=2){
+        const players=await api(`player_index?select=athlete_id,player,team_id,position&name_lower=ilike.*${encodeURIComponent(ql)}*&order=last_season.desc&limit=6`);
+        players.forEach(p=>{ const t=teamMeta[p.team_id]||{};
+          h+=`<div class="r-row" data-player="${p.athlete_id}"><svg class="ic" style="color:var(--text2)"><use href="#i-person"/></svg>
+          <div><b>${esc(p.player)}</b><div class="conf">${esc(p.position||"")} ${esc(t.school||"")} · player</div></div></div>`; });
+      }
+    }catch(e){}
+  }
+  res.innerHTML=h||`<div class="r-row"><span style="color:var(--text2)">Nothing found</span></div>`;
+  res.querySelectorAll("[data-tool]").forEach(el=>el.onclick=()=>{ closeOmni(); OMNI_TOOLS[+el.dataset.tool][2](); });
+  res.querySelectorAll("[data-team]").forEach(el=>el.onclick=()=>{ closeOmni(); openDetail(+el.dataset.team); });
+  res.querySelectorAll("[data-player]").forEach(el=>el.onclick=()=>{ closeOmni(); openPlayer(+el.dataset.player); });
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeOmni(); });
+
+/* ---------------- Explore hub ---------------- */
+async function openExplore(){
+  window.scrollTo(0,0);
+  let h=`<div class="cmp"><div class="cmptop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
+    <div class="cmptag">Explore</div>
+    <button class="navbtn" style="margin-left:auto;flex:none;min-height:44px" id="xsearch"><svg class="ic"><use href="#i-search"/></svg></button></div>
+  <div class="card card-hero-amber" id="xsim" style="margin:10px 2px;padding:15px;cursor:pointer">
+    <div class="eyebrow">The toy</div>
+    <h2 style="margin:4px 0 2px;font-size:20px">Playoff Simulator</h2>
+    <p style="margin:0;color:var(--text2);font-size:12px">Pick winners, watch title chances rebuild — 10,000 sims of your bracket.</p></div>
+  <div class="xgrid" style="padding:0 2px">
+    <div class="xcard" data-x="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>Leaderboards <span class="chip-plus">HASHMARK+</span></h4><p>Team & player stat leaders, every category.</p></div>
+    <div class="xcard" data-x="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
+    <div class="xcard" data-x="standings"><svg class="ic"><use href="#i-list"/></svg><h4>Standings + SoS</h4><p>Every conference, schedule strength.</p></div>
+    <div class="xcard" data-x="movers"><svg class="ic"><use href="#i-trend"/></svg><h4>Weekly Movers</h4><p>Who rose, who fell — updated Sundays.</p></div>
+    <div class="xcard" data-x="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 and season boards.</p></div>
+    <div class="xcard" data-x="method"><svg class="ic"><use href="#i-info"/></svg><h4>Methodology</h4><p>How the numbers get made.</p></div>
+    <div class="xcard dashed" id="xask"><svg class="ic" style="color:var(--text3)"><use href="#i-chat"/></svg><h4>AI Analyst Chat</h4><p>Coming to this search box. Ask anything, get sourced answers.</p></div>
+    <div class="xcard" data-x="notify"><svg class="ic"><use href="#i-bell"/></svg><h4>Notifications</h4><p>Picks reminders and results.</p></div>
+  </div>
+  <div class="card" style="margin:12px 2px;padding:14px" id="foundcard">
+    <div class="eyebrow">Founding member</div>
+    <p style="margin:6px 0 8px;font-size:12px;color:var(--text2)">Hashmark stays free. A supporter tier is coming — first 500 get a locked-for-life rate. No payment now, just a heads-up when it opens.</p>
+    <div style="display:flex;gap:8px"><input id="foundemail" placeholder="you@email.com" style="flex:1;background:var(--surface2);border:1px solid var(--line2);border-radius:11px;color:var(--text);padding:11px 12px;font-family:Barlow;font-size:14px" autocomplete="email">
+    <button class="navbtn primary" id="foundgo" style="flex:none;min-height:44px">Notify me</button></div>
+    <div class="eyebrow" id="foundmsg" style="margin-top:6px"></div></div>
+  <div class="note">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:"FOR ENTERTAINMENT · HASHMARK IS GAMBLING-FREE"}</div></div>`;
+  app.innerHTML=h;
+  document.getElementById("xsim").onclick=()=>openSimulator();
+  document.getElementById("xsearch").onclick=openOmni;
+  const GO={stats:()=>openStats(),matchup:()=>openMatchup(),standings:()=>openStandings(),
+    movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),notify:()=>openNotifyPrefs()};
+  document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
+  document.getElementById("xask").onclick=openOmni;
+  document.getElementById("foundgo").onclick=async()=>{
+    const em=document.getElementById("foundemail").value.trim(), msg=document.getElementById("foundmsg");
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ msg.textContent="That email doesn't look right."; return; }
+    try{
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/founding_interest`,{method:"POST",
+        headers:{apikey:KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json"},
+        body:JSON.stringify({email:em})});
+      if(!r.ok) throw new Error("save failed");
+      msg.textContent="You're on the list."; document.getElementById("foundemail").value="";
+    }catch(e){ msg.textContent="Couldn't save — try again."; }
+  };
+}
+
+/* ---------------- Weekly Movers ---------------- */
+async function openMovers(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading movers…</div>`;
+  await ensureTeamMeta();
+  let rows=[];
+  try{ rows=await api(`poll_rankings_history?select=season,week,rank,team_id&poll=eq.AP%20Top%2025&order=season.desc,week.desc&limit=100`);}catch(e){}
+  let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic"><use href="#i-chev-l"/></svg></button>
+    <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Weekly movers</div></div>`;
+  const weeks=[...new Set(rows.map(r=>r.season*100+r.week))].sort((a,b)=>b-a);
+  if(weeks.length<2){
+    h+=`<div class="card" style="margin:12px 2px;padding:16px"><b>Movement starts Week 1.</b>
+      <p style="color:var(--text2);font-size:12px;margin:6px 0 0">Rank-by-rank movement shows up here once two weekly snapshots exist. The Sunday update writes one every week of the season.</p></div>`;
+  }else{
+    const cur=rows.filter(r=>r.season*100+r.week===weeks[0]);
+    const prev=Object.fromEntries(rows.filter(r=>r.season*100+r.week===weeks[1]).map(r=>[r.team_id,r.rank]));
+    h+=`<div class="sect-h">AP Top 25<span class="ctx">WK ${cur[0].week} vs WK ${rows.find(r=>r.season*100+r.week===weeks[1]).week}</span></div><div class="list">`;
+    cur.sort((a,b)=>a.rank-b.rank).forEach(r=>{
+      const t=teamMeta[r.team_id]||{}, p=prev[r.team_id], d=p? p-r.rank : null;
+      const mv = d===null?`<span class="eyebrow">NEW</span>`
+        : d>0?`<span class="mv-up"><svg class="ic"><use href="#i-up"/></svg>${d}</span>`
+        : d<0?`<span class="mv-dn"><svg class="ic"><use href="#i-down"/></svg>${-d}</span>`
+        : `<span style="color:var(--text3)">–</span>`;
+      h+=`<div class="row" data-team="${r.team_id}" style="cursor:pointer"><div class="rank">${r.rank}</div>
+        ${crestEl("src",t.school||"?",oppColor(r.team_id))}<div style="flex:1"><b>${esc(t.school||"")}</b></div>${mv}</div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`<div class="note"><b>Official AP poll movement.</b> ${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div></div>`;
+  app.innerHTML=h; document.querySelector(".back").onclick=()=>openExplore();
+  document.querySelectorAll("[data-team]").forEach(el=>el.onclick=()=>openDetail(+el.dataset.team));
+}
+
+/* ---------------- Home extras: my-team hero + scenario card + live strip ---------------- */
+const _renderHome = renderHome;
+renderHome = async function(){
+  await _renderHome.apply(this, arguments);
+  try{ await v2HomeExtras(); }catch(e){}
+  liveArm();
+};
+async function v2HomeExtras(){
+  const fav=favTeamId(); if(!fav) return;
+  await ensureTeamMeta(); const t=teamMeta[fav]; if(!t) return;
+  const wrap=document.createElement("div"); wrap.id="v2hero";
+  let inner=`<div class="card card-hero-amber" style="margin:10px 2px;padding:14px;cursor:pointer" data-herot="${fav}">
+    <div style="display:flex;align-items:center;gap:10px">${crestEl("src",t.school,hx(t.color))}
+    <div style="flex:1"><div class="eyebrow">My team</div><h2 style="margin:2px 0;font-size:19px">${esc(t.school)}</h2></div>
+    <svg class="ic" style="color:var(--text3)"><use href="#i-chev-r"/></svg></div><div id="herodots" style="margin-top:8px"></div><div id="herownth"></div></div>`;
+  wrap.innerHTML=inner;
+  const anchor=app.firstElementChild; app.insertBefore(wrap, anchor && anchor.nextElementSibling);
+  wrap.querySelector("[data-herot]").onclick=()=>openDetail(fav);
+  try{
+    const gs=await api(`games?select=id,week,season_type,home_team_id,away_team_id,home_points,away_points,completed,start_date&or=(home_team_id.eq.${fav},away_team_id.eq.${fav})&season=eq.${SEASON_RESULTS}&order=start_date.asc`);
+    const dots=gs.filter(g=>g.completed).map(g=>{
+      const win=(g.home_team_id===fav)===(g.home_points>g.away_points);
+      return `<span class="d ${win?"w":"l"}"></span>`; }).join("");
+    const nxt=gs.find(g=>!g.completed);
+    document.getElementById("herodots").innerHTML=`<div class="dotstrip">${dots}${nxt?'<span class="d n"></span>':""}</div>`;
+  }catch(e){}
+  if(typeof SHOW_PREDICTIONS!=="undefined" && SHOW_PREDICTIONS){ try{
+    const po=await api(`playoff_odds?select=make_cfp,win_title,exp_wins&team_id=eq.${fav}&order=season.desc&limit=1`);
+    if(po.length){
+      const n=Math.round(po[0].make_cfp*100);
+      let line=`Makes the playoff in <b>${n} of 100</b> seasons`;
+      try{ const cp=await api(`conditional_probs?select=scenario,target,prob&team_id=eq.${fav}&order=as_of_week.desc&limit=6`);
+        const wo=cp.find(c=>c.scenario==="win_out"&&(c.target==="make_cfp"||c.target==="cfp"));
+        if(wo) line+=` · win out: <b>${Math.round(wo.prob*100)} of 100</b>`; }catch(e){}
+      document.getElementById("herownth").innerHTML=
+        `<div style="margin-top:8px;font-size:12px;color:var(--text2)">${line}</div>
+         <div class="pbar" style="margin-top:6px"><div class="fill" style="width:${n}%"></div></div>`;
+    }}catch(e){}
+  }
+}
+
+/* ---------------- Phase B: live strip (live_win_prob is served; OT stays dark) ------- */
+let _liveTimer=null;
+function liveArm(){ if(_liveTimer) clearInterval(_liveTimer);
+  liveTick(); _liveTimer=setInterval(()=>{ if(document.visibilityState==="visible") liveTick(); },60000); }
+async function liveTick(){
+  let rows=[];
+  try{
+    const since=new Date(Date.now()-12*60*1000).toISOString();
+    rows=await api(`live_win_prob?select=game_id,period,clock,home_points,away_points,home_wp,leverage,segment,fetched_at&fetched_at=gt.${since}&order=fetched_at.desc&limit=120`);
+  }catch(e){ return; }
+  const seen={}, live=[];
+  rows.forEach(r=>{ if(!seen[r.game_id]){ seen[r.game_id]=1; live.push(r); } });
+  let host=document.getElementById("livewrap");
+  if(!live.length){ if(host) host.remove(); return; }
+  if(!host){ host=document.createElement("div"); host.id="livewrap";
+    const hero=document.getElementById("v2hero"); app.insertBefore(host, hero?hero:app.firstElementChild); }
+  await ensureTeamMeta();
+  let ginfo={};
+  try{ const ids=live.map(r=>r.game_id).join(",");
+    (await api(`games?select=id,home_team_id,away_team_id&id=in.(${ids})`)).forEach(g=>ginfo[g.id]=g);
+  }catch(e){}
+  let h=`<div class="sect-h"><span class="chip-live">LIVE</span></div>`;
+  for(const r of live){
+    const g=ginfo[r.game_id]||{}; const ht=teamMeta[g.home_team_id]||{}, at=teamMeta[g.away_team_id]||{};
+    const wp=r.home_wp; const isOT=r.segment==="overtime";
+    let pre=null;
+    if(g.home_team_id&&g.away_team_id){ try{
+      const [a,b]=[Math.min(g.home_team_id,g.away_team_id),Math.max(g.home_team_id,g.away_team_id)];
+      const mw=await api(`matchup_winprob?select=team_a,team_b,win_prob_a_home,win_prob_a_away&team_a=eq.${a}&team_b=eq.${b}&limit=1`);
+      if(mw.length){ pre = (a===g.home_team_id)? mw[0].win_prob_a_home : 1-mw[0].win_prob_a_away; }
+    }catch(e){} }
+    h+=`<div class="card" style="margin:6px 2px;padding:12px">
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <b>${esc(at.school||"Away")} ${r.away_points} @ ${esc(ht.school||"Home")} ${r.home_points}</b>
+        <span class="eyebrow">Q${r.period} ${esc(r.clock||"")}</span></div>`;
+    if(isOT || wp==null){
+      h+=`<div style="margin-top:6px;font-size:12px;color:var(--text2)">Overtime — too close to call. We don't guess in OT.</div>`;
+    }else{
+      const n=Math.round(wp*100);
+      h+=`<div class="pbar" style="margin-top:8px"><div class="fill" style="width:${n}%"></div>
+        ${pre!=null?`<div class="tick" style="left:${Math.round(pre*100)}%"></div>`:""}</div>
+        <div class="plabel"><span>${esc(ht.school||"Home")} wins <b>${n} of 100</b> from here</span>
+        ${pre!=null?`<span>pregame: ${Math.round(pre*100)}</span>`:""}</div>`;
+    }
+    h+=`</div>`;
+  }
+  h+=`<div class="note" style="margin:2px">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div>`;
+  host.innerHTML=h;
+}
+
+/* ---------------- Model receipts on finals rows ---------------- */
+let RCPT_ROWS=[];
+const _scGameRow=scGameRow;
+scGameRow=function(g){
+  let h=_scGameRow(g);
+  const done=g.completed&&g.home_points!=null&&g.away_points!=null;
+  if(done&&g.home_team_id&&g.away_team_id&&typeof SHOW_PREDICTIONS!=="undefined"&&SHOW_PREDICTIONS){
+    RCPT_ROWS.push({id:g.id,h:g.home_team_id,a:g.away_team_id,hw:g.home_points>g.away_points});
+    h=h.replace('</div>$','');
+    h=h.replace(/<\/div>\s*$/,`<span class="rcpt" data-rcpt="${g.id}" style="display:none;margin-top:4px"></span></div>`);
+  }
+  return h;
+};
+const _drawScores=drawScores;
+drawScores=async function(){
+  RCPT_ROWS=[];
+  await _drawScores.apply(this,arguments);
+  const rows=RCPT_ROWS.slice(0,40); if(!rows.length) return;
+  try{
+    const ors=rows.map(r=>{const a=Math.min(r.h,r.a),b=Math.max(r.h,r.a);return `and(team_a.eq.${a},team_b.eq.${b})`;}).join(",");
+    const mw=await api(`matchup_winprob?select=team_a,team_b,win_prob_a_home&or=(${ors})`);
+    const byPair={}; mw.forEach(m=>byPair[m.team_a+"-"+m.team_b]=m);
+    rows.forEach(r=>{
+      const a=Math.min(r.h,r.a),b=Math.max(r.h,r.a); const m=byPair[a+"-"+b]; if(!m) return;
+      const predHomeWin = (a===r.h)? m.win_prob_a_home>0.5 : m.win_prob_a_home<0.5;
+      if(predHomeWin===r.hw){
+        const el=document.querySelector(`[data-rcpt="${r.id}"]`);
+        if(el){ el.style.display="inline-flex"; el.className="chip-model";
+          el.innerHTML=`<svg class="ic"><use href="#i-check"/></svg>MODEL`; }
+      }
+    });
+  }catch(e){}
+};
+
+/* boot */
+refreshMyTeamTab();
+</script>
+
 </body>
 </html>
