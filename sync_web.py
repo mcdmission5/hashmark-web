@@ -1,9 +1,9 @@
 """Regenerate the deployed web copies from the canonical app file.
 
-hashmark-web/index.html = ../hashmark-app.html + PWA head tags + service-worker registration
+hashmark-web/index.html = hashmark-app.html + PWA head tags + service-worker registration
 (those are the ONLY differences). www/index.html is a verbatim copy of index.html.
 
-Run after editing ../hashmark-app.html:  python hashmark-web/sync_web.py
+Run after editing hashmark-app.html:  python hashmark-web/sync_web.py
 Drift check (used by the pre-commit hook):  python hashmark-web/sync_web.py --check
   — recomputes the expected index.html from the canonical file and exits 1 if the deployed
   copies don't hash-match, so the two files can never silently diverge again.
@@ -14,7 +14,7 @@ import shutil
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(ROOT, "..", "hashmark-app.html")
+SRC = os.path.join(ROOT, "hashmark-app.html")
 
 PWA_HEAD = '''<title>Hashmark — College Football Stats & Analytics</title>
 <meta name="description" content="Hashmark — deep, official college-football stats &amp; analytics for every FBS team and across the sport: team stat profiles with national ranks, league-wide leaderboards, player leaders, and preseason rankings. Independent and gambling-free." />
@@ -61,7 +61,7 @@ def check_engine():
     import json
     import re
     model = os.path.expanduser("~/hashmark/hashmark-model")
-    html = open(os.path.join(ROOT, "..", "hashmark-app.html")).read()
+    html = open(os.path.join(ROOT, "hashmark-app.html")).read()
     m = re.search(r"const ENGINE = \{ beta: ([\d.]+), hfa: ([\d.]+), sigma: ([\d.]+) \}", html)
     if not m:
         print("ENGINE check: constant not found in hashmark-app.html — pattern changed?")
@@ -84,7 +84,7 @@ def check_engine():
         bad.append(f"sigma app {app_sigma} != build_winprob {sigma}")
     if bad:
         print("ENGINE DRIFT: " + "; ".join(bad) + " — update the ENGINE constant in "
-              "../hashmark-app.html to match the model repo, then re-sync.")
+              "hashmark-app.html to match the model repo, then re-sync.")
         return 1
     print(f"ENGINE check OK — beta {app_beta} / hfa {app_hfa} / sigma {app_sigma} match the model repo")
     return 0
@@ -96,7 +96,7 @@ BANNED_VOCAB = ["odds", " line ", "the line", "point spread", " spread", "units"
                 "underdog", " favored", "payout", " fade ", " juice ", " chalk"]
 
 # every file the linters scan (v2 ships alongside until cutover)
-LINT_FILES = [os.path.join("..", "hashmark-app.html"), "index.html", "index-v2.html",
+LINT_FILES = ["hashmark-app.html", "index.html", "index-v2.html",
               os.path.join("www", "index.html")]
 
 
@@ -172,8 +172,8 @@ def check():
     drifted = [p for p in ("index.html", os.path.join("www", "index.html"))
                if sha(open(os.path.join(ROOT, p)).read()) != want]
     if drifted:
-        print(f"DRIFT: {', '.join(drifted)} != transform(../hashmark-app.html). "
-              "Run `python sync_web.py` (edit the canonical ../hashmark-app.html, never "
+        print(f"DRIFT: {', '.join(drifted)} != transform(hashmark-app.html). "
+              "Run `python sync_web.py` (edit the canonical hashmark-app.html, never "
               "index.html directly), then re-commit.")
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
