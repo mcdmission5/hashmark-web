@@ -9,7 +9,7 @@
 //
 // Deploy:  supabase functions deploy ask-hashmark --no-verify-jwt=false
 // Secrets: supabase secrets set ASK_HASHMARK_ENABLED=true ANTHROPIC_API_KEY=sk-... \
-//          ASK_DAILY_LIMIT=20 ASK_MONTHLY_TOKEN_CAP=4000000
+//          ASK_FREE_PER_MONTH=3 ASK_MONTHLY_TOKEN_CAP=4000000
 // v2 note (do NOT build now): tool-calling over live endpoints; per-user memory +
 // proactive briefings are the P3 premium agent (hashmark-ai-agent-concept.md).
 
@@ -85,10 +85,11 @@ Deno.serve(async (req) => {
   }
 
   // per-user daily quota (atomic)
+  // signature-and-gating §1: 3 free questions per MONTH; upsell copy on the 4th
   const { data: ok } = await supa.rpc("ask_consume", {
-    uid: userData.user.id, daily_limit: Number(Deno.env.get("ASK_DAILY_LIMIT") || 20) });
+    uid: userData.user.id, monthly_limit: Number(Deno.env.get("ASK_FREE_PER_MONTH") || 3) });
   if (!ok) {
-    return new Response(JSON.stringify({ error: "That's your questions for today — resets at midnight." }),
+    return new Response(JSON.stringify({ error: "You've used your 3 free questions this month. Unlimited Ask Hashmark is coming with Hashmark+." }),
       { status: 429, headers: { ...cors, "content-type": "application/json" } });
   }
 

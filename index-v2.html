@@ -2519,9 +2519,14 @@ async function openDetail(teamId){
 function renderDetailPreview(t, ap, ts, games, teamId, ext){
   setTimeout(async()=>{ try{
     const html = await teamNewsHTML(teamId);
-    const note = app.querySelector(".note");
-    if(html && note){ const d=document.createElement("div"); d.innerHTML=html;
-      note.parentNode.insertBefore(d.firstChild, note); }
+    if(!html) return;
+    const d=document.createElement("div"); d.innerHTML=html;
+    // signature-and-gating §2: news lives HIGH on the team page — right under the
+    // identity/record block, above the deep stat sections (overrides design-doc order)
+    const anchor=[...app.querySelectorAll("*")].find(e=>e.children.length===0
+      && /stat profile/i.test(e.textContent||""));
+    const host = anchor ? anchor.closest("div") : app.querySelector(".note");
+    if(host) host.parentNode.insertBefore(d.firstChild, host);
   }catch(_e){} }, 0);
   if(!t){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
@@ -3659,8 +3664,28 @@ if ("serviceWorker" in navigator) {
 
 <script>
 /* ================= v2 shell: tabs, omnibox, explore, movers, live, receipts ================= */
-const PLUS_GATED = { grade_history:false, scenario_sandbox:false, ask_unlimited:false,
-                     big_groups:false, csv_export:false };   // all FREE now; chips reserved-hidden
+const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purchasable yet
+  simulator_unlimited:true,   // free taste: view field + ONE full run; upsell at 2nd run
+  ask_unlimited:true,         // free tier: 3 questions/month (edge fn enforces)
+  signature_full:true,        // Collapse Index teaser free; full boards Hashmark+
+  grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true };
+const SIM_RUNS_KEY = "hm_sim_runs";
+function plusUpsell(title, body){
+  const el=document.createElement("div");
+  el.className="omni show"; el.style.justifyContent="center";
+  el.innerHTML=`<div class="card card-hero-amber" style="max-width:420px;margin:0 auto;padding:18px">
+    <div class="eyebrow">Hashmark+</div><h2 style="margin:6px 0">${title}</h2>
+    <p style="color:var(--text2);font-size:12.5px">${body}</p>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="navbtn primary" data-u="cont" style="flex:1;min-height:44px">Continue free during preview</button>
+      <button class="navbtn" data-u="notify" style="flex:1;min-height:44px">Get launch notice</button>
+    </div></div>`;
+  document.body.appendChild(el);
+  return new Promise(res=>{
+    el.querySelector('[data-u="cont"]').onclick=()=>{ el.remove(); res(true); };
+    el.querySelector('[data-u="notify"]').onclick=()=>{ el.remove(); setTab("explore"); openExplore(); res(false); };
+  });
+}
 const GUEST_FAV_KEY = "hm_fav_team";
 
 function favTeamId(){
@@ -3702,13 +3727,23 @@ async function refreshMyTeamTab(){
     lbl.textContent = t? t.school.split(" ").slice(-1)[0].slice(0,9) : "My team";
   }catch(e){ lbl.textContent="My team"; }
 }
+async function gatedSimulator(){
+  const runs = Number(localStorage.getItem(SIM_RUNS_KEY) || 0);
+  if(runs >= 1){
+    const go = await plusUpsell("Run unlimited scenarios",
+      "Your first full simulation was free. Unlimited bracket scenarios are coming with Hashmark+ — free while we're in preview.");
+    if(!go) return;
+  }
+  localStorage.setItem(SIM_RUNS_KEY, String(runs + 1));
+  openSimulator();
+}
 const TABS = { home:()=>load(), games:()=>openScores(), picks:()=>openPickem(),
                myteam:()=>tabMyTeam(), explore:()=>openExplore() };
 document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.onclick=()=>{ setTab(b.dataset.tab); TABS[b.dataset.tab](); });
 
 /* ---------------- omnibox ---------------- */
 const OMNI_TOOLS = [
-  ["Simulator","target",()=>openSimulator()],["Scores & schedule","cal",()=>openScores()],
+  ["Simulator","target",()=>gatedSimulator()],["Scores & schedule","cal",()=>openScores()],
   ["Standings & SoS","list",()=>openStandings()],["Matchup Lab","vs",()=>openMatchup()],
   ["Leaderboards & stats","chart",()=>openStats()],["Rankings","trophy",()=>openPreseason()],
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
@@ -3761,6 +3796,8 @@ async function openExplore(){
     <div class="xcard" data-x="standings"><svg class="ic"><use href="#i-list"/></svg><h4>Standings + SoS</h4><p>Every conference, schedule strength.</p></div>
     <div class="xcard" data-x="movers"><svg class="ic"><use href="#i-trend"/></svg><h4>Weekly Movers</h4><p>Who rose, who fell — updated Sundays.</p></div>
     <div class="xcard" data-x="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 and season boards.</p></div>
+    <div class="xcard" data-x="accuracy"><svg class="ic"><use href="#i-check"/></svg><h4 style="color:var(--amber)">Checking Our Work</h4><p>Every call logged before kickoff. Misses stay up.</p></div>
+    <div class="xcard" data-x="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and more — named teams, tracked calls.</p></div>
     <div class="xcard" data-x="method"><svg class="ic"><use href="#i-info"/></svg><h4>Methodology</h4><p>How the numbers get made.</p></div>
     <div class="xcard dashed" id="xask"><svg class="ic" style="color:var(--text3)"><use href="#i-chat"/></svg><h4>AI Analyst Chat</h4><p>Coming to this search box. Ask anything, get sourced answers.</p></div>
     <div class="xcard" data-x="notify"><svg class="ic"><use href="#i-bell"/></svg><h4>Notifications</h4><p>Picks reminders and results.</p></div>
@@ -3773,10 +3810,11 @@ async function openExplore(){
     <div class="eyebrow" id="foundmsg" style="margin-top:6px"></div></div>
   <div class="note">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:"FOR ENTERTAINMENT · HASHMARK IS GAMBLING-FREE"}</div></div>`;
   app.innerHTML=h;
-  document.getElementById("xsim").onclick=()=>openSimulator();
+  document.getElementById("xsim").onclick=()=>gatedSimulator();
   document.getElementById("xsearch").onclick=openOmni;
   const GO={stats:()=>openStats(),matchup:()=>openMatchup(),standings:()=>openStandings(),
-    movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),notify:()=>openNotifyPrefs()};
+    movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),
+    notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature()};
   document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
   document.getElementById("xask").onclick=openOmni;
   document.getElementById("foundgo").onclick=async()=>{
@@ -3833,17 +3871,25 @@ renderHome = async function(){
   liveArm();
 };
 async function v2HomeExtras(){
-  const fav=favTeamId(); if(!fav) return;
-  await ensureTeamMeta(); const t=teamMeta[fav]; if(!t) return;
+  const fav=favTeamId();
   const wrap=document.createElement("div"); wrap.id="v2hero";
-  let inner=`<div class="card card-hero-amber" style="margin:10px 2px;padding:14px;cursor:pointer" data-herot="${fav}">
-    <div style="display:flex;align-items:center;gap:10px">${crestEl("src",t.school,hx(t.color))}
-    <div style="flex:1"><div class="eyebrow">My team</div><h2 style="margin:2px 0;font-size:19px">${esc(t.school)}</h2></div>
-    <svg class="ic" style="color:var(--text3)"><use href="#i-chev-r"/></svg></div><div id="herodots" style="margin-top:8px"></div><div id="herownth"></div></div>`;
-  wrap.innerHTML=inner;
-  const anchor=app.firstElementChild; app.insertBefore(wrap, anchor && anchor.nextElementSibling);
-  wrap.querySelector("[data-herot]").onclick=()=>openDetail(fav);
-  try{
+  // anchor INSIDE the home container, above the National-leaders section (.hsec)
+  const t0=[...app.querySelectorAll(".hsectitle")].find(e=>/national leaders/i.test(e.textContent||""));
+  const anchor=t0?t0.closest(".hsec"):null;
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor);
+  else (app.firstElementChild||app).appendChild(wrap);
+  await ensureTeamMeta();
+  const t=fav?teamMeta[fav]:null;
+  if(t){
+    const hero=document.createElement("div");
+    hero.innerHTML=`<div class="card card-hero-amber" style="margin:10px 2px;padding:14px;cursor:pointer" data-herot="${fav}">
+      <div style="display:flex;align-items:center;gap:10px">${crestEl("src",t.school,hx(t.color))}
+      <div style="flex:1"><div class="eyebrow">My team</div><h2 style="margin:2px 0;font-size:19px">${esc(t.school)}</h2></div>
+      <svg class="ic" style="color:var(--text3)"><use href="#i-chev-r"/></svg></div><div id="herodots" style="margin-top:8px"></div><div id="herownth"></div></div>`;
+    wrap.appendChild(hero.firstChild);
+    wrap.querySelector("[data-herot]").onclick=()=>openDetail(fav);
+  }
+  if(t) try{
     const gs=await api(`games?select=id,week,season_type,home_team_id,away_team_id,home_points,away_points,completed,start_date&or=(home_team_id.eq.${fav},away_team_id.eq.${fav})&season=eq.${SEASON_RESULTS}&order=start_date.asc`);
     const dots=gs.filter(g=>g.completed).map(g=>{
       const win=(g.home_team_id===fav)===(g.home_points>g.away_points);
@@ -3851,7 +3897,32 @@ async function v2HomeExtras(){
     const nxt=gs.find(g=>!g.completed);
     document.getElementById("herodots").innerHTML=`<div class="dotstrip">${dots}${nxt?'<span class="d n"></span>':""}</div>`;
   }catch(e){}
-  if(typeof SHOW_PREDICTIONS!=="undefined" && SHOW_PREDICTIONS){ try{
+  try{   // §5: Checking Our Work front-door teaser (real accuracy_summary)
+    const acc=await api(`accuracy_summary?select=*&order=season.desc&limit=1`);
+    if(acc.length){
+      const a=acc[0]; const pct=a.su_pct!=null?Math.round(Number(a.su_pct)):null;
+      const line = pct!=null ? `The Model called <b>${pct} of 100</b> winners straight-up in ${a.season} (${a.n} games, logged before kickoff).` : `Every model call is logged before kickoff. Misses stay up.`;
+      const tz=document.createElement("div");
+      tz.innerHTML=`<div class="card card-hero-teal" style="margin:8px 2px;padding:12px;cursor:pointer" id="acc-teaser">
+        <div class="eyebrow" style="color:var(--teal)">Checking our work</div>
+        <div style="font-size:12.5px;margin-top:3px">${line}</div></div>`;
+      wrap.appendChild(tz.firstChild);
+      document.getElementById("acc-teaser").onclick=()=>openCheckingWork();
+    }
+  }catch(e){}
+  try{   // §4: Collapse Index free teaser
+    const sig=await api(`signature_stats?select=stat_key,team_id,season&free=eq.true&stat_key=eq.collapse_index&rank=eq.1&limit=1`);
+    if(sig.length){
+      await ensureTeamMeta(); const t=teamMeta[sig[0].team_id]||{};
+      const el=document.createElement("div");
+      el.innerHTML=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" id="sig-teaser">
+        <div class="eyebrow" style="color:var(--amber)">The Collapse Index · ${sig[0].season}</div>
+        <div style="font-size:12.5px;margin-top:3px">The preseason top-10 team most likely to vanish from the rankings: <b>${esc(t.school||"?")}</b></div></div>`;
+      wrap.appendChild(el.firstChild);
+      document.getElementById("sig-teaser").onclick=()=>{ setTab("explore"); openSignature(); };
+    }
+  }catch(e){}
+  if(t && typeof SHOW_PREDICTIONS!=="undefined" && SHOW_PREDICTIONS){ try{
     const po=await api(`playoff_odds?select=make_cfp,win_title,exp_wins&team_id=eq.${fav}&order=season.desc&limit=1`);
     if(po.length){
       const n=Math.round(po[0].make_cfp*100);
@@ -3950,8 +4021,69 @@ drawScores=async function(){
   }catch(e){}
 };
 
+
+/* ---------------- §4 Signature Stats (free teaser + locked shells) ---------------- */
+async function openSignature(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading signature stats…</div>`;
+  await ensureTeamMeta();
+  let free=[];
+  try{ free=await api(`signature_stats?select=stat_key,rank,team_id,value,drivers,track,season,as_of_week&free=eq.true&order=stat_key.asc,rank.asc`);}catch(e){}
+  const collapse=free.find(r=>r.stat_key==="collapse_index");
+  const myth=free.find(r=>r.stat_key==="myth_trap_games");
+  let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic"><use href="#i-chev-l"/></svg></button>
+    <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Signature stats</div></div>
+    <div class="secsub" style="padding:4px 2px">Named teams, tracked calls — every card links to its own record. Misses stay up.</div>`;
+  if(collapse){
+    const t=teamMeta[collapse.team_id]||{};
+    const d=collapse.drivers||{}; const drv=(d.top_drivers||d.drivers||[]).slice(0,3);
+    const tr=collapse.track||{};
+    h+=`<div class="card card-hero-amber" style="margin:10px 2px;padding:15px">
+      <div class="eyebrow">The Collapse Index · ${collapse.season} preseason · FREE</div>
+      <h2 style="margin:6px 0 2px">${esc(t.school||"?")}</h2>
+      <p style="margin:0 0 6px;color:var(--text2);font-size:12.5px">Most likely preseason top-10 team to finish unranked${d.base_rate?` — it happens: ${esc(String(d.base_rate))}`:""}.</p>
+      ${drv.map(x=>`<div style="font-size:12px;color:var(--text2)"><svg class="ic" style="color:var(--amber)"><use href="#i-chev-r"/></svg> ${esc(String(x))}</div>`).join("")}
+      ${tr.n?`<div class="eyebrow" style="margin-top:8px">This call's record since ${tr.since||2014}: ${tr.hits} of ${tr.n}</div>`:""}
+    </div>`;
+  } else {
+    h+=`<div class="card" style="margin:10px 2px;padding:14px"><b>Collapse Index</b>
+      <p style="color:var(--text2);font-size:12px;margin:4px 0 0">First board publishes with the preseason run.</p></div>`;
+  }
+  const LOCKED=[["Luck Audit","Teams most likely to fall back to earth"],
+    ["Hidden Riser","The breakout the numbers already see"],
+    ["Model vs Poll","Where we disagree with the voters"],
+    ["The Gauntlet","The toughest three-game stretch in football"],
+    ["Talent Bomb","Elite rosters underperforming their talent"]];
+  h+=`<div class="sect-h">The full set</div><div class="xgrid" style="padding:0 2px">`;
+  LOCKED.forEach(([t2,p])=>{ h+=`<div class="xcard" data-lock="1"><svg class="ic" style="color:var(--text3)"><use href="#i-lock"/></svg>
+    <h4>${t2} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>${p}</p></div>`; });
+  h+=`</div>`;
+  if(myth){
+    const md=myth.drivers||{};
+    h+=`<div class="card" style="margin:12px 2px;padding:14px">
+      <div class="eyebrow">Myth check · non-predictive</div>
+      <b>"Trap games" don't really exist.</b>
+      <p style="color:var(--text2);font-size:12px;margin:5px 0 0">${esc(String(md.claim||"Top-10 teams almost never lose the game before the big one."))}${md.record?` Record: <b>${esc(String(md.record))}</b>.`:""} We publish this so you know we check our folklore too.</p></div>`;
+  }
+  h+=`<div class="note">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=()=>openExplore();
+  document.querySelectorAll("[data-lock]").forEach(el=>el.onclick=()=>plusUpsell(
+    "The full signature set","Every board, every driver, every tracked call — coming with Hashmark+. Free while we're in preview? Not this one: signature boards stay locked until launch."));
+}
+
 /* boot */
 refreshMyTeamTab();
+// load() begins before this block parses — if the first home render won the race
+// (microtasks run between script blocks), patch the extras in after the fact.
+setTimeout(()=>{ try{
+  if(!document.getElementById("v2hero")
+     && /national leaders/i.test(app.textContent||"")){ v2HomeExtras(); liveArm(); }
+}catch(e){} }, 1200);
+setTimeout(()=>{ try{
+  if(!document.getElementById("v2hero")
+     && /national leaders/i.test(app.textContent||"")){ v2HomeExtras(); liveArm(); }
+}catch(e){} }, 3500);
 </script>
 
 </body>
