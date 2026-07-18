@@ -3911,13 +3911,14 @@ async function v2HomeExtras(){
     }
   }catch(e){}
   try{   // §4: Collapse Index free teaser
-    const sig=await api(`signature_stats?select=stat_key,team_id,season&free=eq.true&stat_key=eq.collapse_index&rank=eq.1&limit=1`);
+    const sig=await api(`signature_stats?select=stat_key,team_id,season,drivers&free=eq.true&stat_key=eq.collapse_index&limit=1`);
     if(sig.length){
       await ensureTeamMeta(); const t=teamMeta[sig[0].team_id]||{};
       const el=document.createElement("div");
       el.innerHTML=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" id="sig-teaser">
-        <div class="eyebrow" style="color:var(--amber)">The Collapse Index · ${sig[0].season}</div>
-        <div style="font-size:12.5px;margin-top:3px">The preseason top-10 team most likely to vanish from the rankings: <b>${esc(t.school||"?")}</b></div></div>`;
+        <div class="eyebrow" style="color:var(--amber)">Regression watch-list · ${sig[0].season}</div>
+        <div style="font-size:12.5px;margin-top:3px">The preseason top-10 team our factors flag hardest: <b>${esc(t.school||"?")}</b></div>
+        <div class="eyebrow" style="margin-top:4px">${esc((sig[0].drivers||{}).poll_basis||"")} · openly tracked, no proven edge claimed</div></div>`;
       wrap.appendChild(el.firstChild);
       document.getElementById("sig-teaser").onclick=()=>{ setTab("explore"); openSignature(); };
     }
@@ -4039,11 +4040,13 @@ async function openSignature(){
     const d=collapse.drivers||{}; const drv=(d.top_drivers||d.drivers||[]).slice(0,3);
     const tr=collapse.track||{};
     h+=`<div class="card card-hero-amber" style="margin:10px 2px;padding:15px">
-      <div class="eyebrow">The Collapse Index · ${collapse.season} preseason · FREE</div>
+      <div class="eyebrow">The Collapse Index · regression watch-list · ${collapse.season} preseason · FREE</div>
       <h2 style="margin:6px 0 2px">${esc(t.school||"?")}</h2>
-      <p style="margin:0 0 6px;color:var(--text2);font-size:12.5px">Most likely preseason top-10 team to finish unranked${d.base_rate?` — it happens: ${esc(String(d.base_rate))}`:""}.</p>
+      <p style="margin:0 0 6px;color:var(--text2);font-size:12.5px">The preseason top-10 team our factors flag hardest${d.chance?` — ${esc(String(d.chance))}`:""}.${d.base_rate?` For scale: ${esc(String(d.base_rate))}.`:""}</p>
+      ${d.poll_basis?`<div class="eyebrow" style="margin-bottom:6px">Built on the ${esc(String(d.poll_basis))}</div>`:""}
       ${drv.map(x=>`<div style="font-size:12px;color:var(--text2)"><svg class="ic" style="color:var(--amber)"><use href="#i-chev-r"/></svg> ${esc(String(x))}</div>`).join("")}
       ${tr.n?`<div class="eyebrow" style="margin-top:8px">This call's record since ${tr.since||2014}: ${tr.hits} of ${tr.n}</div>`:""}
+      <div class="eyebrow" style="margin-top:4px">${esc(String(d.disclaimer||"n=11 seasons — no proven edge claimed; we log and score every call"))}</div>
     </div>`;
   } else {
     h+=`<div class="card" style="margin:10px 2px;padding:14px"><b>Collapse Index</b>
@@ -4061,9 +4064,9 @@ async function openSignature(){
   if(myth){
     const md=myth.drivers||{};
     h+=`<div class="card" style="margin:12px 2px;padding:14px">
-      <div class="eyebrow">Myth check · non-predictive</div>
-      <b>"Trap games" don't really exist.</b>
-      <p style="color:var(--text2);font-size:12px;margin:5px 0 0">${esc(String(md.claim||"Top-10 teams almost never lose the game before the big one."))}${md.record?` Record: <b>${esc(String(md.record))}</b>.`:""} We publish this so you know we check our folklore too.</p></div>`;
+      <div class="eyebrow">Folklore check · non-predictive</div>
+      <b>Trap-game check: the top-10 usually handles it.</b>
+      <p style="color:var(--text2);font-size:12px;margin:5px 0 0">${esc(String(md.claim||"Top-10 teams win about 91 of 100 of these spots."))}${md.record?` Record: <b>${esc(String(md.record))}</b>.`:""} We publish this so you know we check the folklore too.</p></div>`;
   }
   h+=`<div class="note">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div></div>`;
   app.innerHTML=h;
