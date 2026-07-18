@@ -2222,7 +2222,7 @@ function simCompute(picks){
   // TEAM — a conference title is NO LONGER required. Remaining spots at-large by ranking.
   const P4_CONFS=new Set(["SEC","Big Ten","Big 12","ACC"]);
   // FBS transition teams are bowl/CFP-INELIGIBLE in 2026 (NDSU→MW, Sac State→MAC)
-  const INELIGIBLE_2026=new Set(["North Dakota State","Sacramento State"]);
+  const INELIGIBLE_2026=new Set(); // NCAA vote Jun 24 2026: transition teams bowl/CFP-eligible
   const elig=id=>!INELIGIBLE_2026.has((teamMeta[id]||{}).school);
   const allRanked=[...sim.fbs].sort(cmp), rankedElig=allRanked.filter(elig);
   const guaranteed=champions.filter(id=>P4_CONFS.has(sim.conf[id])&&elig(id)); // P4 champs, any ranking
