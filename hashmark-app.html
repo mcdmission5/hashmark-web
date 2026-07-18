@@ -742,24 +742,30 @@ function handleAuthReturn(){ /* PKCE return is consumed by detectSessionInUrl; s
     history.replaceState(null, "", location.pathname + location.search);
 }
 const REDIRECT = getRedirectTarget();
-// Cloudflare Turnstile (abuse protection on signup/OTP) — set the site key to enable; the
-// widget renders in the auth modal and captchaToken rides every signup/OTP call.
-const TURNSTILE_SITE_KEY = "";           // owner pastes the widget site key to activate
-let _turnstileToken = null;
-function turnstileSlot(){
-  if(!TURNSTILE_SITE_KEY) return "";
+// Cloudflare Turnstile (abuse protection on auth) — the widget renders in the auth modal
+// and captchaToken rides every auth call. Tokens are SINGLE-USE: resetTurnstile() after
+// each request so the next one (verify / resend) gets a fresh token.
+const TURNSTILE_SITE_KEY = "0x4AAAAAAD4tP2-LxEwBBmSc";
+let _turnstileToken = null, _tsWidget = null;
+function turnstileSlot(){ return TURNSTILE_SITE_KEY ? `<div id="tswidget" style="margin:8px 0"></div>` : ""; }
+function renderTurnstile(){   // call AFTER the modal is in the DOM (re-renders on every open)
+  if(!TURNSTILE_SITE_KEY || !document.getElementById("tswidget")) return;
+  const go=()=>{ const el=document.getElementById("tswidget");
+    if(el && window.turnstile && !el.hasChildNodes())
+      _tsWidget = turnstile.render(el, {sitekey:TURNSTILE_SITE_KEY, theme:"dark",
+        callback:t=>{_turnstileToken=t;}, "expired-callback":()=>{_turnstileToken=null;}}); };
+  if(window.turnstile) return go();
+  window._tsReady=go;
   if(!document.getElementById("cfts")){
     const s=document.createElement("script"); s.id="cfts"; s.async=true;
     s.src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=_tsReady";
-    window._tsReady=()=>{ const el=document.getElementById("tswidget");
-      if(el && window.turnstile) turnstile.render(el, {sitekey:TURNSTILE_SITE_KEY,
-        callback:t=>{_turnstileToken=t;}}); };
     document.head.appendChild(s);
   }
-  return `<div id="tswidget" style="margin:8px 0"></div>`;
 }
 function captchaOpts(){ return TURNSTILE_SITE_KEY && _turnstileToken
   ? {captchaToken:_turnstileToken} : {}; }
+function resetTurnstile(){ _turnstileToken=null;
+  if(window.turnstile && _tsWidget!=null){ try{ turnstile.reset(_tsWidget); }catch(e){} } }
 function initAuth(){
   if(!(window.supabase && window.supabase.createClient)) return;   // lib unavailable: stats still work
   try{
@@ -841,6 +847,7 @@ function openAuthModal(){
     <div class="authfine">By continuing you agree to our <a href="privacy.html" target="_blank">Privacy Policy</a>. We never sell your data or use it for ads.</div>
   </div>`;
   document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  renderTurnstile();
 }
 function openAccountMenu(){
   if(!authUser) return;
@@ -862,7 +869,7 @@ async function authAction(kind){
   if(!sb) return;
   const email=(document.getElementById("authemail")||{}).value, pw=(document.getElementById("authpw")||{}).value;
   try{
-    if(kind==="google"){ const {error}=await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:getRedirectTarget()}});
+    if(kind==="google"){ const {error}=await sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:getRedirectTarget(), ...captchaOpts()}});
       if(error) authMsg(/provider|not enabled|unsupported/i.test(error.message)?"Google sign-in isn't enabled yet — use email below.":error.message); return; }
     // E1: email OTP CODES, never links — immune to SafeLinks prefetch, cross-device PKCE
     // breaks, and Capacitor webviews. sendcode = sign-IN only (shouldCreateUser:false);
@@ -871,7 +878,10 @@ async function authAction(kind){
       if(!email) return authMsg("Enter your email first.");
       const {error}=await sb.auth.signInWithOtp({email,
         options:{shouldCreateUser:kind==="signupcode", ...captchaOpts()}});
-      if(error) return authMsg(/signups not allowed|user not found/i.test(error.message)
+      resetTurnstile();   // token consumed — mint a fresh one for verify/resend
+      if(error) return authMsg(/captcha/i.test(error.message)
+        ?"Please complete the security check below, then try again."
+        :/signups not allowed|user not found/i.test(error.message)
         ?"No account with that email yet — tap “Create account” instead.":error.message);
       const st=document.getElementById("otpstep"); if(st) st.style.display="block";
       const sb2=document.getElementById("sendcodebtn"); if(sb2) sb2.textContent="Resend code";
@@ -879,16 +889,19 @@ async function authAction(kind){
     if(kind==="verifycode"){
       const code=((document.getElementById("authcode")||{}).value||"").trim();
       if(!email||code.length!==6) return authMsg("Enter your email and the 6-digit code.");
-      const {error}=await sb.auth.verifyOtp({email, token:code, type:"email"});
+      const {error}=await sb.auth.verifyOtp({email, token:code, type:"email", options:{...captchaOpts()}});
+      resetTurnstile();
       if(error) return authMsg(/expired|invalid/i.test(error.message)
         ?"That code didn't match or expired — send a fresh one.":error.message);
       closeAuth(); return; }
     if(kind==="pwtoggle"){ const p=document.getElementById("pwstep");
       if(p) p.style.display = p.style.display==="none"?"block":"none"; return; }
     if(kind==="password"){ if(!email||!pw) return authMsg("Enter your email and password.");
-      const {error}=await sb.auth.signInWithPassword({email,password:pw}); if(error) return authMsg(error.message); closeAuth(); return; }
+      const {error}=await sb.auth.signInWithPassword({email,password:pw,options:{...captchaOpts()}});
+      resetTurnstile(); if(error) return authMsg(error.message); closeAuth(); return; }
     if(kind==="reset"){ if(!email) return authMsg("Enter your email to reset your password.");
-      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:getRedirectTarget()});
+      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:getRedirectTarget(), ...captchaOpts()});
+      resetTurnstile();
       authMsg(error?error.message:"Password-reset email sent.", !error); return; }
     if(kind==="signout"){ await sb.auth.signOut(); closeAuth(); return; }
     if(kind==="favpick"){ closeAuth(); await ensureTeamMeta(); teamPicker(null, id=>setFavoriteTeam(id)); return; }
