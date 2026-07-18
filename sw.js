@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v17";   // v17: Turnstile captcha live on auth (site key set, token on every auth call)
+const VERSION = "hashmark-v18";   // v18: readable auth error for 5xx email-send failures (was literal "{}")
 const SHELL = [
   "./",
   "./index.html",

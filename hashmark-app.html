@@ -882,7 +882,9 @@ async function authAction(kind){
       if(error) return authMsg(/captcha/i.test(error.message)
         ?"Please complete the security check below, then try again."
         :/signups not allowed|user not found/i.test(error.message)
-        ?"No account with that email yet — tap “Create account” instead.":error.message);
+        ?"No account with that email yet — tap “Create account” instead."
+        :(error.status>=500||!error.message||error.message==="{}")   // 5xx bodies stringify to "{}"
+        ?"We couldn't send the email right now — please try again in a minute.":error.message);
       const st=document.getElementById("otpstep"); if(st) st.style.display="block";
       const sb2=document.getElementById("sendcodebtn"); if(sb2) sb2.textContent="Resend code";
       authMsg("We emailed you a 6-digit code — enter it above.", true); return; }
