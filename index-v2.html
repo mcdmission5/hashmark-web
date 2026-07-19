@@ -7,7 +7,7 @@
 <meta name="description" content="Hashmark — deep, official college-football stats &amp; analytics for every FBS team and across the sport: team stat profiles with national ranks, league-wide leaderboards, player leaders, and preseason rankings. Independent and gambling-free." />
 <!-- PWA: installable as a full-screen app on iOS/Android. Relative paths so it works under the GitHub Pages project subpath. -->
 <link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#0B0F14" />
+<meta name="theme-color" content="#0b1120" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -18,22 +18,25 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* PRIMETIME (games-ux sprint, decided): deep navy under-the-lights base, gold primary,
+     teal accent. Semantics unchanged: amber=user, teal=Model, green/red=stat good/bad.
+     Team badges stay TRUE team colors (broadcast treatment) — inline styles, untouched. */
   :root{
-    --bg:#0B0F14; --surface:#121820; --surface2:#151C25; --line:rgba(255,255,255,.07);
-    --line2:rgba(255,255,255,.12); --tabbar:#0D1218;
-    --text:#E9EEF4; --text2:#93A1B0; --text3:#5C6B7A; --legal:#3F4C5A;
-    --amber:#FFB020; --amber-tint:rgba(255,176,32,.13);
-    --teal:#35D9C4; --teal-tint:rgba(53,217,196,.12);
+    --bg:#0b1120; --surface:#131C31; --surface2:#182342; --line:rgba(255,255,255,.07);
+    --line2:rgba(255,255,255,.12); --tabbar:#0C1326;
+    --text:#EAF0FB; --text2:#7F92B0; --text3:#5A6C8C; --legal:#41506B;
+    --amber:#FFBE3D; --amber-tint:rgba(255,190,61,.13);
+    --teal:#31E0C8; --teal-tint:rgba(49,224,200,.12);
     --live:#FF5C5C; --loss:#E05B5B;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);
     font-family:"Barlow",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   .wrap{max-width:460px;margin:0 auto;min-height:100vh;
-    background:linear-gradient(180deg,#0B0F14 0%,#0c1117 100%);
+    background:radial-gradient(120% 60% at 50% -8%, #16203a, #0b1120 46%, #080c16);
     border-left:1px solid var(--line);border-right:1px solid var(--line)}
   header{position:sticky;top:0;z-index:5;padding:18px 18px 0;
-    background:rgba(11,15,20,.9);backdrop-filter:blur(10px)}
+    background:rgba(11,17,32,.9);backdrop-filter:blur(10px)}
   .wordmark{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:26px;letter-spacing:-.5px}
   .wordmark .dot{color:var(--amber)}
   /* season toggle */
@@ -43,7 +46,8 @@
     font-family:"Barlow";font-weight:700;font-size:13px;padding:9px 6px;
     border-radius:9px;cursor:pointer;line-height:1.2}
   .toggle button small{display:block;font-weight:500;font-size:10px;opacity:.8;margin-top:2px}
-  .toggle button.on{background:var(--amber);color:#10130c}
+  .toggle button.on{background:linear-gradient(150deg,#ffc44d,#ff9e2e);color:#3a2400;
+    box-shadow:0 4px 14px rgba(255,158,46,.28)}
   .toggle button.on small{opacity:.75}
   .subtitle{color:var(--text2);font-size:12.5px;margin:2px 0 12px}
   .subtitle b{color:var(--text);font-weight:600}
@@ -306,10 +310,37 @@
   .scteam .pts{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:17px;color:var(--text2);flex:none}
   .scteam.win .nm,.scteam.win .pts{color:var(--text)}
   .scteam.win .pts{position:relative}
-  .scteam.win .pts::after{content:'<svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg>';color:var(--amber);font-size:11px;position:absolute;right:-13px;top:3px}
+  .scteam.win .pts::after{content:"";position:absolute;right:-13px;top:4px;width:10px;height:10px;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFB020' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 18l-6-6 6-6'/%3E%3C/svg%3E") center/contain no-repeat}
   .scvs{color:var(--text2);font-size:11px;text-align:center;padding:3px 0 1px}
   /* ---- Stats Hub ---- */
   .navrow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+  /* P2: pick'em head-to-head stat strip */
+  .pkstats{margin:8px 0 2px;border-top:1px solid var(--line);padding-top:6px}
+  .pksrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:3px 2px;font-size:12.5px}
+  .pksrow .pkv{font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--text2)}
+  .pksrow .pkv:last-child{text-align:right}
+  .pksrow .pkv small{opacity:.6;font-size:10px}
+  .pksrow .pkv.lead{color:#28D17A}
+  .pksrow .pkv.wp{color:var(--text)}
+  .pksrow .pkv.wp.lead{color:#28D17A}
+  .pksrow .pkk{color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:14px 6px;margin:-11px 0}  /* S2: ≥44px tap target */
+  .pkinfo{width:11px;height:11px;opacity:.65}
+  .lbhead .pkinfo{padding:6px;margin:-6px 0;box-sizing:content-box}
+  /* SIM2: conference title races */
+  .ccgrow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--line);cursor:pointer;min-height:44px}
+  .ccgrow .ccgconf{flex:none;width:58px;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12px;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--text2)}
+  .ccgrow .ccgm{flex:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px}
+  .ccgrow .ccgm b{font-weight:600}
+  .ccgrow .ccgm small{color:var(--text3);font-family:"IBM Plex Mono",monospace}
+  .ccgrow .ccgvs{color:var(--text3);font-size:10px;text-transform:uppercase;padding:0 2px}
+  .ccgrow .more{flex:none;color:var(--text3);font-size:11px}
+  .ccgstand{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);cursor:pointer;min-height:44px}
+  .ccgstand .ssnm{flex:1;font-weight:600;font-size:13.5px}
+  .ccgstand .ssnm small{display:block;color:var(--text3);font-weight:500;font-size:10.5px}
+  .ccgstand .more{color:var(--text3);font-size:11px}
   .navrow .navbtn{flex:1 1 28%}
   .navbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 8px;
     border-radius:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);
@@ -657,7 +688,32 @@
   .selectwrap select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);
     background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;font-size:14px;
     font-weight:600;outline:none;-webkit-appearance:none;appearance:none}
-  .selectwrap::after{content:'<svg class="ic" aria-hidden="true"><use href="#i-chev-d"/></svg>';position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none}
+  .selectwrap::after{content:"";position:absolute;right:14px;top:50%;transform:translateY(-50%);width:11px;height:11px;pointer-events:none;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393A1B0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat}
+  /* B4: custom app dropdown — the standard select (native <select> renders the foreign OS sheet) */
+  .appdd{position:relative;margin:0 0 10px}
+  .appdd-btn{width:100%;padding:12px 38px 12px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;font-size:14px;
+    font-weight:600;text-align:left;cursor:pointer;position:relative;min-height:44px}
+  .appdd-btn:disabled{opacity:.45;cursor:default}
+  .appdd-btn::after{content:"";position:absolute;right:14px;top:50%;transform:translateY(-50%);width:11px;height:11px;pointer-events:none;transition:transform .15s;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393A1B0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat}
+  .appdd.open .appdd-btn::after{transform:translateY(-50%) rotate(180deg)}
+  .appdd.slim{margin:0;flex:none;width:86px}
+  .appdd.slim .appdd-btn{padding:9px 26px 9px 11px;border-radius:10px;font-size:13px;min-height:44px}
+  .appdd.slim .appdd-btn::after{right:9px}
+  .appdd-pop{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;z-index:90;background:var(--surface2);
+    border:1px solid var(--line);border-radius:13px;box-shadow:0 18px 44px rgba(0,0,0,.55);
+    max-height:320px;overflow-y:auto;padding:6px;display:none}
+  .appdd.open .appdd-pop{display:block}
+  .appdd-grp{padding:9px 10px 4px;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px;
+    letter-spacing:.09em;text-transform:uppercase;color:var(--text3)}
+  .appdd-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;min-height:44px;
+    border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap}
+  .appdd-opt:hover,.appdd-opt.focus{background:rgba(255,255,255,.06)}
+  .appdd-opt.sel{color:var(--amber)}
+  .appdd-opt .ic{flex:none;width:13px;height:13px;visibility:hidden;color:var(--amber)}
+  .appdd-opt.sel .ic{visibility:visible}
   .lbgrid{display:flex;flex-direction:column;gap:14px}
   .lbcard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 15px 8px}
   .lbhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:pointer}
@@ -706,7 +762,8 @@
   .tabbar button.on{background:var(--amber);color:#10130c}
   .tabbar button .tchip{width:9px;height:9px;border-radius:3px;display:inline-block}
   /* cards + hero */
-  .card-hero-amber{background:linear-gradient(160deg,#1A1208,#121820 55%);border-color:rgba(255,176,32,.3)}
+  .card-hero-amber{background:linear-gradient(160deg,#241a08,#101828 55%);border-color:rgba(255,190,61,.3);
+    box-shadow:0 0 0 1px rgba(49,224,200,.14), 0 14px 40px rgba(20,80,120,.24)}
   .card-hero-teal{background:linear-gradient(160deg,#0E1A16,#121820 55%);border-color:rgba(53,217,196,.3)}
   /* probability bar */
   .pbar{position:relative;height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:visible}
@@ -760,6 +817,10 @@
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation:none!important;transition:none!important}}
 
+  /* PRIMETIME finishing layer: card gradients + restrained glow (lighting, not neon) */
+  .sec,.card,.lbcard,.scgame,.recordcard,.xcard{background:linear-gradient(165deg,#151f36,#101828)}
+  .recbig,.dbig{color:var(--amber);text-shadow:0 0 18px rgba(255,190,61,.45)}
+  .mwprow .mwppct.win{color:#6DF2D8;text-shadow:0 0 16px rgba(49,224,200,.4)}
 </style>
 </head>
 <body>
@@ -1054,7 +1115,18 @@ async function setFavoriteTeam(teamId){
 
 // ---------- official games + records (FACTUAL — render in preview AND full mode) ----------
 const SEASON_RESULTS = 2025, SEASON_SCHED = 2026;
-const GAME_SEL = "id,season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed";
+const GAME_SEL = "id,season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed,network,start_time_tbd";
+// G2: "Sat Sep 5 · 7:30 PM ET · ESPN" — date always; time only when known (start_time_tbd ->
+// "Time TBD"); network chip only when present (never render null). Completed games: date only.
+function gameTimeLine(g){
+  if(!g.start_date) return "";
+  const d=new Date(g.start_date);
+  const day=d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"America/New_York"});
+  if(g.completed) return day;
+  const time=g.start_time_tbd?"Time TBD"
+    :d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})+" ET";
+  return `${day} · ${time}${g.network?` · ${g.network}`:""}`;
+}
 let teamMeta = null;        // {id: {school, color, conference}}
 const scoresCache = {};     // season -> [games]
 async function ensureTeamMeta(){
@@ -1094,7 +1166,7 @@ function schedRow(g, teamId){
   const tap = v.oppId?` data-team="${v.oppId}"`:"";
   return `<div class="schedrow${v.bowl?" bowl":""}"${tap}>${res}
     ${crestEl("schedcr", v.oppName, oppColor(v.oppId))}
-    <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}</div><div class="on">${esc(v.oppName||"TBD")}</div></div>
+    <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}${!v.done&&gameTimeLine(g)?` · ${esc(gameTimeLine(g))}`:""}</div><div class="on">${esc(v.oppName||"TBD")}</div></div>
     ${score}</div>`;
 }
 function recordCard(ts, ap){
@@ -1125,17 +1197,18 @@ function scheduleSection(games, teamId){
 }
 
 // ---------- scores / schedule view (browse official games by week) ----------
-let scoresSeason = SEASON_RESULTS, scoresWeek = null;
+let scoresSeason = SEASON_SCHED, scoresWeek = null;   // G1: Games opens on the season ahead
 function scGameRow(g){
   const done = g.completed && g.home_points!=null && g.away_points!=null;
   const hw = done && g.home_points>g.away_points, aw = done && g.away_points>g.home_points;
   const meta = g.neutral_site ? "Neutral site" : "";
+  const when = gameTimeLine(g);
   const teamLine = (name,id,score,win)=>`<div class="scteam${win?" win":""}"${id?` data-team="${id}"`:""}>
       ${crestEl("scc", name, oppColor(id))}<div class="nm">${esc(name||"TBD")}</div>
       <div class="pts">${done?score:""}</div></div>`;
   const boxLink = (done && g.id) ? `<div class="scbox" data-box="${g.id}" data-bteam="${g.home_team_id}">Box score ›</div>` : "";
   return `<div class="scgame">
-    ${meta?`<div class="gm"><span>${meta}</span><span></span></div>`:""}
+    ${when||meta?`<div class="gm"><span>${esc(when)}</span><span>${meta}</span></div>`:""}
     ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
     ${done?"":`<div class="scvs">${g.neutral_site?"vs":"at"}</div>`}
     ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}
@@ -1155,7 +1228,12 @@ async function drawScores(){
   const hasPost = games.some(g=>g.season_type==="postseason");
   const keys = regWeeks.map(w=>({key:"R"+w, label:""+w, f:g=>g.season_type!=="postseason"&&g.week===w}))
     .concat(hasPost?[{key:"PS", label:"Bowls / CFP", f:g=>g.season_type==="postseason"}]:[]);
-  if(!scoresWeek || !keys.find(k=>k.key===scoresWeek)) scoresWeek = keys.length?keys[0].key:null;
+  if(!scoresWeek || !keys.find(k=>k.key===scoresWeek)){
+    // land on the current/upcoming week once the season starts; Week 1 before kickoff
+    const cutoff = Date.now() - 36*36e5;   // a game that kicked off <36h ago still counts as "this week"
+    const upcoming = keys.find(k=>games.some(g=>k.f(g) && !g.completed && g.start_date && new Date(g.start_date).getTime()>=cutoff));
+    scoresWeek = (upcoming || keys[0] || {}).key || null;
+  }
   const active = keys.find(k=>k.key===scoresWeek);
   const list = (active?games.filter(active.f):[]).slice()
     .sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
@@ -1385,7 +1463,8 @@ const HOME_GO = {explorer:()=>openStats("explorer"), leaders:()=>openStats("lead
 // The 5 required methodology elements (research: scale anchors; inputs; adjustments incl.
 // explicit garbage-time policy; admitted limitations in plain language; update cadence).
 function openMethodology(){
-  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  // B3: methodology/transparency pages render regardless of SHOW_HASHMARK_RATINGS — the copy is
+  // generic (no hidden-rating reveal) and every visible entry point must land somewhere real.
   window.scrollTo(0,0);
   app.innerHTML = `<div class="cmp">${backHeader("How our ratings work")}<div class="list" style="padding-top:6px">
     <div class="sec"><div class="sectitle">The scale</div><div class="secsub">
@@ -1427,7 +1506,8 @@ function openMethodology(){
 }
 
 async function openCheckingWork(){
-  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  // B3: methodology/transparency pages render regardless of SHOW_HASHMARK_RATINGS — the copy is
+  // generic (no hidden-rating reveal) and every visible entry point must land somewhere real.
   window.scrollTo(0,0);
   app.innerHTML = `<div class="loading">Loading our record…</div>`;
   let acc=[], arch=[];
@@ -1473,7 +1553,8 @@ async function openCheckingWork(){
 // third-party-comparable record — MAE / RMSE / Brier / SU% per season, vs the closing line,
 // with class labeling (preseason-info vs weekly in-season).
 async function openAccuracy(){
-  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  // B3: methodology/transparency pages render regardless of SHOW_HASHMARK_RATINGS — the copy is
+  // generic (no hidden-rating reveal) and every visible entry point must land somewhere real.
   window.scrollTo(0,0);
   app.innerHTML = `<div class="loading">Loading accuracy record…</div>`;
   let rows=[];
@@ -1948,16 +2029,57 @@ async function injectNews(){
     const div = document.createElement("div");
     div.className = "hsec";
     div.innerHTML = `<div class="hsectitle">Latest <small>around college football</small></div>`
-      + items.slice(0,6).map(newsRow).join("")
-      + `<div class="secsub" style="padding:4px 2px 0">Headlines link to the original source.</div>`;
+      + items.slice(0,4).map(newsRow).join("")   // N1: short free tease; the full feed is gated
+      + `<div class="navrow" style="padding:6px 2px 0"><button class="navbtn" id="newsall"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> View all news <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
+      <div class="secsub" style="padding:4px 2px 0">Headlines link to the original source.</div>`;
     anchor.parentNode.insertBefore(div, anchor.nextSibling);
+    const na=div.querySelector("#newsall");
+    if(na) na.onclick=gatedNewsArchive;
   }catch(_e){}
+}
+async function gatedNewsArchive(teamId){
+  if(PLUS_GATED.news_full && !(await plusUpsell("See all news",
+    "The full feed and the archive — every headline we've tracked, browsable by month, with team filters. Free during preview."))) return;
+  openNewsArchive(typeof teamId==="string"||typeof teamId==="number"?teamId:null);
+}
+// N2: archive browser (paged by month, grouped by day). Rows are headline/source/url/date
+// only — stored multi-year server-side now that the 60-day purge is gone.
+async function openNewsArchive(teamId){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading news archive…</div>`;
+  const now=new Date(); const months=[];
+  for(let i=0;i<36;i++){ const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-i,1));
+    months.push({value:d.toISOString().slice(0,7),
+      label:d.toLocaleDateString("en-US",{month:"long",year:"numeric",timeZone:"UTC"})}); }
+  let month=months[0].value;
+  const draw=async()=>{
+    const [y,m]=month.split("-").map(Number);
+    const from=new Date(Date.UTC(y,m-1,1)).toISOString(), to=new Date(Date.UTC(y,m,1)).toISOString();
+    const teamF=teamId?`&team_tags=cs.{${teamId}}`:"";
+    let items=[];
+    try{ items=await api(`news_items?select=headline,url,source,published_at&published_at=gte.${from}&published_at=lt.${to}${teamF}&order=published_at.desc&limit=500`); }catch(e){}
+    let h=`<div class="cmp">${backHeader("News archive")}<div class="list" style="padding-top:6px">
+      <div id="newsmonth"></div>`;
+    let lastDay=null;
+    items.forEach(it=>{ const day=new Date(it.published_at).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+      if(day!==lastDay){ lastDay=day; h+=`<div class="sectitle" style="padding:10px 2px 2px">${day}</div>`; }
+      h+=newsRow(it); });
+    if(!items.length) h+=`<div class="loading" style="padding:30px">No stories archived for this month${teamId?" for this team":""}.</div>`;
+    if(items.length===500) h+=`<div class="secsub" style="padding:6px 2px">Showing the 500 most recent this month.</div>`;
+    h+=`<div class="note"><b>News archive.</b> Headlines link to the original source; we store only the headline, source, link and date. ${BRAND_LINE}</div></div></div>`;
+    app.innerHTML=h;
+    document.querySelector(".back").onclick=load;
+    mountAppSelect(document.getElementById("newsmonth"), months, month,
+      v=>{ month=v; draw(); }, {ariaLabel:"Archive month"});
+  };
+  await draw();
 }
 async function teamNewsHTML(teamId){
   try{
-    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=5`);
+    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=3`);
     if(items.length)
-      return `<div class="sec"><div class="sectitle">Team news</div>`+items.map(newsRow).join("")+`</div>`;
+      return `<div class="sec"><div class="sectitle">Team news</div>`+items.map(newsRow).join("")
+        +`<div class="navrow" style="padding-top:6px"><button class="navbtn" data-newsall="${teamId}">All team news <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
     const t = teamMeta && teamMeta[teamId];
     return `<div class="sec"><div class="sectitle">Team news</div>
       <div class="secsub">No recent headlines${t&&t.conference?` — see ${esc(t.conference)} coverage on the home page`:""}.</div></div>`;
@@ -1974,6 +2096,65 @@ const VAPID_PUBLIC_KEY = "BAnoWkIFho4NtLjU7Jf63Zp_DypISgMby6IfUoNJVnr7DTpBSpOtsB
 const MODEL_UID = "11111111-1111-1111-1111-111111111111";
 let pk = {season: SEASON_SCHED, week: null, slate: [], picks: {}, conf: {}, groups: [], tb: null};
 
+// ---- P2 (games-ux sprint): side-by-side team stats per matchup — the Model's key predictive
+// inputs, gambling-free framing only ("Model favors X", "wins 63 of 100"; no betting vocabulary).
+const PK_STATS=[{key:"off_ppa",label:"Off EPA/play"},{key:"def_ppa",label:"Def EPA/play"},
+                {key:"off_success_rate",label:"Success rate"}];
+async function pkLoadStats(slate){
+  const out={stat:{}, wp:{}, form:{}};
+  const ids=[...new Set(slate.flatMap(g=>[g.home_team_id,g.away_team_id]).filter(Boolean))];
+  if(!ids.length) return out;
+  try{
+    const [rows, games25]=await Promise.all([
+      api(`team_stat_season?select=team_id,stat_key,value,rank&season=eq.${STAT_SEASON}&team_id=in.(${ids.join(",")})&stat_key=in.(${PK_STATS.map(s=>s.key).join(",")})`),
+      fetchSeasonGames(SEASON_RESULTS), ensureCatalog()]);
+    rows.forEach(r=>{ out.stat[`${r.team_id}|${r.stat_key}`]=r; });
+    ids.forEach(id=>{ const gs=games25.filter(g=>(String(g.home_team_id)===String(id)||String(g.away_team_id)===String(id))&&g.completed&&g.home_points!=null)
+        .sort((x,y)=>(x.start_date||"").localeCompare(y.start_date||"")).slice(-5);
+      out.form[id]=gs.map(g=>gameView(g,id).won?"W":"L").join(""); });
+    if(SHOW_PREDICTIONS){
+      const pairs=slate.filter(g=>g.home_team_id&&g.away_team_id)
+        .map(g=>`and(team_a.eq.${Math.min(g.home_team_id,g.away_team_id)},team_b.eq.${Math.max(g.home_team_id,g.away_team_id)})`);
+      if(pairs.length){
+        const wps=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.2026&or=(${pairs.join(",")})`);
+        wps.forEach(w=>{ out.wp[`${w.team_a}|${w.team_b}`]=w; });
+      }
+    }
+  }catch(e){ /* stats strip is an enhancement — pick'em still works without it */ }
+  return out;
+}
+function pkStatStrip(g){
+  if(!pk.stats) return "";
+  const a=g.away_team_id, hm=g.home_team_id;
+  if(!a||!hm) return "";
+  let rows="";
+  const infoIc=`<svg class="ic pkinfo" aria-hidden="true"><use href="#i-info"/></svg>`;
+  PK_STATS.forEach(s=>{
+    const ra=pk.stats.stat[`${a}|${s.key}`], rh=pk.stats.stat[`${hm}|${s.key}`];
+    if(!ra&&!rh) return;
+    const d=_catalog&&_catalog.by[s.key];
+    const tip=d?`${d.display_name} — ${d.description} ${d.higher_is_better?"Higher is better.":"Lower is better."}`:s.label;
+    const va=ra?fmtStat(ra.value,d&&d.format):"—", vh=rh?fmtStat(rh.value,d&&d.format):"—";
+    const hib=d?d.higher_is_better:true;
+    const aLead=ra&&rh&&(hib? +ra.value>+rh.value : +ra.value<+rh.value);
+    const hLead=ra&&rh&&!aLead&&+ra.value!==+rh.value;
+    rows+=`<div class="pksrow"><span class="pkv ${aLead?"lead":""}">${va}${ra?` <small>#${ra.rank}</small>`:""}</span>
+      <span class="pkk" data-tip="${esc(tip)}">${s.label}${infoIc}</span>
+      <span class="pkv ${hLead?"lead":""}">${vh}${rh?` <small>#${rh.rank}</small>`:""}</span></div>`;
+  });
+  const fa=pk.stats.form[a], fh=pk.stats.form[hm];
+  if(fa||fh) rows+=`<div class="pksrow"><span class="pkv">${fa||"—"}</span>
+    <span class="pkk" data-tip="Last 5 — the team's five most recent results (2025), oldest to newest.">Last 5${infoIc}</span>
+    <span class="pkv">${fh||"—"}</span></div>`;
+  if(SHOW_PREDICTIONS){
+    const w=pk.stats.wp[`${Math.min(a,hm)}|${Math.max(a,hm)}`];
+    if(w){ const ph=Math.round(pWinA(w,hm,a,"aHome")*100), pa=100-ph;
+      rows+=`<div class="pksrow"><span class="pkv wp ${pa>ph?"lead":""}">${pa}%</span>
+        <span class="pkk" data-tip="Win probability — the Model's estimate of each team's chance to win (wins per 100 games). A percentage only — never a rating, projected score, or betting line.">Win prob${infoIc}</span>
+        <span class="pkv wp ${ph>pa?"lead":""}">${ph}%</span></div>`; }
+  }
+  return rows?`<div class="pkstats">${rows}</div>`:"";
+}
 async function openPickem(){
   window.scrollTo(0,0);
   app.innerHTML = `<div class="loading">Loading pick'em…</div>`;
@@ -1987,6 +2168,7 @@ async function openPickem(){
       authUser ? authFetch("GET", `pickem_picks?select=game_id,pick_team,confidence&season=eq.${pk.season}&week=eq.${pk.week}&user_id=eq.${authUser.id}`) : {data:[]},
       authUser ? authFetch("GET", `pickem_groups?select=id,name,invite_code,commissioner`) : {data:[]} ]);
     pk.slate = slate;
+    pk.stats = await pkLoadStats(slate);   // P2: head-to-head strip data (degrades gracefully)
     pk.picks = {}; pk.conf = {};
     (myPicks.data||[]).forEach(p=>{ if(p.pick_team!=null) pk.picks[p.game_id]=p.pick_team; pk.conf[p.game_id]=p.confidence; });
     pk.groups = myGroups.data||[];
@@ -2045,10 +2227,8 @@ function renderPickem(){
         <button class="navbtn ${my===g.away_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.away_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.away_team)}</button>
         <span style="align-self:center;color:var(--text2)">@</span>
         <button class="navbtn ${my===g.home_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.home_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.home_team)}</button>
-        <select class="navbtn" data-pkconf="${g.game_id}" ${locked||!signedIn?"disabled":""}>
-          <option value="">rank</option>
-          ${Array.from({length:10},(_,i)=>10-i).map(v=>`<option value="${v}" ${conf===v?"selected":""}>${v}</option>`).join("")}
-        </select></div>
+        <div data-pkconf="${g.game_id}" data-pklocked="${locked||!signedIn?1:""}"></div></div>
+      ${pkStatStrip(g)}
       ${model100?`<div class="secsub" style="padding:4px 0 0">Model: ${model100}</div>`:""}
       ${pk.tbGame===g.game_id && signedIn ? `<div class="navrow" style="padding-top:4px">
         <input class="authin" style="max-width:190px" id="tbguess" type="number" min="0" max="200"
@@ -2076,7 +2256,12 @@ function renderPickem(){
   document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.team); renderPickem(); });
   const um=document.getElementById("usemodel");
   if(um) um.onclick=()=>{ pk.slate.forEach(g=>{ if(!pkLocked(g)&&g.model_pick_team){ pk.picks[g.game_id]=g.model_pick_team; pk.conf[g.game_id]=g.model_conf; } }); renderPickem(); };
-  document.querySelectorAll("[data-pkconf]").forEach(s=>s.onchange=()=>{ pk.conf[Number(s.dataset.pkconf)]=Number(s.value)||undefined; });
+  document.querySelectorAll("[data-pkconf]").forEach(hostEl=>{
+    const gid=Number(hostEl.dataset.pkconf);
+    mountAppSelect(hostEl,
+      [{value:"",label:"rank"}, ...Array.from({length:10},(_,i)=>({value:10-i,label:String(10-i)}))],
+      pk.conf[gid]??"", v=>{ pk.conf[gid]=Number(v)||undefined; },
+      {slim:true, ariaLabel:"Confidence rank", disabled:!!hostEl.dataset.pklocked}); });
   const sv=document.getElementById("savepicks"); if(sv) sv.onclick=savePicks;
   const ng=document.getElementById("newgroup"); if(ng) ng.onclick=createGroup;
   const jg=document.getElementById("joingroup"); if(jg) jg.onclick=joinGroupPrompt;
@@ -2339,19 +2524,21 @@ function simCompute(picks){
   });
   const wpct=id=>{ const r=rec[id], g=r.w+r.l; return g?r.w/g:0; };
   const cpct=id=>{ const r=rec[id], g=r.cw+r.cl; return g?r.cw/g:0; };
-  // conference champions (real conferences only)
-  const byConf={}; sim.fbs.forEach(id=>{ const c=sim.conf[id]; (byConf[c]=byConf[c]||[]).push(id); });
-  const champions=[];
-  Object.entries(byConf).forEach(([c,ids])=>{ if(ids.length<REAL_CONF_MIN) return;
-    ids.sort((x,y)=>cpct(y)-cpct(x)||wpct(y)-wpct(x)||((h2h[y]&&h2h[y].has(x))?1:(h2h[x]&&h2h[x].has(y))?-1:0));
-    champions.push(ids[0]); });
-  const champSet=new Set(champions);
-  // resume metric: Strength of Record (falls back to win% if predictions/winprob are off)
-  const sor={}; sim.fbs.forEach(id=>{ const s=simSOR(id, rec[id].w); sor[id]=(s==null?wpct(id):s); });
   // common-opponents edge: +1 if x better, -1 if y better, 0 otherwise
   const commonEdge=(x,y)=>{ const gx=tg[x],gy=tg[y]; if(!gx||!gy) return 0;
     let xw=0,xn=0,yw=0; for(const o in gx){ if(o in gy){ xn++; if(gx[o])xw++; if(gy[o])yw++; } }
     if(!xn) return 0; return xw>yw?-1:xw<yw?1:0; };
+  // conference standings + champions (real conferences only). SIM2 needs the FULL order per
+  // conference (the top two meet in the title game), so keep each sorted list. Tiebreak:
+  // conference record, overall record, head-to-head, then common opponents.
+  const byConf={}; sim.fbs.forEach(id=>{ const c=sim.conf[id]; (byConf[c]=byConf[c]||[]).push(id); });
+  const confSorted={}, champions=[];
+  Object.entries(byConf).forEach(([c,ids])=>{ if(ids.length<REAL_CONF_MIN) return;
+    ids.sort((x,y)=>cpct(y)-cpct(x)||wpct(y)-wpct(x)||((h2h[y]&&h2h[y].has(x))?1:(h2h[x]&&h2h[x].has(y))?-1:0)||commonEdge(x,y));
+    confSorted[c]=ids; champions.push(ids[0]); });
+  const champSet=new Set(champions);
+  // resume metric: Strength of Record (falls back to win% if predictions/winprob are off)
+  const sor={}; sim.fbs.forEach(id=>{ const s=simSOR(id, rec[id].w); sor[id]=(s==null?wpct(id):s); });
   // CFP-style comparator: SOR, then head-to-head, then conference champ, then common opponents
   const cmp=(x,y)=>{ const d=sor[y]-sor[x]; if(Math.abs(d)>1e-9) return d;
     if(h2h[x]&&h2h[x].has(y)) return -1; if(h2h[y]&&h2h[y].has(x)) return 1;
@@ -2362,7 +2549,7 @@ function simCompute(picks){
   // Duke" rule); Notre Dame if ranked in the top 12; and the highest-ranked Group of Six
   // TEAM — a conference title is NO LONGER required. Remaining spots at-large by ranking.
   const P4_CONFS=new Set(["SEC","Big Ten","Big 12","ACC"]);
-  // FBS transition teams are bowl/CFP-INELIGIBLE in 2026 (NDSU<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg>MW, Sac State<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg>MAC)
+  // FBS transition teams were provisionally bowl/CFP-INELIGIBLE in 2026 (NDSU to MW, Sac State to MAC)
   const INELIGIBLE_2026=new Set(); // NCAA vote Jun 24 2026: transition teams bowl/CFP-eligible
   const elig=id=>!INELIGIBLE_2026.has((teamMeta[id]||{}).school);
   const allRanked=[...sim.fbs].sort(cmp), rankedElig=allRanked.filter(elig);
@@ -2370,7 +2557,7 @@ function simCompute(picks){
   const bestG6=rankedElig.find(id=>{ const cf=sim.conf[id];
     return cf && !P4_CONFS.has(cf) && (byConf[cf]||[]).length>=REAL_CONF_MIN; });
   if(bestG6 && !guaranteed.includes(bestG6)) guaranteed.push(bestG6);  // best G6 TEAM, champ or not
-  const ndId=sim.fbs.find(id=>(teamMeta[id]||{}).school==="Notre Dame");
+  const ndId=allRanked.find(id=>(teamMeta[id]||{}).school==="Notre Dame");   // sim.fbs is a Set — no .find
   if(ndId && allRanked.indexOf(ndId)<12 && !guaranteed.includes(ndId)) guaranteed.push(ndId); // ND top-12 guarantee
   const guarSet=new Set(guaranteed);
   const top12=rankedElig.slice(0,12), inTop=new Set(top12);
@@ -2382,7 +2569,7 @@ function simCompute(picks){
     const kept=top12.filter(id=>!drop.has(id)).sort(cmp);
     field=[...kept, ...missing.slice().sort(cmp)].slice(0,12);
   }
-  return {rec, wpct, cpct, sor, cmp, rank:cmp, champions, champSorted:champions.slice().sort(cmp), field, byConf, bumped:new Set(missing)};
+  return {rec, wpct, cpct, sor, cmp, rank:cmp, champions, champSorted:champions.slice().sort(cmp), field, byConf, confSorted, bumped:new Set(missing)};
 }
 function simRecord(id, r){ return `${r.rec[id].w}–${r.rec[id].l}`; }
 function renderSim(){
@@ -2415,6 +2602,21 @@ function renderSim(){
   h+=`<div class="sec"><div class="sectitle">Projected conference champions</div><div class="simchips">`;
   c.champSorted.forEach(id=>{ h+=`<div class="simchip" data-team="${id}">${esc(tnm(id))} <small>${esc(shortConf(sim.conf[id]||""))} · ${simRecord(id,c)}</small></div>`; });
   h+=`</div></div>`;
+  // SIM2: conference title races — the what-if sandbox
+  h+=`<div class="sec"><div class="sectitle">Conference title games — what-if</div>
+    <div class="secsub">The projected championship matchup in every race, from the current picks. Open one to flip
+    outcomes game by game and watch the standings, the title matchup and the CFP seeds move live.</div>`;
+  const P4C=["SEC","Big Ten","Big 12","ACC"];
+  Object.keys(c.confSorted).sort((a,b)=>(P4C.includes(b)?1:0)-(P4C.includes(a)?1:0)||a.localeCompare(b)).forEach(cf=>{
+    const ids=c.confSorted[cf]; if(!ids||ids.length<2) return;
+    const [t1,t2]=ids;
+    h+=`<div class="ccgrow" data-ccg="${esc(cf)}">
+      <div class="ccgconf">${esc(shortConf(cf))}</div>
+      <div class="ccgm">${crestEl("glcr",tnm(t1),oppColor(t1))}<b>${esc(tnm(t1))}</b><small>${c.rec[t1].cw}–${c.rec[t1].cl}</small>
+        <span class="ccgvs">vs</span>
+        ${crestEl("glcr",tnm(t2),oppColor(t2))}<b>${esc(tnm(t2))}</b><small>${c.rec[t2].cw}–${c.rec[t2].cl}</small></div>
+      <div class="more">Open ›</div></div>`; });
+  h+=`</div>`;
   h+=`<div id="simodds"></div>`;
   h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: your game picks determine the standings, conference champions and 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?"\"Simulate\" runs a Monte-Carlo of the unpicked games using the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.":""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
@@ -2422,6 +2624,56 @@ function renderSim(){
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
   const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={}; renderSim(); };
   const run=document.getElementById("simrun"); if(run) run.onclick=()=>simRunOdds();
+  document.querySelectorAll("[data-ccg]").forEach(el=>el.onclick=()=>ccgSheet(el.dataset.ccg));
+}
+// SIM2: conference-championship scenario sandbox. First conference free (the taste), the rest
+// behind the scenario_sandbox seam — same free-taste-then-upsell pattern as the simulator.
+let _ccgFree=null;
+async function ccgSheet(conf){
+  if(PLUS_GATED.scenario_sandbox && _ccgFree && _ccgFree!==conf &&
+     !(await plusUpsell("Conference scenario sandbox",
+       "Mix and match outcomes across every conference race — who reaches each title game, and how the CFP seeds shift. Full what-if control comes with Hashmark+. Free during preview."))) return;
+  _ccgFree=_ccgFree||conf;
+  if(!sim.baseline) sim.baseline=simCompute(Object.assign({},sim.fav));   // "no picks" reference for seed shifts
+  const nm=id=>(teamMeta[id]||{}).school||id;
+  const ov=document.createElement("div"); ov.className="pickov";
+  ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+    <div style="font-weight:800;font-size:15px;flex:1">${esc(conf)} — title race</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="picklist" id="ccgsheet"></div></div>`;
+  document.body.appendChild(ov);
+  const cgames=sim.games.filter(g=>sim.conf[String(g.home_team_id)]===conf&&sim.conf[String(g.away_team_id)]===conf)
+    .sort((a,b)=>a.week-b.week);
+  const draw=()=>{
+    const eff=simEffective(), c=simCompute(eff);
+    const ids=c.confSorted[conf]||[];
+    const t1=ids[0], t2=ids[1];
+    let html=`<div class="strec">Projected title game: <b>${esc(nm(t1))}</b> vs <b>${esc(nm(t2))}</b></div>`;
+    const seedOf=(r,id)=>{ const i=r.field.indexOf(id); return i<0?null:i+1; };
+    const inNow=c.field.filter(id=>sim.conf[id]===conf);
+    const shifts=inNow.map(id=>{ const s=seedOf(c,id), b=seedOf(sim.baseline,id);
+      return `${esc(nm(id))} seed ${s}${b==null?" (was out)":(b!==s?` (was ${b})`:"")}`; }).join(" · ");
+    const dropped=sim.baseline.field.filter(id=>sim.conf[id]===conf&&!c.field.includes(id))
+      .map(id=>`${esc(nm(id))} out (was seed ${seedOf(sim.baseline,id)})`).join(" · ");
+    html+=`<div class="ha" style="padding:2px 2px 8px">CFP from this conference: ${shifts||"none"}${dropped?` · ${dropped}`:""}</div>`;
+    ids.slice(0,8).forEach((id,i)=>{ html+=`<div class="ccgstand" data-simteam="${id}">
+      <div class="ssn">${i+1}</div>${crestEl("glcr",nm(id),oppColor(id))}
+      <div class="ssnm">${esc(nm(id))}<small>conf ${c.rec[id].cw}–${c.rec[id].cl} · overall ${c.rec[id].w}–${c.rec[id].l}${i<2?" · in the title game":""}</small></div>
+      <div class="more">slate ›</div></div>`; });
+    html+=`<div class="ha" style="padding:10px 2px 0">Conference games — tap a side to flip the outcome:</div>`;
+    let wk=null;
+    cgames.forEach(g=>{ const hId=String(g.home_team_id), aId=String(g.away_team_id), w=String(eff[g.id]);
+      if(g.week!==wk){ wk=g.week; html+=`<div class="ha" style="padding:8px 2px 2px">Week ${wk}</div>`; }
+      html+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(nm(aId))} @ ${esc(nm(hId))}</div>
+          <div class="ha">${sim.userPicks[g.id]!=null?"your pick":"model favorite"}</div></div></div>
+        <div class="stbtns"><button class="stb ${w===aId?"w":""}" data-cg="${g.id}" data-cpick="${aId}" title="${esc(nm(aId))} wins">${esc(monogram(nm(aId)))}</button>
+          <button class="stb ${w===hId?"w":""}" data-cg="${g.id}" data-cpick="${hId}" title="${esc(nm(hId))} wins">${esc(monogram(nm(hId)))}</button></div></div>`; });
+    document.getElementById("ccgsheet").innerHTML=html;
+    document.querySelectorAll("#ccgsheet [data-cg]").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.cg]=b.dataset.cpick; draw(); });
+    document.querySelectorAll("#ccgsheet [data-simteam]").forEach(r=>r.onclick=()=>{ ov.remove(); simTeamSheet(r.dataset.simteam); });
+  };
+  draw();
+  const close=()=>{ ov.remove(); renderSim(); };
+  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
 }
 function simTeamSheet(teamId){
   teamId=String(teamId);
@@ -2726,21 +2978,26 @@ function renderBox(gameId, tg, pg, fromTeam, um){
   if(uA||uB){
     const f3=v=>v==null?"—":Number(v).toFixed(3), f2=v=>v==null?"—":Number(v).toFixed(2),
           pc=v=>v==null?"—":(100*Number(v)).toFixed(1)+"%";
-    const ADV=[["epa_play","EPA / play (offense)",f3,1],["success_rate","Success rate",pc,1],
-               ["explosive_rate","Explosive-play rate",pc,1],["iso_ppp","IsoPPP (EPA on successes)",f3,1],
-               ["pts_per_drive","Points / drive",f2,1],["pts_per_opp","Points / scoring opp",f2,1],
-               ["field_pos","Avg start (yds to goal)",f2,-1],["havoc_rate","Havoc allowed",pc,-1],
-               ["plays","Plays (non-garbage)",v=>v==null?"—":v,0]];
+    // S1: every column label explains itself in plain English (tap/hover the label)
+    const ADV=[["epa_play","EPA / play (offense)",f3,1,"Expected points added per play — the scoring value the offense creates on an average snap. Higher is better."],
+               ["success_rate","Success rate",pc,1,"Share of plays that keep the offense on schedule (half the needed yards on 1st down, 70% on 2nd, all of it on 3rd/4th). Higher is better."],
+               ["explosive_rate","Explosive-play rate",pc,1,"Share of plays that gain a big chunk of value at once — breakaway runs and deep completions. Higher is better."],
+               ["iso_ppp","IsoPPP (EPA on successes)",f3,1,"Value per SUCCESSFUL play only — when it works, how big is it? Separates efficiency from explosiveness. Higher is better."],
+               ["pts_per_drive","Points / drive",f2,1,"Points scored per offensive possession. Higher is better."],
+               ["pts_per_opp","Points / scoring opp",f2,1,"Points per trip inside the opponent's 40-yard line — how well drives get finished. Higher is better."],
+               ["field_pos","Avg start (yds to goal)",f2,-1,"Average starting field position, measured as yards to the end zone. Lower is better."],
+               ["havoc_rate","Havoc allowed",pc,-1,"Share of this offense's plays where the defense created a tackle for loss, forced fumble, pass break-up, or interception. Lower is better."],
+               ["plays","Plays (non-garbage)",v=>v==null?"—":v,0,"Offensive snaps with garbage time removed — the sample behind these rates."]];
     h+=`<div class="boxhead adv" data-tip="Per-unit advanced stats from play-by-play, garbage-time filtered. Offense perspective: each column is that team's OFFENSE (havoc = disruptions allowed). Descriptive game stats — not Hashmark ratings.">
       <div>${esc(tA.school)} off.</div><div>advanced <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></div><div>${esc(tB.school)} off.</div></div>`;
-    ADV.forEach(([k,label,fmt,dir])=>{
+    ADV.forEach(([k,label,fmt,dir,tip])=>{
       const va=uA?uA[k]:null, vb=uB?uB[k]:null;
       if(va==null&&vb==null) return;
       let wa="",wb="";
       if(dir&&va!=null&&vb!=null&&Number(va)!==Number(vb)){
         const aWin=dir>0?Number(va)>Number(vb):Number(va)<Number(vb);
         if(aWin)wa="win"; else wb="win"; }
-      h+=`<div class="boxrow"><div class="bva ${wa}">${fmt(va)}</div><div class="bk">${label}</div><div class="bvb ${wb}">${fmt(vb)}</div></div>`;
+      h+=`<div class="boxrow"><div class="bva ${wa}">${fmt(va)}</div><div class="bk" data-tip="${esc(tip)}">${label}</div><div class="bvb ${wb}">${fmt(vb)}</div></div>`;
     });
   } else if(A.off_epa!=null||B.off_epa!=null){
     const ep=v=>v==null?"—":Number(v).toFixed(3);
@@ -3360,19 +3617,59 @@ async function renderStats(){
     else await renderConfView(body);
   }catch(e){ body.innerHTML=`<div class="err">Couldn't load: ${e.message}</div>`; }
 }
+// B4: custom dropdown — THE app-standard select. items:[{value,label,group?}].
+// Accessible combobox pattern: focus stays on the button; aria-activedescendant tracks the
+// focused option; ArrowUp/Down move, Enter/Space pick, Esc closes, outside click closes.
+let _ddSeq=0;
+function mountAppSelect(host, items, value, onChange, opts={}){
+  if(!host) return; if(!host.id) host.id="appdd"+(++_ddSeq);
+  let cur=value;
+  host.classList.add("appdd"); if(opts.slim) host.classList.add("slim");
+  const render=()=>{
+    let list="", lastG=null;
+    items.forEach((it,ix)=>{
+      if(it.group && it.group!==lastG){ lastG=it.group; list+=`<div class="appdd-grp">${esc(it.group)}</div>`; }
+      const sel=String(it.value)===String(cur);
+      list+=`<div class="appdd-opt ${sel?"sel":""}" role="option" id="${host.id}-o${ix}" aria-selected="${sel}" data-ix="${ix}">
+        <span>${esc(it.label)}</span><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></div>`; });
+    const curIt=items.find(i=>String(i.value)===String(cur));
+    host.innerHTML=`<button type="button" class="appdd-btn" aria-haspopup="listbox" aria-expanded="false"
+        ${opts.ariaLabel?`aria-label="${esc(opts.ariaLabel)}"`:""} ${opts.disabled?"disabled":""}>${esc(curIt?curIt.label:(opts.placeholder||"Select"))}</button>
+      <div class="appdd-pop" role="listbox" id="${host.id}-list">${list}</div>`;
+    const btn=host.querySelector(".appdd-btn"), pop=host.querySelector(".appdd-pop");
+    let focusIx=Math.max(0, items.findIndex(i=>String(i.value)===String(cur)));
+    const optEls=()=>[...pop.querySelectorAll(".appdd-opt")];
+    const setFocus=ix=>{ focusIx=Math.max(0,Math.min(items.length-1,ix));
+      optEls().forEach(o=>o.classList.toggle("focus",Number(o.dataset.ix)===focusIx));
+      btn.setAttribute("aria-activedescendant",`${host.id}-o${focusIx}`);
+      const el=pop.querySelector(`[data-ix="${focusIx}"]`); if(el) el.scrollIntoView({block:"nearest"}); };
+    const onDoc=e=>{ if(!host.contains(e.target)) close(); };
+    const close=()=>{ host.classList.remove("open"); btn.setAttribute("aria-expanded","false"); document.removeEventListener("click",onDoc,true); };
+    const open=()=>{ document.querySelectorAll(".appdd.open").forEach(d=>{ if(d!==host) d.classList.remove("open"); });
+      host.classList.add("open"); btn.setAttribute("aria-expanded","true"); setFocus(focusIx);
+      document.addEventListener("click",onDoc,true); };
+    const pick=ix=>{ const it=items[ix]; if(!it) return; cur=it.value; close(); render(); if(onChange) onChange(it.value); };
+    btn.onclick=e=>{ e.stopPropagation(); host.classList.contains("open")?close():open(); };
+    pop.onclick=e=>{ const o=e.target.closest(".appdd-opt"); if(o){ e.stopPropagation(); pick(Number(o.dataset.ix)); } };
+    btn.onkeydown=e=>{
+      const isOpen=host.classList.contains("open");
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); isOpen?setFocus(focusIx+(e.key==="ArrowDown"?1:-1)):open(); }
+      else if(e.key==="Enter"||e.key===" "){ e.preventDefault(); isOpen?pick(focusIx):open(); }
+      else if(e.key==="Escape"&&isOpen){ e.preventDefault(); close(); } };
+  };
+  render();
+}
 async function renderExplorer(body){
   const d=_catalog.by[exploreStat];
-  let opts="";
+  const ddItems=[];
   STAT_GROUPS.forEach(g=>{ const ds=_catalog.groups[g]||[]; if(!ds.length) return;
-    opts+=`<optgroup label="${g}">`;
-    ds.forEach(x=>opts+=`<option value="${x.stat_key}" ${x.stat_key===exploreStat?"selected":""}>${esc(x.display_name)}</option>`);
-    opts+=`</optgroup>`; });
+    ds.forEach(x=>ddItems.push({value:x.stat_key, label:x.display_name, group:g})); });
   const confs=[...new Set(Object.values(teamMeta).map(t=>t.conference).filter(Boolean))].sort();
   let pills=`<button class="confpill ${exploreConf?"":"on"}" data-econf="">All FBS</button>`;
   confs.forEach(c=>pills+=`<button class="confpill ${exploreConf===c?"on":""}" data-econf="${esc(c)}">${esc(shortConf(c))}</button>`);
   let rows=(await statRows(exploreStat)).slice();
   if(exploreConf) rows=rows.filter(r=>teamMeta[r.team_id]&&teamMeta[r.team_id].conference===exploreConf);
-  let h=`<div class="selectwrap"><select id="statsel">${opts}</select></div>
+  let h=`<div id="statsel"></div>
     <div class="secsub" style="padding:0 2px 8px">${esc(d.description)} ${d.higher_is_better?"Higher is better.":"Lower is better."}</div>
     <div class="confbar">${pills}</div>`;
   rows.forEach((r,i)=>{ const t=teamMeta[r.team_id]; if(!t) return;
@@ -3383,7 +3680,8 @@ async function renderExplorer(body){
       <div class="eval r-${rankBucket(Number(r.percentile))}">${fmtStat(r.value,d.format)}</div></div>`; });
   if(!rows.length) h+=`<div class="loading">No teams.</div>`;
   body.innerHTML=h;
-  const sel=document.getElementById("statsel"); sel.onchange=()=>{ exploreStat=sel.value; renderStats(); };
+  mountAppSelect(document.getElementById("statsel"), ddItems, exploreStat,
+    v=>{ exploreStat=v; renderStats(); }, {ariaLabel:"Choose a stat"});
   body.querySelectorAll("[data-econf]").forEach(b=>b.onclick=()=>{ exploreConf=b.dataset.econf||null; renderStats(); });
 }
 const STAT_LEADERS=["points_per_game","opp_points_per_game","total_yards_pg","total_yards_allowed_pg",
@@ -3393,15 +3691,17 @@ async function renderStatLeaders(body){
   const data=await Promise.all(STAT_LEADERS.map(statRows));
   let h=`<div class="lbgrid">`;
   STAT_LEADERS.forEach((k,idx)=>{ const d=_catalog.by[k];
+    const tip=`${d.display_name} — ${d.description} ${d.higher_is_better?"Higher is better.":"Lower is better."}`;
     h+=`<div class="lbcard"><div class="lbhead" data-go="${k}">
-      <div class="lt">${esc(d.display_name)}<small>${esc(d.short_label)} · 2025 · ${d.higher_is_better?"higher better":"lower better"}</small></div>
+      <div class="lt">${esc(d.display_name)} <svg class="ic pkinfo" data-tip="${esc(tip)}" aria-label="What this stat measures" role="img"><use href="#i-info"/></svg><small>${esc(d.short_label)} · 2025 · ${d.higher_is_better?"higher better":"lower better"}</small></div>
       <div class="more">All ›</div></div>`;
     data[idx].slice(0,6).forEach(r=>{ const t=teamMeta[r.team_id]; if(!t) return;
       h+=`<div class="lbmini" data-team="${r.team_id}"><div class="mrk">${r.rank}</div>
         <div class="mnm">${esc(t.school)}</div><div class="mvl">${fmtStat(r.value,d.format)}</div></div>`; });
     h+=`</div>`; });
   body.innerHTML=h+`</div>`;
-  body.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{ exploreStat=b.dataset.go; statTab="explorer"; renderStats(); window.scrollTo(0,0); });
+  body.querySelectorAll("[data-go]").forEach(b=>b.onclick=e=>{ if(e.target.closest("[data-tip]")) return;   // the info glyph shows its tip, not the board
+    exploreStat=b.dataset.go; statTab="explorer"; renderStats(); window.scrollTo(0,0); });
 }
 const PLAYER_LB=[["passing","YDS","Passing yards"],["passing","TD","Passing touchdowns"],
   ["rushing","YDS","Rushing yards"],["rushing","TD","Rushing touchdowns"],
@@ -3630,6 +3930,7 @@ const hideTip=()=>tipEl.classList.remove("show");
 document.body.addEventListener("mouseover",e=>{const el=e.target.closest("[data-tip]");if(el)showTip(el);});
 document.body.addEventListener("mouseout", e=>{const el=e.target.closest("[data-tip]");if(el)hideTip();});
 document.body.addEventListener("click",    e=>{const el=e.target.closest("[data-tip]");if(el){showTip(el);e.stopPropagation();}else hideTip();});
+document.addEventListener("scroll", hideTip, {passive:true, capture:true});   // S2: bubble dismisses on scroll (any container)
 // tap a ranking row (anywhere but its number/tooltip) -> open the team detail page
 document.body.addEventListener("click", e=>{
   if(e.target.closest("[data-tip]")) return;
@@ -3641,6 +3942,7 @@ document.body.addEventListener("click", e=>{
   if(pl && pl.dataset.player && pl.dataset.player!=="undefined"){ openPlayer(pl.dataset.player); return; }
   const box=e.target.closest("[data-box]");
   if(box && box.dataset.box && box.dataset.box!=="undefined"){ openBox(box.dataset.box, box.dataset.bteam); return; }
+  const nb=e.target.closest("[data-newsall]"); if(nb){ gatedNewsArchive(nb.dataset.newsall); return; }
   const row=e.target.closest("[data-team]");
   if(row && row.dataset.team && row.dataset.team!=="undefined") openDetail(row.dataset.team);
 });
@@ -3683,7 +3985,8 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   simulator_unlimited:true,   // free taste: view field + ONE full run; upsell at 2nd run
   ask_unlimited:true,         // free tier: 3 questions/month (edge fn enforces)
   signature_full:true,        // Collapse Index teaser free; full boards Hashmark+
-  grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true };
+  grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true,
+  news_full:true };            // N1: home/team pages tease 3-4 free; full feed + archive gated
 const SIM_RUNS_KEY = "hm_sim_runs";
 function plusUpsell(title, body){
   const el=document.createElement("div");
@@ -3762,6 +4065,7 @@ const OMNI_TOOLS = [
   ["Standings & SoS","list",()=>openStandings()],["Matchup Lab","vs",()=>openMatchup()],
   ["Leaderboards & stats","chart",()=>openStats()],["Rankings","trophy",()=>openPreseason()],
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
+  ["Signature stats","flame",()=>openSignature()],
   ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
 ];
 function openOmni(){ const o=document.getElementById("omni"); o.classList.add("show");
@@ -3806,13 +4110,13 @@ async function openExplore(){
     <h2 style="margin:4px 0 2px;font-size:20px">Playoff Simulator</h2>
     <p style="margin:0;color:var(--text2);font-size:12px">Pick winners, watch title chances rebuild — 10,000 sims of your bracket.</p></div>
   <div class="xgrid" style="padding:0 2px">
+    <div class="xcard" data-x="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and more — named teams, tracked calls. One board free.</p></div>
     <div class="xcard" data-x="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>Leaderboards <span class="chip-plus">HASHMARK+</span></h4><p>Team & player stat leaders, every category.</p></div>
     <div class="xcard" data-x="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
     <div class="xcard" data-x="standings"><svg class="ic"><use href="#i-list"/></svg><h4>Standings + SoS</h4><p>Every conference, schedule strength.</p></div>
     <div class="xcard" data-x="movers"><svg class="ic"><use href="#i-trend"/></svg><h4>Weekly Movers</h4><p>Who rose, who fell — updated Sundays.</p></div>
     <div class="xcard" data-x="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 and season boards.</p></div>
     <div class="xcard" data-x="accuracy"><svg class="ic"><use href="#i-check"/></svg><h4 style="color:var(--amber)">Checking Our Work</h4><p>Every call logged before kickoff. Misses stay up.</p></div>
-    <div class="xcard" data-x="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and more — named teams, tracked calls.</p></div>
     <div class="xcard" data-x="method"><svg class="ic"><use href="#i-info"/></svg><h4>Methodology</h4><p>How the numbers get made.</p></div>
     <div class="xcard dashed" id="xask"><svg class="ic" style="color:var(--text3)"><use href="#i-chat"/></svg><h4>AI Analyst Chat</h4><p>Coming to this search box. Ask anything, get sourced answers.</p></div>
     <div class="xcard" data-x="notify"><svg class="ic"><use href="#i-bell"/></svg><h4>Notifications</h4><p>Picks reminders and results.</p></div>
@@ -4055,7 +4359,7 @@ async function openSignature(){
     const d=collapse.drivers||{}; const drv=(d.top_drivers||d.drivers||[]).slice(0,3);
     const tr=collapse.track||{};
     h+=`<div class="card card-hero-amber" style="margin:10px 2px;padding:15px">
-      <div class="eyebrow">The Collapse Index · regression watch-list · ${collapse.season} preseason · FREE</div>
+      <div class="eyebrow" data-tip="The Collapse Index — which preseason top-10 team our regression factors flag hardest as likely to fall short of its ranking. A watch-list, not a prediction; every call is logged and scored.">The Collapse Index · regression watch-list · ${collapse.season} preseason · FREE <svg class="ic pkinfo" aria-hidden="true"><use href="#i-info"/></svg></div>
       <h2 style="margin:6px 0 2px">${esc(t.school||"?")}</h2>
       <p style="margin:0 0 6px;color:var(--text2);font-size:12.5px">The preseason top-10 team our factors flag hardest${d.chance?` — ${esc(String(d.chance))}`:""}.${d.base_rate?` For scale: ${esc(String(d.base_rate))}.`:""}</p>
       ${d.poll_basis?`<div class="eyebrow" style="margin-bottom:6px">Built on the ${esc(String(d.poll_basis))}</div>`:""}

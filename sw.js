@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v18";   // v18: readable auth error for 5xx email-send failures (was literal "{}")
+const VERSION = "hashmark-v19";   // v19: games-ux sprint — Games 2026 default + date/time/network, custom dropdowns, sim fixes
 const SHELL = [
   "./",
   "./index.html",

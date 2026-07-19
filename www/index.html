@@ -654,6 +654,31 @@
     background:var(--surface);color:var(--text);font-family:"Hanken Grotesk",sans-serif;font-size:14px;
     font-weight:600;outline:none;-webkit-appearance:none;appearance:none}
   .selectwrap::after{content:"▾";position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none}
+  /* B4: custom app dropdown — the standard select (native <select> renders the foreign OS sheet) */
+  .appdd{position:relative;margin:0 0 10px}
+  .appdd-btn{width:100%;padding:12px 38px 12px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;font-size:14px;
+    font-weight:600;text-align:left;cursor:pointer;position:relative;min-height:44px}
+  .appdd-btn:disabled{opacity:.45;cursor:default}
+  .appdd-btn::after{content:"";position:absolute;right:14px;top:50%;transform:translateY(-50%);width:11px;height:11px;pointer-events:none;transition:transform .15s;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239AA8B6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat}
+  .appdd.open .appdd-btn::after{transform:translateY(-50%) rotate(180deg)}
+  .appdd.slim{margin:0;flex:none;width:86px}
+  .appdd.slim .appdd-btn{padding:9px 26px 9px 11px;border-radius:10px;font-size:13px;min-height:44px}
+  .appdd.slim .appdd-btn::after{right:9px}
+  .appdd-pop{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;z-index:90;background:var(--surface2);
+    border:1px solid var(--line);border-radius:13px;box-shadow:0 18px 44px rgba(0,0,0,.55);
+    max-height:320px;overflow-y:auto;padding:6px;display:none}
+  .appdd.open .appdd-pop{display:block}
+  .appdd-grp{padding:9px 10px 4px;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px;
+    letter-spacing:.09em;text-transform:uppercase;color:var(--text2)}
+  .appdd-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;min-height:44px;
+    border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap}
+  .appdd-opt:hover,.appdd-opt.focus{background:rgba(255,255,255,.06)}
+  .appdd-opt.sel{color:var(--amber)}
+  .appdd-opt::after{content:"";flex:none;width:13px;height:13px;visibility:hidden;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F6B43C' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat}
+  .appdd-opt.sel::after{visibility:visible}
   .lbgrid{display:flex;flex-direction:column;gap:14px}
   .lbcard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px 15px 8px}
   .lbhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:pointer}
@@ -932,7 +957,18 @@ async function setFavoriteTeam(teamId){
 
 // ---------- official games + records (FACTUAL — render in preview AND full mode) ----------
 const SEASON_RESULTS = 2025, SEASON_SCHED = 2026;
-const GAME_SEL = "id,season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed";
+const GAME_SEL = "id,season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed,network,start_time_tbd";
+// G2: "Sat Sep 5 · 7:30 PM ET · ESPN" — date always; time only when known (start_time_tbd ->
+// "Time TBD"); network chip only when present (never render null). Completed games: date only.
+function gameTimeLine(g){
+  if(!g.start_date) return "";
+  const d=new Date(g.start_date);
+  const day=d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"America/New_York"});
+  if(g.completed) return day;
+  const time=g.start_time_tbd?"Time TBD"
+    :d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})+" ET";
+  return `${day} · ${time}${g.network?` · ${g.network}`:""}`;
+}
 let teamMeta = null;        // {id: {school, color, conference}}
 const scoresCache = {};     // season -> [games]
 async function ensureTeamMeta(){
@@ -972,7 +1008,7 @@ function schedRow(g, teamId){
   const tap = v.oppId?` data-team="${v.oppId}"`:"";
   return `<div class="schedrow${v.bowl?" bowl":""}"${tap}>${res}
     ${crestEl("schedcr", v.oppName, oppColor(v.oppId))}
-    <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}</div><div class="on">${esc(v.oppName||"TBD")}</div></div>
+    <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}${!v.done&&gameTimeLine(g)?` · ${esc(gameTimeLine(g))}`:""}</div><div class="on">${esc(v.oppName||"TBD")}</div></div>
     ${score}</div>`;
 }
 function recordCard(ts, ap){
@@ -1003,17 +1039,18 @@ function scheduleSection(games, teamId){
 }
 
 // ---------- scores / schedule view (browse official games by week) ----------
-let scoresSeason = SEASON_RESULTS, scoresWeek = null;
+let scoresSeason = SEASON_SCHED, scoresWeek = null;   // G1: Games opens on the season ahead
 function scGameRow(g){
   const done = g.completed && g.home_points!=null && g.away_points!=null;
   const hw = done && g.home_points>g.away_points, aw = done && g.away_points>g.home_points;
   const meta = g.neutral_site ? "Neutral site" : "";
+  const when = gameTimeLine(g);
   const teamLine = (name,id,score,win)=>`<div class="scteam${win?" win":""}"${id?` data-team="${id}"`:""}>
       ${crestEl("scc", name, oppColor(id))}<div class="nm">${esc(name||"TBD")}</div>
       <div class="pts">${done?score:""}</div></div>`;
   const boxLink = (done && g.id) ? `<div class="scbox" data-box="${g.id}" data-bteam="${g.home_team_id}">Box score ›</div>` : "";
   return `<div class="scgame">
-    ${meta?`<div class="gm"><span>${meta}</span><span></span></div>`:""}
+    ${when||meta?`<div class="gm"><span>${esc(when)}</span><span>${meta}</span></div>`:""}
     ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
     ${done?"":`<div class="scvs">${g.neutral_site?"vs":"at"}</div>`}
     ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}
@@ -1033,7 +1070,12 @@ async function drawScores(){
   const hasPost = games.some(g=>g.season_type==="postseason");
   const keys = regWeeks.map(w=>({key:"R"+w, label:""+w, f:g=>g.season_type!=="postseason"&&g.week===w}))
     .concat(hasPost?[{key:"PS", label:"Bowls / CFP", f:g=>g.season_type==="postseason"}]:[]);
-  if(!scoresWeek || !keys.find(k=>k.key===scoresWeek)) scoresWeek = keys.length?keys[0].key:null;
+  if(!scoresWeek || !keys.find(k=>k.key===scoresWeek)){
+    // land on the current/upcoming week once the season starts; Week 1 before kickoff
+    const cutoff = Date.now() - 36*36e5;   // a game that kicked off <36h ago still counts as "this week"
+    const upcoming = keys.find(k=>games.some(g=>k.f(g) && !g.completed && g.start_date && new Date(g.start_date).getTime()>=cutoff));
+    scoresWeek = (upcoming || keys[0] || {}).key || null;
+  }
   const active = keys.find(k=>k.key===scoresWeek);
   const list = (active?games.filter(active.f):[]).slice()
     .sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
@@ -1263,7 +1305,8 @@ const HOME_GO = {explorer:()=>openStats("explorer"), leaders:()=>openStats("lead
 // The 5 required methodology elements (research: scale anchors; inputs; adjustments incl.
 // explicit garbage-time policy; admitted limitations in plain language; update cadence).
 function openMethodology(){
-  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  // B3: methodology/transparency pages render regardless of SHOW_HASHMARK_RATINGS — the copy is
+  // generic (no hidden-rating reveal) and every visible entry point must land somewhere real.
   window.scrollTo(0,0);
   app.innerHTML = `<div class="cmp">${backHeader("How our ratings work")}<div class="list" style="padding-top:6px">
     <div class="sec"><div class="sectitle">The scale</div><div class="secsub">
@@ -1305,7 +1348,8 @@ function openMethodology(){
 }
 
 async function openCheckingWork(){
-  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  // B3: methodology/transparency pages render regardless of SHOW_HASHMARK_RATINGS — the copy is
+  // generic (no hidden-rating reveal) and every visible entry point must land somewhere real.
   window.scrollTo(0,0);
   app.innerHTML = `<div class="loading">Loading our record…</div>`;
   let acc=[], arch=[];
@@ -1351,7 +1395,8 @@ async function openCheckingWork(){
 // third-party-comparable record — MAE / RMSE / Brier / SU% per season, vs the closing line,
 // with class labeling (preseason-info vs weekly in-season).
 async function openAccuracy(){
-  if(!SHOW_HASHMARK_RATINGS){ load(); return; }
+  // B3: methodology/transparency pages render regardless of SHOW_HASHMARK_RATINGS — the copy is
+  // generic (no hidden-rating reveal) and every visible entry point must land somewhere real.
   window.scrollTo(0,0);
   app.innerHTML = `<div class="loading">Loading accuracy record…</div>`;
   let rows=[];
@@ -1919,10 +1964,7 @@ function renderPickem(){
         <button class="navbtn ${my===g.away_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.away_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.away_team)}</button>
         <span style="align-self:center;color:var(--text2)">@</span>
         <button class="navbtn ${my===g.home_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.home_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.home_team)}</button>
-        <select class="navbtn" data-pkconf="${g.game_id}" ${locked||!signedIn?"disabled":""}>
-          <option value="">rank</option>
-          ${Array.from({length:10},(_,i)=>10-i).map(v=>`<option value="${v}" ${conf===v?"selected":""}>${v}</option>`).join("")}
-        </select></div>
+        <div data-pkconf="${g.game_id}" data-pklocked="${locked||!signedIn?1:""}"></div></div>
       ${model100?`<div class="secsub" style="padding:4px 0 0">Model: ${model100}</div>`:""}
       ${pk.tbGame===g.game_id && signedIn ? `<div class="navrow" style="padding-top:4px">
         <input class="authin" style="max-width:190px" id="tbguess" type="number" min="0" max="200"
@@ -1950,7 +1992,12 @@ function renderPickem(){
   document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.team); renderPickem(); });
   const um=document.getElementById("usemodel");
   if(um) um.onclick=()=>{ pk.slate.forEach(g=>{ if(!pkLocked(g)&&g.model_pick_team){ pk.picks[g.game_id]=g.model_pick_team; pk.conf[g.game_id]=g.model_conf; } }); renderPickem(); };
-  document.querySelectorAll("[data-pkconf]").forEach(s=>s.onchange=()=>{ pk.conf[Number(s.dataset.pkconf)]=Number(s.value)||undefined; });
+  document.querySelectorAll("[data-pkconf]").forEach(hostEl=>{
+    const gid=Number(hostEl.dataset.pkconf);
+    mountAppSelect(hostEl,
+      [{value:"",label:"rank"}, ...Array.from({length:10},(_,i)=>({value:10-i,label:String(10-i)}))],
+      pk.conf[gid]??"", v=>{ pk.conf[gid]=Number(v)||undefined; },
+      {slim:true, ariaLabel:"Confidence rank", disabled:!!hostEl.dataset.pklocked}); });
   const sv=document.getElementById("savepicks"); if(sv) sv.onclick=savePicks;
   const ng=document.getElementById("newgroup"); if(ng) ng.onclick=createGroup;
   const jg=document.getElementById("joingroup"); if(jg) jg.onclick=joinGroupPrompt;
@@ -2244,7 +2291,7 @@ function simCompute(picks){
   const bestG6=rankedElig.find(id=>{ const cf=sim.conf[id];
     return cf && !P4_CONFS.has(cf) && (byConf[cf]||[]).length>=REAL_CONF_MIN; });
   if(bestG6 && !guaranteed.includes(bestG6)) guaranteed.push(bestG6);  // best G6 TEAM, champ or not
-  const ndId=sim.fbs.find(id=>(teamMeta[id]||{}).school==="Notre Dame");
+  const ndId=allRanked.find(id=>(teamMeta[id]||{}).school==="Notre Dame");   // sim.fbs is a Set — no .find
   if(ndId && allRanked.indexOf(ndId)<12 && !guaranteed.includes(ndId)) guaranteed.push(ndId); // ND top-12 guarantee
   const guarSet=new Set(guaranteed);
   const top12=rankedElig.slice(0,12), inTop=new Set(top12);
@@ -3229,19 +3276,58 @@ async function renderStats(){
     else await renderConfView(body);
   }catch(e){ body.innerHTML=`<div class="err">Couldn't load: ${e.message}</div>`; }
 }
+// B4: custom dropdown — THE app-standard select. items:[{value,label,group?}].
+// Accessible combobox pattern: focus stays on the button; aria-activedescendant tracks the
+// focused option; ArrowUp/Down move, Enter/Space pick, Esc closes, outside click closes.
+let _ddSeq=0;
+function mountAppSelect(host, items, value, onChange, opts={}){
+  if(!host) return; if(!host.id) host.id="appdd"+(++_ddSeq);
+  let cur=value;
+  host.classList.add("appdd"); if(opts.slim) host.classList.add("slim");
+  const render=()=>{
+    let list="", lastG=null;
+    items.forEach((it,ix)=>{
+      if(it.group && it.group!==lastG){ lastG=it.group; list+=`<div class="appdd-grp">${esc(it.group)}</div>`; }
+      const sel=String(it.value)===String(cur);
+      list+=`<div class="appdd-opt ${sel?"sel":""}" role="option" id="${host.id}-o${ix}" aria-selected="${sel}" data-ix="${ix}"><span>${esc(it.label)}</span></div>`; });
+    const curIt=items.find(i=>String(i.value)===String(cur));
+    host.innerHTML=`<button type="button" class="appdd-btn" aria-haspopup="listbox" aria-expanded="false"
+        ${opts.ariaLabel?`aria-label="${esc(opts.ariaLabel)}"`:""} ${opts.disabled?"disabled":""}>${esc(curIt?curIt.label:(opts.placeholder||"Select"))}</button>
+      <div class="appdd-pop" role="listbox" id="${host.id}-list">${list}</div>`;
+    const btn=host.querySelector(".appdd-btn"), pop=host.querySelector(".appdd-pop");
+    let focusIx=Math.max(0, items.findIndex(i=>String(i.value)===String(cur)));
+    const optEls=()=>[...pop.querySelectorAll(".appdd-opt")];
+    const setFocus=ix=>{ focusIx=Math.max(0,Math.min(items.length-1,ix));
+      optEls().forEach(o=>o.classList.toggle("focus",Number(o.dataset.ix)===focusIx));
+      btn.setAttribute("aria-activedescendant",`${host.id}-o${focusIx}`);
+      const el=pop.querySelector(`[data-ix="${focusIx}"]`); if(el) el.scrollIntoView({block:"nearest"}); };
+    const onDoc=e=>{ if(!host.contains(e.target)) close(); };
+    const close=()=>{ host.classList.remove("open"); btn.setAttribute("aria-expanded","false"); document.removeEventListener("click",onDoc,true); };
+    const open=()=>{ document.querySelectorAll(".appdd.open").forEach(d=>{ if(d!==host) d.classList.remove("open"); });
+      host.classList.add("open"); btn.setAttribute("aria-expanded","true"); setFocus(focusIx);
+      document.addEventListener("click",onDoc,true); };
+    const pick=ix=>{ const it=items[ix]; if(!it) return; cur=it.value; close(); render(); if(onChange) onChange(it.value); };
+    btn.onclick=e=>{ e.stopPropagation(); host.classList.contains("open")?close():open(); };
+    pop.onclick=e=>{ const o=e.target.closest(".appdd-opt"); if(o){ e.stopPropagation(); pick(Number(o.dataset.ix)); } };
+    btn.onkeydown=e=>{
+      const isOpen=host.classList.contains("open");
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); isOpen?setFocus(focusIx+(e.key==="ArrowDown"?1:-1)):open(); }
+      else if(e.key==="Enter"||e.key===" "){ e.preventDefault(); isOpen?pick(focusIx):open(); }
+      else if(e.key==="Escape"&&isOpen){ e.preventDefault(); close(); } };
+  };
+  render();
+}
 async function renderExplorer(body){
   const d=_catalog.by[exploreStat];
-  let opts="";
+  const ddItems=[];
   STAT_GROUPS.forEach(g=>{ const ds=_catalog.groups[g]||[]; if(!ds.length) return;
-    opts+=`<optgroup label="${g}">`;
-    ds.forEach(x=>opts+=`<option value="${x.stat_key}" ${x.stat_key===exploreStat?"selected":""}>${esc(x.display_name)}</option>`);
-    opts+=`</optgroup>`; });
+    ds.forEach(x=>ddItems.push({value:x.stat_key, label:x.display_name, group:g})); });
   const confs=[...new Set(Object.values(teamMeta).map(t=>t.conference).filter(Boolean))].sort();
   let pills=`<button class="confpill ${exploreConf?"":"on"}" data-econf="">All FBS</button>`;
   confs.forEach(c=>pills+=`<button class="confpill ${exploreConf===c?"on":""}" data-econf="${esc(c)}">${esc(shortConf(c))}</button>`);
   let rows=(await statRows(exploreStat)).slice();
   if(exploreConf) rows=rows.filter(r=>teamMeta[r.team_id]&&teamMeta[r.team_id].conference===exploreConf);
-  let h=`<div class="selectwrap"><select id="statsel">${opts}</select></div>
+  let h=`<div id="statsel"></div>
     <div class="secsub" style="padding:0 2px 8px">${esc(d.description)} ${d.higher_is_better?"Higher is better.":"Lower is better."}</div>
     <div class="confbar">${pills}</div>`;
   rows.forEach((r,i)=>{ const t=teamMeta[r.team_id]; if(!t) return;
@@ -3252,7 +3338,8 @@ async function renderExplorer(body){
       <div class="eval r-${rankBucket(Number(r.percentile))}">${fmtStat(r.value,d.format)}</div></div>`; });
   if(!rows.length) h+=`<div class="loading">No teams.</div>`;
   body.innerHTML=h;
-  const sel=document.getElementById("statsel"); sel.onchange=()=>{ exploreStat=sel.value; renderStats(); };
+  mountAppSelect(document.getElementById("statsel"), ddItems, exploreStat,
+    v=>{ exploreStat=v; renderStats(); }, {ariaLabel:"Choose a stat"});
   body.querySelectorAll("[data-econf]").forEach(b=>b.onclick=()=>{ exploreConf=b.dataset.econf||null; renderStats(); });
 }
 const STAT_LEADERS=["points_per_game","opp_points_per_game","total_yards_pg","total_yards_allowed_pg",
