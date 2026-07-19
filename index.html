@@ -1332,14 +1332,16 @@ function gameView(g, teamId){
 function crestEl(cls, name, color){
   return `<div class="${cls}" style="background:${color};color:${textOn(color)}">${monogram(name||"?")}</div>`;
 }
-function schedRow(g, teamId){
+function schedRow(g, teamId, mode){
   const v = gameView(g, teamId);
   const ha = v.neutral?"Neutral":(v.home?"vs":"@");
   const res = v.done ? `<div class="schedres ${v.won?"w":"l"}">${v.won?"W":"L"}</div>`
                      : `<div class="schedres wk">${v.bowl?"PS":("W"+v.week)}</div>`;
   const score = v.done ? `<div class="schedsc"><b>${v.ms}</b>–${v.os}</div>`
                        : `<div class="schedsc"><span class="up">${v.home?"home":v.neutral?"neutral":"away"}</span></div>`;
-  const tap = v.oppId?` data-team="${v.oppId}"`:"";
+  const tap = v.oppId?(mode==="matchup"
+    ?` data-mopp="${v.oppId}" data-mven="${v.neutral?"neutral":(v.home?"aHome":"bHome")}"`
+    :` data-team="${v.oppId}"`):"";
   return `<div class="schedrow${v.bowl?" bowl":""}"${tap}>${res}
     ${crestEl("schedcr", v.oppName, oppColor(v.oppId))}
     <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}${!v.done&&gameTimeLine(g)?` · ${esc(gameTimeLine(g))}`:""}</div><div class="on">${esc(v.oppName||"TBD")}</div></div>
@@ -1361,14 +1363,14 @@ function recordCard(ts, ap){
 function scheduleSection(games, teamId, which="both", sosRank=null){
   const sort = a => a.slice().sort((x,y)=>(stOrder(x.season_type)-stOrder(y.season_type))||(x.week-y.week));
   const r25 = sort(games.filter(g=>g.season===SEASON_RESULTS));
-  const r26 = sort(games.filter(g=>g.season===SEASON_SCHED));
+  const r26 = sort(games.filter(g=>g.season===SEASON_SCHED && g.season_type==="regular"));   // batch 7 #3: placeholders out
   let h = "";
   if(r25.length && which!=="sched"){ h+=`<div class="sec"><div class="sectitle">${SEASON_RESULTS} results</div>
     <div class="secsub">Final scores — official. Tap an opponent to open it.</div>`;
     r25.forEach(g=>h+=schedRow(g,teamId)); h+=`</div>`; }
   if(r26.length && which!=="results"){ h+=`<div class="sec" id="tp-sched"><div class="sectitle">${SEASON_SCHED} schedule${sosRank?` · SoS #${sosRank}`:""}</div>
-    <div class="secsub">Upcoming opponents — official schedule, dates &amp; TV as they're set${sosRank?`. Schedule strength ranks #${sosRank} of 138 (preseason)`:""}.</div>`;
-    r26.forEach(g=>h+=schedRow(g,teamId)); h+=`</div>`; }
+    <div class="secsub">Upcoming opponents — tap a game for the head-to-head matchup. Official schedule, dates &amp; TV as they're set${sosRank?`. Schedule strength ranks #${sosRank} of 138 (preseason)`:""}.</div>`;
+    r26.forEach(g=>h+=schedRow(g,teamId,"matchup")); h+=`</div>`; }   // batch 7 #4: tap = matchup
   return h;
 }
 
@@ -1869,7 +1871,9 @@ async function injectYourTeam(){
       <div class="favsub">${st?`${st.wins}–${st.losses} ${SEASON_RESULTS} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}`:esc(t.conference||"")}${pre?` · ${SEASON_SCHED} SoS #${pre.sos_rank||"—"}`:""}</div>
       ${v?`<div class="favsub">Next: ${v.home?"vs":"@"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""}</div>`:""}
       ${news?`<div class="favsub favnews" id="ytnews" role="link" title="Team news">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""} <svg class="ic" style="width:11px;height:11px"><use href="#i-chev-r"/></svg></div>`:""}</div>
-    <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
+    <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg><small id="ytchange" role="button" style="display:block;color:var(--text3);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding-top:3px">Change</small></div></div>`;
+  const yc=document.getElementById("ytchange");
+  if(yc) yc.onclick=e=>{ e.stopPropagation(); teamPicker(null, id=>pickFavAny(id)); };
   const yn=document.getElementById("ytnews");   // Part 0.2: headline tap opens TEAM news
   if(yn) yn.onclick=e=>{ e.stopPropagation(); window._scrollNews=true; openDetail(+fav); };
 }
@@ -1975,11 +1979,12 @@ function injectHomeTiles(){
     <div class="xcard" data-ht="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>General Stats</h4><p>Explorer + leaderboards, every category.</p></div>
     <div class="xcard" data-ht="injuries"><svg class="ic"><use href="#i-bell"/></svg><h4>Injury Updates</h4><p>Availability reports + injury headlines, attributed.</p></div>
     <div class="xcard" data-ht="aateam"><svg class="ic"><use href="#i-star"/></svg><h4>Preseason All-Americans</h4><p>The AA team + preseason polls.</p></div>
+    <div class="xcard" data-ht="whatwins"><svg class="ic"><use href="#i-target"/></svg><h4>What wins games <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>What wins today vs what repeats next season.</p></div>
   </div>`;
   const GO={modelhub:()=>openModelHub(), sim:()=>gatedSimulator(), standings:()=>openStandings(),
     matchup:()=>openMatchup(), nil:()=>openNILEconomy(), rankings:()=>openPreseason(),
     signature:()=>openSignature(), stats:()=>openStats(), injuries:()=>openInjuries(),
-    aateam:()=>openPreseason()};
+    aateam:()=>openPreseason(), whatwins:()=>openWhatWins()};
   host.querySelectorAll("[data-ht]").forEach(el=>el.onclick=()=>GO[el.dataset.ht]());
 }
 
@@ -2106,6 +2111,27 @@ async function activeStatSeason(){   // 2025 now; auto-switches to 2026 when tho
   return _statSeasonActive;
 }
 let matchup={a:null,b:null,venue:"neutral"};
+let _matchupOpen=false;   // batch 7 #4 session reveal
+// Batch 7 #1: picker rows carry Hashmark rank + the current poll rank. The poll shown
+// auto-switches: CFP committee rankings REPLACE the AP the moment CFP poll rows exist
+// in the snapshots (derived from data, never a date).
+let _pickerRanks=null;
+async function loadPickerRanks(){
+  if(_pickerRanks) return _pickerRanks;
+  const out={hm:{}, poll:{}, pollName:null};
+  try{ await ensureBoard(); board2026.forEach((b,i)=>out.hm[b.team_id]=i+1); }catch(e){}
+  try{
+    const rows=await api(`poll_rankings_history?select=week,poll,rank,team_id&season=eq.${SEASON_SCHED}&order=week.desc&limit=200`);
+    if(rows.length){
+      const cfp=rows.filter(r=>/playoff|committee/i.test(r.poll));
+      const use=cfp.length?cfp:rows.filter(r=>r.poll==="AP Top 25");
+      if(use.length){ const wk=use[0].week;
+        use.filter(r=>r.week===wk).forEach(r=>out.poll[r.team_id]=r.rank);
+        out.pollName=cfp.length?"CFP":"AP"; }
+    }
+  }catch(e){}
+  _pickerRanks=out; return out;
+}
 function teamPicker(excludeId, cb){
   const teams=Object.values(teamMeta).filter(t=>t.school).sort((a,b)=>a.school.localeCompare(b.school));
   const ov=document.createElement("div"); ov.className="pickov";
@@ -2115,25 +2141,32 @@ function teamPicker(excludeId, cb){
   document.body.appendChild(ov);
   const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
   const draw=q=>{ q=(q||"").toLowerCase().trim();
+    const rk=_pickerRanks||{hm:{},poll:{},pollName:null};
     list.innerHTML=teams.filter(t=>t.school.toLowerCase().includes(q)).map(t=>{ const c=hx(t.color), dis=String(t.id)===String(excludeId);
+      const bits=[];
+      if(rk.hm[t.id]) bits.push(`Hashmark #${rk.hm[t.id]}`);
+      if(rk.pollName&&rk.poll[t.id]) bits.push(`${rk.pollName} #${rk.poll[t.id]}`);
       return `<div class="pitem${dis?' dis':''}" data-id="${t.id}">
         <div class="pcr" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
-        <div><div class="pnm">${esc(t.school)}</div><div class="pcf">${esc(t.conference||"")}</div></div></div>`; }).join("")
-      ||`<div class="loading" style="padding:30px">No teams match "${esc(q)}"</div>`; };
+        <div><div class="pnm">${esc(t.school)}</div><div class="pcf">${esc(t.conference||"")}${bits.length?` · ${bits.join(" · ")}`:""}</div></div></div>`; }).join("")
+      ||`<div class="loading" style="padding:30px">No teams match "${esc(q)}"</div>`;
+    list.scrollTop=0;   // batch 7 #1 BUG FIX: filtered results must never hide above a stale scroll
+  };
   draw("");
+  loadPickerRanks().then(()=>{ if(document.body.contains(ov)) draw(search.value); });
   const close=()=>ov.remove();
   ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
   search.oninput=()=>draw(search.value);
   list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it||it.classList.contains("dis")) return; close(); cb(it.dataset.id); };
 }
-async function openMatchup(aId,bId){
+async function openMatchup(aId,bId,venue){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading matchup…</div>`;
   try{
     await Promise.all([ensureTeamMeta(), ensureCatalog(), activeStatSeason()]);
     if(!aId||!bId){ const ap=await api("poll_rankings?select=team_id,rank&season=eq.2025&poll=eq.AP%20Top%2025&order=rank.asc&limit=2");
       aId=aId||(ap[0]&&ap[0].team_id); bId=bId||(ap[1]&&ap[1].team_id);
       const keys=Object.keys(teamMeta); aId=aId||keys[0]; bId=bId||keys[1]; }
-    matchup={a:String(aId), b:String(bId), venue:"neutral"};
+    matchup={a:String(aId), b:String(bId), venue:venue||"neutral"};
     await drawMatchup();
   }catch(e){ app.innerHTML=backHeader("Matchup")+`<div class="list"><div class="err">Couldn't load matchup: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=load; }
@@ -2197,13 +2230,18 @@ function renderMatchup(statsRows, wp, hh, S){
   // side-by-side official stats with national rank context
   h+=`<div class="sec"><div class="sectitle">Team stats — ${S}</div>
     <div class="mhead"><div>${esc(tA.school)}</div><div></div><div>${esc(tB.school)}</div></div>`;
+  // batch 7 #4 (owner pivot — matchup stats were fully free since batch 4): first two
+  // comparisons are the free tease, the rest sit behind Hashmark+ inline.
+  let mshown=0;
   MATCHUP_STATS.forEach(k=>{ const d=_catalog.by[k]; if(!d) return;
     const ra=idx[`${a}|${k}`], rb=idx[`${b}|${k}`]; if(!ra&&!rb) return;
+    if(!_matchupOpen && mshown>=2){ if(mshown===2){ h+=`<div class="teaserow" data-mup="1">See every stat comparison <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`; mshown++; } return; }
     let wa="",wb="";
     if(ra&&rb){ const va=Number(ra.value), vb=Number(rb.value);
       if(va!==vb){ const aWin=d.higher_is_better?va>vb:va<vb; if(aWin)wa="win"; else wb="win"; } }
     const cell=(r,cls)=> r? `<div class="mval ${cls}"><b>${fmtStat(r.value,d.format)}</b><small>#${r.rank}</small></div>` : `<div class="mval ${cls}">—</div>`;
     h+=`<div class="mrow">${cell(ra,wa)}<div class="mk">${esc(d.short_label)}</div>${cell(rb,wb)}</div>`;
+    mshown++;
   });
   h+=`</div>`;
   // historical head-to-head
@@ -2224,6 +2262,10 @@ function renderMatchup(statsRows, wp, hh, S){
   h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${(SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
+  const mup=document.querySelector("[data-mup]");
+  if(mup) mup.onclick=async()=>{ if(PLUS_GATED.matchup_full && !(await plusUpsell("The full matchup comparison",
+    "Every stat, side by side with national ranks — a Hashmark+ view; free while we're in preview."))) return;
+    _matchupOpen=true; drawMatchup(); };
   document.querySelectorAll("[data-mpick]").forEach(el=>el.onclick=()=>{ const slot=el.dataset.mpick;
     teamPicker(matchup[slot==="a"?"b":"a"], id=>{ matchup[slot]=String(id); drawMatchup(); }); });
   document.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ matchup.venue=b.dataset.mv; drawMatchup(); });
@@ -2783,7 +2825,7 @@ async function openSimulator(){
   try{
     await ensureTeamMeta();
     const [games, teams, wp, pf] = await Promise.all([
-      api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site,home_points,away_points,completed&season=eq.${SEASON_SCHED}&order=week.asc`),
+      api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site,home_points,away_points,completed&season=eq.${SEASON_SCHED}&season_type=eq.regular&order=week.asc`),
       api(`teams?select=id,school,conference,classification`),
       SHOW_PREDICTIONS?fetchAllWinprob():Promise.resolve([]),
       api(`playoff_odds?select=team_id,make_cfp,exp_wins&season=eq.${SEASON_SCHED}&order=make_cfp.desc&limit=12`).catch(()=>[]) ]);
@@ -3300,12 +3342,12 @@ async function openDetail(teamId){
         api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
         api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
         ensureCatalog().then(c=>ensureBaselines().then(()=>c)),
-        api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${PRIOR_SEASON},${STAT_SEASON})&team_id=eq.${teamId}`),
+        api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${[...new Set([PRIOR_SEASON,STAT_SEASON,SEASON_SCHED])].join(",")})&team_id=eq.${teamId}`),
         api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
         api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`),
         api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`),
         api(`standings?select=season,conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${teamId}`),
-        api(`team_splits?select=side,split_type,split_key,plays,epa_per_play,success_rate,explosive_rate&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`) ]);
+        api(`team_splits?select=season,side,split_type,split_key,plays,epa_per_play,success_rate,explosive_rate&season=in.(${[...new Set([STAT_SEASON,SEASON_SCHED])].join(",")})&team_id=eq.${teamId}`) ]);
       let hm=null;
       if(SHOW_HASHMARK_RATINGS){ try{
         const [pr, comps] = await Promise.all([
@@ -3405,7 +3447,16 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
       ${st?`<div class="schip"><span class="sl">Conference</span><span class="sv">${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}</span></div>`:""}
       ${sosChip}
     </div>` : "";
-  const profile = (e.cat && e.stats) ? statProfile(e.cat, e.stats, t.school) : "";
+  // batch 7 #2: per-team season swap — >=3 completed current-season games moves the
+  // 2026 stat accordions on top and demotes 2025 to a "final season" group at the bottom.
+  const done26 = (games||[]).filter(g=>g.season===SEASON_SCHED && g.completed && g.home_points!=null).length;
+  const has26stats = (e.stats||[]).some(r=>Number(r.season)===SEASON_SCHED);
+  const swap26 = done26>=3 && has26stats;
+  const statsFor = yr => (e.stats||[]).filter(r=>Number(r.season)===yr||Number(r.season)===yr-1);
+  const splitsFor = yr => (e.splits||[]).filter(x=>Number(x.season||STAT_SEASON)===yr);
+  const profile = (e.cat && e.stats) ? statProfile(e.cat, statsFor(swap26?SEASON_SCHED:STAT_SEASON), t.school, swap26?SEASON_SCHED:STAT_SEASON) : "";
+  const splitsTop = teamSplitsSection(splitsFor(swap26?SEASON_SCHED:STAT_SEASON), t.school, swap26?SEASON_SCHED:STAT_SEASON);
+  const glogTop = gameLogSection((e.gamelog||[]).filter(g=>swap26?g.season===SEASON_SCHED:true), teamId);
   const leaders = teamLeaders(e.players || []);
   const honors  = e.honors ? teamHonors(e.honors) : "";
   // teampage brief #1: hero stays visible; news (injected) then the 2026 schedule sit on
@@ -3418,21 +3469,29 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
       <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
-      <div><div class="dschool">${esc(t.school)}</div>
+      <div style="flex:1"><div class="dschool">${esc(t.school)}</div>
         <div class="dconf">${esc(t.mascot?t.mascot+" · ":"")}${esc(t.conference||"")}</div></div>
+      <button class="navbtn" id="tpstar" style="flex:none;min-height:36px;font-size:11px;padding:4px 10px${String(favTeamId())===String(teamId)?";border-color:var(--amber);color:var(--amber)":""}">
+        <svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> ${String(favTeamId())===String(teamId)?"Your team":"Make this my team"}</button>
     </div>
     ${head}
     ${standLine}
     <div id="tp-newshost"></div>
-    ${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)}
-    ${hmSection(e.hm, t)}
     <div id="tp-accordions">
-    ${acc("profile", `${SEASON_RESULTS} stat profile`, "ranks + percentiles", profile)}
-    ${acc("splits", "Situational splits", "3rd down, red zone, by quarter", teamSplitsSection(e.splits||[], t.school))}
+    ${acc("profile", `${swap26?SEASON_SCHED:STAT_SEASON} stat profile`, "ranks + percentiles", profile)}
+    ${acc("splits", `${swap26?SEASON_SCHED:STAT_SEASON} situational splits`, swap26?"3rd down, red zone, by quarter":"updates to 2026 after 3 games", splitsTop)}
     ${acc("leaders", "Returning leaders", "who's back, who left", leaders)}
-    ${acc("gamelog", "Game log", "every box line", gameLogSection(e.gamelog||[], teamId))}
+    ${acc("gamelog", `${swap26?SEASON_SCHED+" game log":"Game log"}`, "every box line", glogTop)}
     ${acc("honors", "Preseason honors", "third-party, attributed", honors)}
     </div>
+    ${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)}
+    ${hmSection(e.hm, t)}
+    ${swap26?`<div class="sectitle" style="padding:10px 2px 4px">${STAT_SEASON===SEASON_SCHED?SEASON_SCHED-1:STAT_SEASON} — final season</div>
+    <div>
+    ${acc("profile25", `${SEASON_RESULTS} stat profile`, "final", (e.cat&&e.stats)?statProfile(e.cat, statsFor(SEASON_RESULTS), t.school, SEASON_RESULTS):"")}
+    ${acc("splits25", `${SEASON_RESULTS} situational splits`, "final", teamSplitsSection(splitsFor(SEASON_RESULTS), t.school, SEASON_RESULTS))}
+    ${acc("gamelog25", `${SEASON_RESULTS} game log`, "final", gameLogSection((e.gamelog||[]).filter(g=>g.season<SEASON_SCHED), teamId))}
+    </div>`:""}
     ${e.hm?"":`<div class="sec" style="padding-top:6px">
       <div class="soon" style="padding:22px 20px 6px">
         <div class="soonbadge">COMING SOON</div>
@@ -3443,6 +3502,13 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
+  // batch 7 #4: schedule rows open the matchup pre-set to this pairing + venue
+  document.querySelectorAll("[data-mopp]").forEach(el=>el.onclick=e=>{
+    e.stopPropagation(); openMatchup(teamId, el.dataset.mopp, el.dataset.mven); });
+  // batch 7 #1: favorite star on every team header
+  const star=document.getElementById("tpstar");
+  if(star) star.onclick=()=>{ if(String(favTeamId())===String(teamId)) teamPicker(null, id=>pickFavAny(id));
+    else pickFavAny(teamId); };
 }
 
 // ---------- Game logs + box scores (official CFBD game data — no Hashmark ratings) ----------
@@ -3491,13 +3557,14 @@ const SPLIT_GROUPS = [
   ["By outcome", "result", ["In wins","In losses"]],
   ["Competition", "vs", ["vs Ranked (AP)"]],
 ];
-function teamSplitsSection(splits, school){
+function teamSplitsSection(splits, school, season){
+  season = season || STAT_SEASON;
   if(!splits.length) return "";
   school=school||"This team";
   const by={}; splits.forEach(s=>{ by[`${s.side}|${s.split_type}|${s.split_key}`]=s; });
   const cell=(s)=> s ? `<b>${(s.epa_per_play>0?"+":"")+Number(s.epa_per_play).toFixed(2)}</b><small>${(Number(s.success_rate)*100).toFixed(0)}% SR</small>` : "—";
-  let h=`<div class="sec"><div class="sectitle">Situational splits</div>
-    <div class="secsub">EPA/play &amp; success rate by situation, from official play-by-play (garbage time removed). <b>Off</b> = this team's offense; <b>Def</b> = what its defense allowed (lower is better). 2025. Source: CFBD.</div>
+  let h=`<div class="sec"><div class="sectitle">${season} situational splits</div>
+    <div class="secsub">EPA/play &amp; success rate by situation, from official play-by-play (garbage time removed). <b>Off</b> = this team's offense; <b>Def</b> = what its defense allowed (lower is better). ${season}. Source: CFBD.${season<SEASON_SCHED?` <b>Updates to ${SEASON_SCHED} once the first 3 games of the season are complete.</b>`:""}</div>
     <div class="splithead"><div></div><div>Offense</div><div>Defense (allowed)</div></div>`;
   SPLIT_GROUPS.forEach(([label,stype,keys])=>{
     const present=keys.filter(k=>by[`off|${stype}|${k}`]||by[`def|${stype}|${k}`]);
@@ -3927,6 +3994,7 @@ function openPicker(slot){
           <div><div class="pnm">${esc(t.school)}</div><div class="pcf">${esc(t.conference||"")}</div></div>
           <div class="pov">${f3(b.overall)}</div></div>`; }).join("")
       || `<div class="loading" style="padding:30px">No teams match "${esc(q)}"</div>`;
+    list.scrollTop=0;   // batch 7 #1: same stale-scroll fix as teamPicker
   }
   draw("");
   const close=()=>ov.remove();
@@ -4170,10 +4238,12 @@ function renderPlayer(aid, idx, seasons, games, grades){
 }
 
 // ---------- Part 2: team stat profile + leaders + preseason honors (on the team page) ----------
-function statProfile(cat, statsRows, school){
+function statProfile(cat, statsRows, school, season){
+  season = season || STAT_SEASON;
   const cur={}, prior={};
-  statsRows.forEach(r=>{ (Number(r.season)===STAT_SEASON?cur:prior)[r.stat_key]=r; });
-  let h=`<div class="sec"><div class="sectitle">2025 stat profile</div>
+  statsRows.forEach(r=>{ if(Number(r.season)===season) cur[r.stat_key]=r;
+    else if(Number(r.season)===season-1) prior[r.stat_key]=r; });
+  let h=`<div class="sec"><div class="sectitle">${season} stat profile</div>
     <div class="secsub">Official season stats with national rank + percentile. Tap a label for what it means. Source: CFBD.</div>`;
   let any=false;
   STAT_GROUPS.forEach(grp=>{
@@ -4802,7 +4872,9 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   nil_efficiency:true,         // Part 2: tier board free teaser; efficiency scatter gated
   matchup_grid:true,           // P1: dial + top-line free; the unit heat grid gated
   player_compare:true,         // P3: cards free; compare-two gated
-  roster_economy:true };       // P5: gated with the NIL lane (conference teaser free)
+  roster_economy:true,
+  matchup_full:true,          // batch 7 #4: first 2 matchup stats free, rest gated
+  whatwins_full:true };       // batch 7 #5 owner pivot: headline free, full board gated       // P5: gated with the NIL lane (conference teaser free)
 const SIM_RUNS_KEY = "hm_sim_runs";   // legacy counter (batch 5 removed the 1-free-run)
 function plusUpsell(title, body){
   const el=document.createElement("div");
@@ -4849,7 +4921,8 @@ async function tabMyTeam(){
   const fs=document.getElementById("favsearch");
   if(fs) fs.oninput=()=>{ const q=fs.value.trim().toLowerCase();
     document.querySelectorAll("[data-pickfav]").forEach(el=>{
-      el.style.display = !q || el.textContent.toLowerCase().includes(q) ? "" : "none"; }); };
+      el.style.display = !q || el.textContent.toLowerCase().includes(q) ? "" : "none"; });
+    window.scrollTo(0,0); };   // batch 7 #1: results visible immediately while typing
   document.querySelectorAll("[data-pickfav]").forEach(el=>el.onclick=async()=>{
     const id=Number(el.dataset.pickfav);
     localStorage.setItem(GUEST_FAV_KEY,String(id));
@@ -5045,7 +5118,7 @@ async function gatedLuckGames(teamId){
 }
 // V4 — Schedule Gauntlet: 12 cells colored by win prob + the record distribution.
 async function gauntletData(teamId){
-  const games=await api(`games?select=id,week,season_type,home_team_id,away_team_id,neutral_site,start_date,start_time_tbd,network,home_points,away_points,completed&season=eq.${SEASON_SCHED}&or=(home_team_id.eq.${teamId},away_team_id.eq.${teamId})&order=week.asc`);
+  const games=await api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site,start_date,start_time_tbd,network,home_points,away_points,completed&season=eq.${SEASON_SCHED}&season_type=eq.regular&or=(home_team_id.eq.${teamId},away_team_id.eq.${teamId})&order=week.asc`);
   const pairs=[...new Set(games.map(g=>{ const lo=Math.min(g.home_team_id,g.away_team_id), hi=Math.max(g.home_team_id,g.away_team_id); return `and(team_a.eq.${lo},team_b.eq.${hi})`; }))];
   let wp=[];
   if(pairs.length) try{ wp=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&or=(${pairs.join(",")})`); }catch(e){}
@@ -5097,7 +5170,7 @@ function gauntletHTML(teamId, games, wpm, compact){
     <div class="secsub" style="padding:2px 2px 0">Projected-record distribution — how often each win total lands (${SEASON_SCHED}, model win probabilities). Most likely: <b>${dist.indexOf(dmax)}–${games.length-dist.indexOf(dmax)}</b>.</div></div>`;
 }
 async function injectTeamViz(teamId){
-  const host=document.getElementById("tp-accordions");
+  const host=app.querySelector(".detail .note");   // batch 7 #2: gauntlet embed sits below the rating hero
   if(!host || !SHOW_HASHMARK_RATINGS || !SHOW_PREDICTIONS) return;
   const {games, wpm}=await gauntletData(teamId);
   if(!games.length || !wpm.size) return;
@@ -5134,7 +5207,7 @@ async function openGauntletWall(){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Building the wall (all 138 schedules)…</div>`;
   await ensureTeamMeta(); await ensureBoard();
   const [games, wp]=await Promise.all([
-    api(`games?select=id,week,home_team_id,away_team_id,neutral_site,home_points,away_points,completed&season=eq.${SEASON_SCHED}&order=week.asc`),
+    api(`games?select=id,week,home_team_id,away_team_id,neutral_site,home_points,away_points,completed&season=eq.${SEASON_SCHED}&season_type=eq.regular&order=week.asc`),
     fetchAllWinprob()]);
   const wpm=new Map(); wp.forEach(r=>wpm.set(r.team_a+"-"+r.team_b,r));
   const byTeam={};
@@ -5753,6 +5826,7 @@ function renderPlayerRankings(rows){
 }
 
 /* -------- "What actually wins games" (teampage brief #4 — FREE, credibility lane) -------- */
+let _wwOpen=false;
 async function openWhatWins(){
   window.scrollTo(0,0);
   app.innerHTML=`<div class="loading">Loading…</div>`;
@@ -5779,7 +5853,14 @@ async function openWhatWins(){
     and does it <b>repeat next year</b>? Computed on our own 2014-${SEASON_RESULTS} play-by-play (${(by.efficiency||{}).n_games?Number(by.efficiency.n_games).toLocaleString():"12,000+"} games,
     garbage time removed). Tap any factor for a plain-English example.</div>
     <div class="sec"><div class="wwhead"><div></div><div data-tip="Of all games where a team won this factor battle, the share it actually won — computed on our 2014-${SEASON_RESULTS} play-by-play.">Wins the game</div><div data-tip="Year-over-year correlation of the team-season value: does this number repeat, or reset? High = skill you can count on next season; low = luck that fades.">Repeats next year</div></div>`;
-  order.forEach(f=>{ const r=by[f], m=META[f]; if(!m) return;
+  // Batch 7 #5 (owner pivot — was fully free as the credibility lane): the headline
+  // finding stays free as the tease; the full two-axis board is Hashmark+. The
+  // methodology note below stays visible (trust surface).
+  const ef=by.efficiency;
+  if(!_wwOpen && ef && ef.win_pct!=null)
+    h+=`<div class="secsub" style="padding:2px 2px 8px"><b>The headline: Efficiency wins ${Math.round(Number(ef.win_pct))} of 100 — and it repeats next season (r = ${Number(ef.stability||0).toFixed(2)}).</b> The other five factors — and which ones are luck — are on the full board.</div>`;
+  order.forEach((f,fi)=>{ const r=by[f], m=META[f]; if(!m) return;
+    if(!_wwOpen && fi>=1){ if(fi===1) h+=`<div class="teaserow" data-wwup="1">See all six factors — what wins vs what repeats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`; return; }
     const win=r&&r.win_pct!=null?Math.round(Number(r.win_pct))+"%":"—";
     const st=r&&r.stability!=null?Number(r.stability):null;
     h+=`<div class="wwrow" data-tip="${esc(m[0]+" — "+m[1]+". "+m[2])}">
@@ -5802,6 +5883,10 @@ async function openWhatWins(){
       expected-points data (it rewards desperation deep balls), so we measure the share of explosive plays instead —
       a cleaner battle that still shows the same story: helps today, barely repeats. Season-labeled, gambling-free. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
+  const wu=document.querySelector("[data-wwup]");
+  if(wu) wu.onclick=async()=>{ if(PLUS_GATED.whatwins_full && !(await plusUpsell("The full What-Wins board",
+    "All six factors on both axes — what wins the day vs what carries to next season. A Hashmark+ view; free while we're in preview."))) return;
+    _wwOpen=true; openWhatWins(); };
   document.querySelector(".back").onclick=load;
   const WGO={checking:openCheckingWork, signature:openSignature, method:openMethodology};
   document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=WGO[el.dataset.go]; if(f) f(); });
