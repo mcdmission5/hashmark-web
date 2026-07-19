@@ -1391,11 +1391,12 @@ async function renderHome(){
       h += `<div class="homegreet"> Welcome back, <b>${esc(dn)}</b></div>`;
       const fav=authProfile&&authProfile.favorite_team_id;
       if(fav && teamMeta[fav]){
-        const t=teamMeta[fav]; let st=null;
-        try{ st=(await api(`standings?select=wins,losses,conference,conf_rank,sos_rank&season=eq.${SEASON_RESULTS}&team_id=eq.${fav}`))[0]; }catch(e){}
+        const t=teamMeta[fav]; let st=null, pre=null;
+        try{ const sr=await api(`standings?select=season,wins,losses,conference,conf_rank,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${fav}`);
+          st=sr.find(r=>r.season===SEASON_RESULTS); pre=sr.find(r=>r.season===SEASON_SCHED); }catch(e){}
         h += `<div class="favcard" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
           <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span></div>
-            <div class="favsub">${st?`${st.wins}–${st.losses} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"} · SoS #${st.sos_rank||"—"}`:esc(t.conference||"")}</div></div>
+            <div class="favsub">${st?`${st.wins}–${st.losses} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"} · ${pre?`2026 SoS #${pre.sos_rank||"—"}`:`SoS #${st.sos_rank||"—"}`}`:esc(t.conference||"")}</div></div>
           <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
       } else {
         h += `<div class="favpickcta" data-auth="favpick"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> <b>Pick your favorite team</b> — we'll surface it here every visit.</div>`;
@@ -1726,12 +1727,14 @@ function wireToggle(){
 const CONF_ORDER = ["SEC","Big Ten","Big 12","ACC","American Athletic","Mountain West","Sun Belt",
   "Mid-American","Conference USA","Pac-12","FBS Independents"];
 let standingsMode = "conf";   // "conf" (grouped) | "sos" (national strength-of-schedule list)
+let sosSeason = SEASON_SCHED;   // SOS board defaults to the 2026 preseason view
 async function openStandings(){
   window.scrollTo(0,0);
   app.innerHTML = `<div class="loading">Loading standings…</div>`;
   try{
     await ensureTeamMeta();
-    const rows = await api(`standings?select=team_id,school,conference,wins,losses,win_pct,conf_wins,conf_losses,conf_pct,streak,sos,sos_rank,conf_rank&season=eq.${SEASON_RESULTS}`);
+    const rows = await api(`standings?select=season,team_id,school,conference,wins,losses,win_pct,conf_wins,conf_losses,conf_pct,streak,sos,sos_rank,conf_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})`);
+    if(sosSeason===SEASON_SCHED && !rows.some(r=>r.season===SEASON_SCHED)) sosSeason=SEASON_RESULTS;
     renderStandings(rows);
   }catch(e){
     app.innerHTML = backHeader("Standings")+`<div class="list"><div class="err">Couldn't load standings: ${e.message}</div></div>`;
@@ -1739,9 +1742,11 @@ async function openStandings(){
   }
 }
 function _strkCls(s){ return s&&s[0]==="W"?"w":s&&s[0]==="L"?"l":""; }
-function renderStandings(rows){
+function renderStandings(allRows){
+  const rows=allRows.filter(r=>r.season===SEASON_RESULTS);           // played records = 2025
+  const preRows=allRows.filter(r=>r.season===SEASON_SCHED);          // 2026 preseason SOS rows
   let h=`<div class="cmp">${backHeader("Standings")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 8px">Official <b>2025</b> records. Conference order applies win% with head-to-head on ties. Source: CFBD.</div>
+    <div class="secsub" style="padding:0 2px 8px">Official <b>2025</b> records${preRows.length?` + the <b>2026 preseason</b> schedule-strength board`:""}. Conference order applies win% with head-to-head on ties. Source: CFBD.</div>
     <div class="lbtoggle">
       <button data-stm="conf" class="${standingsMode==="conf"?"on":""}">By conference</button>
       <button data-stm="sos" class="${standingsMode==="sos"?"on":""}">By strength of schedule</button></div>`;
@@ -1763,8 +1768,27 @@ function renderStandings(rows){
           <div class="srec">${r.conf_wins}–${r.conf_losses}</div>
           <div class="sstrk ${_strkCls(r.streak)}">${esc(r.streak||"—")}</div></div>`; });
     });
+  }else if(sosSeason===SEASON_SCHED && preRows.length){
+    // 2026 PRESEASON board (games-ux SOS feature) — public inputs only, free
+    const list=preRows.slice().filter(r=>r.sos_rank).sort((a,b)=>a.sos_rank-b.sos_rank);
+    h+=`<div class="lbtoggle" style="margin-top:2px">
+      <button data-soss="${SEASON_SCHED}" class="on">2026 preseason</button>
+      <button data-soss="${SEASON_RESULTS}">2025 played</button></div>`;
+    h+=`<div class="stconf">Toughest 2026 schedules — preseason difficulty /100</div>
+      <div class="sthead"><div></div><div></div><div></div><div>Difficulty</div><div>Conf</div><div></div></div>`;
+    list.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
+      h+=`<div class="strow" data-team="${r.team_id}">
+        <div class="srk">${r.sos_rank}</div>
+        ${crestEl("glcr",t.school,oppColor(r.team_id))}
+        <div class="snm">${esc(r.school)}<small>${esc(shortConf(r.conference||""))}</small></div>
+        <div class="srec">${r.sos!=null?Number(r.sos).toFixed(1):"—"}</div>
+        <div class="srec">${esc(shortConf(r.conference||"—"))}</div>
+        <div class="sstrk"></div></div>`; });
   }else{
     const list=rows.slice().filter(r=>r.sos_rank).sort((a,b)=>a.sos_rank-b.sos_rank);
+    if(preRows.length) h+=`<div class="lbtoggle" style="margin-top:2px">
+      <button data-soss="${SEASON_SCHED}">2026 preseason</button>
+      <button data-soss="${SEASON_RESULTS}" class="on">2025 played</button></div>`;
     h+=`<div class="stconf">Toughest schedules — mean FBS-opponent win%</div>
       <div class="sthead"><div></div><div></div><div></div><div>SoS%</div><div>Record</div><div>Strk</div></div>`;
     list.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
@@ -1776,10 +1800,11 @@ function renderStandings(rows){
         <div class="srec">${r.wins}–${r.losses}</div>
         <div class="sstrk">${esc(r.streak||"—")}</div></div>`; });
   }
-  h+=`<div class="note"><b>Official standings — 2025.</b> Records from CFBD game results; strength of schedule is the average win percentage of a team's FBS opponents. No Hashmark ratings shown. ${BRAND_LINE}</div></div></div>`;
+  h+=`<div class="note"><b>Official standings.</b> 2025 records from CFBD game results; 2025 strength of schedule is the average win percentage of a team's FBS opponents. The <b>2026 preseason</b> board grades each opponent's final 2025 record (70%) and final AP-poll points (30%) on a 0–100 scale with road (+8) and neutral (+4) bumps — public results and polls only, recomputed daily as the schedule firms up. No Hashmark ratings shown. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   document.querySelectorAll("[data-stm]").forEach(b=>b.onclick=()=>{ if(standingsMode!==b.dataset.stm){ standingsMode=b.dataset.stm; openStandings(); } });
+  document.querySelectorAll("[data-soss]").forEach(b=>b.onclick=()=>{ if(sosSeason!==+b.dataset.soss){ sosSeason=+b.dataset.soss; openStandings(); } });
 }
 
 // ---------- Matchup compare (official stats + historical H2H + win prob behind SHOW_PREDICTIONS) ----------
@@ -2765,9 +2790,11 @@ async function openDetail(teamId){
         api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
         api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`),
         api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`),
-        api(`standings?select=conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}`),
+        api(`standings?select=season,conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${teamId}`),
         api(`team_splits?select=side,split_type,split_key,plays,epa_per_play,success_rate,explosive_rate&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`) ]);
-      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog, standing:standing&&standing[0], splits});
+      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog,
+        standing:(standing||[]).find(r=>r.season===SEASON_RESULTS),
+        preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), splits});
     }
     const [comps, board, poll] = await Promise.all([
       api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
@@ -2807,9 +2834,12 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
         <div class="infocell"><div class="ik">Classification</div><div class="iv">${esc(cls)}</div></div></div>`;
   const e = ext || {};
   const st = e.standing;
-  const standLine = st ? `<div class="standchip">
-      <div class="schip"><span class="sl">Conference</span><span class="sv">${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}</span></div>
-      <div class="schip"><span class="sl">Strength of schedule</span><span class="sv">#${st.sos_rank||"—"}${st.sos!=null?" · "+(Number(st.sos)*100).toFixed(0)+"%":""}</span></div>
+  // preseason: the SoS chip points at the 2026 preseason rank, not the stale 2025 one
+  const sosChip = e.preSos ? `<div class="schip"><span class="sl">2026 SOS (preseason)</span><span class="sv">#${e.preSos.sos_rank||"—"}${e.preSos.sos!=null?" · "+Number(e.preSos.sos).toFixed(1)+"/100":""}</span></div>`
+    : st ? `<div class="schip"><span class="sl">Strength of schedule</span><span class="sv">#${st.sos_rank||"—"}${st.sos!=null?" · "+(Number(st.sos)*100).toFixed(0)+"%":""}</span></div>` : "";
+  const standLine = (st||e.preSos) ? `<div class="standchip">
+      ${st?`<div class="schip"><span class="sl">Conference</span><span class="sv">${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}</span></div>`:""}
+      ${sosChip}
     </div>` : "";
   const profile = (e.cat && e.stats) ? statProfile(e.cat, e.stats, t.school) : "";
   const leaders = teamLeaders(e.players || []);
@@ -3332,7 +3362,9 @@ const STAT_SEASON = 2025, PRIOR_SEASON = 2024;
 let statTab = "explorer", exploreStat = "points_per_game", exploreConf = null;
 let _catalog = null; const _statCache = {};
 const normName = s => String(s||"").toLowerCase().replace(/\b(jr|sr|iii|ii|iv)\b/g,"").replace(/[^a-z]/g,"");
-const STAT_GROUPS = ["Scoring","Offense","Defense","Efficiency/Advanced","Special teams","Discipline"];
+const STAT_GROUPS = ["Scoring","Offense","Defense","Efficiency/Advanced","Special teams","Discipline","Schedule"];
+// preseason stats live on their own season row (e.g. 2026 preseason SOS) — everything else is STAT_SEASON
+const STAT_SEASON_OVERRIDE = {sos_pre_2026: 2026};
 
 async function ensureCatalog(){
   if(_catalog) return _catalog;
@@ -3364,7 +3396,7 @@ function backHeader(tag){
 }
 async function statRows(key){
   if(!_statCache[key]) _statCache[key] = await api(
-    `team_stat_season?select=team_id,value,rank,percentile&season=eq.${STAT_SEASON}&stat_key=eq.${key}&order=rank.asc`);
+    `team_stat_season?select=team_id,value,rank,percentile&season=eq.${STAT_SEASON_OVERRIDE[key]||STAT_SEASON}&stat_key=eq.${key}&order=rank.asc`);
   return _statCache[key];
 }
 
@@ -4227,6 +4259,19 @@ async function v2HomeExtras(){
         <div style="font-size:12.5px;margin-top:3px">${line}</div></div>`;
       wrap.appendChild(tz.firstChild);
       document.getElementById("acc-teaser").onclick=()=>openCheckingWork();
+    }
+  }catch(e){}
+  try{   // games-ux SOS (d): preseason schedule-strength teaser — free, opens the full board
+    const sos=await api(`standings?select=team_id,school,sos,sos_rank&season=eq.${SEASON_SCHED}&sos_rank=eq.1&limit=1`);
+    if(sos.length){
+      const el=document.createElement("div");
+      el.innerHTML=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" id="sos-teaser">
+        <div class="eyebrow" style="color:var(--teal)">Preseason strength of schedule · ${SEASON_SCHED}</div>
+        <div style="font-size:12.5px;margin-top:3px">Toughest ${SEASON_SCHED} slate: <b>${esc(sos[0].school)}</b> — difficulty ${Number(sos[0].sos).toFixed(1)}/100.
+          See the full board <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div>
+        <div class="eyebrow" style="margin-top:4px">public results &amp; polls only · updates as the schedule firms up</div></div>`;
+      wrap.appendChild(el.firstChild);
+      document.getElementById("sos-teaser").onclick=()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; setTab("explore"); openStandings(); };
     }
   }catch(e){}
   try{   // §4: Collapse Index free teaser
