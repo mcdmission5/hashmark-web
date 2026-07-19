@@ -610,6 +610,19 @@
     color:var(--text2);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
   .stb.w{background:#5BD39A;color:#10130c;border-color:#5BD39A}
   .stb.l{background:#E5705C;color:#10130c;border-color:#E5705C}
+  .strec small{color:var(--text2);font-weight:600;font-size:10px;margin-left:6px}
+  .stfinal{opacity:.85} .stfinal .stlock{display:flex;align-items:center;gap:5px;
+    font-family:"IBM Plex Mono",monospace;font-weight:800;font-size:12.5px;color:var(--text2)}
+  .stlock .ic{width:13px;height:13px}
+  .simseed .ssr .ssmc{color:var(--amber);font-size:9px;font-weight:800;letter-spacing:.05em}
+  .simstale{font-size:11px;color:#E8B657;background:rgba(232,182,87,.09);
+    border:1px dashed rgba(232,182,87,.5);border-radius:9px;padding:7px 10px;margin:4px 0 8px}
+  .stoddswrap{border:1px solid var(--line);border-radius:11px;background:var(--surface);
+    padding:10px;margin:0 0 10px}
+  .stodds{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;padding:2px 0 8px}
+  .stodds b{display:block;font-family:"IBM Plex Mono",monospace;font-size:15px}
+  .stodds small{display:block;color:var(--text2);font-size:9px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
   .oddhead{display:grid;grid-template-columns:1fr 60px 60px 60px;gap:6px;padding:4px 10px 6px;
     font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9px;text-transform:uppercase;color:var(--text2)}
   .oddhead div:nth-child(n+2){text-align:center}
@@ -955,6 +968,18 @@ const SEASON_ROLLOVER_MONTH = 4;
 function currentSeason(){ const d=new Date();
   return (d.getMonth()+1) >= SEASON_ROLLOVER_MONTH ? d.getFullYear() : d.getFullYear()-1; }
 const SEASON_SCHED = currentSeason(), SEASON_RESULTS = SEASON_SCHED - 1;
+// Season phase (season-readiness A5): the weekly refresh folds real results into the
+// week-0 board once games start, so "preseason" labels must roll over automatically.
+// Filled by loadSeasonPhase() at boot from the games table; defaults to preseason.
+let SEASON_PHASE = { started:false, week:0 };
+const phaseLabel = () => SEASON_PHASE.started ? `${SEASON_SCHED} · through Week ${SEASON_PHASE.week}` : `${SEASON_SCHED} preseason`;
+const phaseTitle = () => SEASON_PHASE.started ? `${SEASON_SCHED} — through Week ${SEASON_PHASE.week}` : `${SEASON_SCHED} Preseason`;
+async function loadSeasonPhase(){
+  try{
+    const r = await api(`games?select=week&season=eq.${SEASON_SCHED}&completed=is.true&order=week.desc&limit=1`);
+    if(r && r.length) SEASON_PHASE = { started:true, week:+r[0].week||1 };
+  }catch(e){ /* keep the preseason default — labels stay honest, never blank */ }
+}
 let view = String(SEASON_SCHED);   // land on the CURRENT/upcoming season (brief #5)
 let boardMode = "overall";   // 2026 leaderboard: overall | offense | defense
 let confFilter = null;        // null = all FBS, else a conference name
@@ -1050,7 +1075,7 @@ async function authFetch(method, path, body){
 }
 async function ensureProfile(){
   try{
-    const sel = `profiles?select=id,display_name,favorite_team_id&id=eq.${authUser.id}`;
+    const sel = `profiles?select=id,display_name,favorite_team_id,sim_runs&id=eq.${authUser.id}`;
     let r = await authFetch("GET", sel);
     if(r.error) return;                          // transient/auth error: keep prior profile, don't clobber
     if(r.data && r.data.length){ authProfile = r.data[0];
@@ -1333,8 +1358,12 @@ function header(){
         ? "Best <b>offenses</b> — opponent-adjusted offensive unit quality (finishing + success rate + efficiency)."
         : boardMode==="defense"
           ? "Best <b>defenses</b> — opponent-adjusted defensive unit quality (what each unit suppresses)."
-          : "Our <b>way-too-early</b> projection — last season's opponent-adjusted rating, recruited talent, and proven coaching.";
-  const v26small = SHOW_HASHMARK_RATINGS ? "Preseason · Hashmark" : "In preview";
+          : SEASON_PHASE.started
+            ? `Our power rating <b>through Week ${SEASON_PHASE.week}</b> — opponent-adjusted results, roster talent, and coaching, updated weekly.`
+            : "Our <b>way-too-early</b> projection — last season's opponent-adjusted rating, recruited talent, and proven coaching.";
+  const v26small = SHOW_HASHMARK_RATINGS
+    ? (SEASON_PHASE.started ? `Wk ${SEASON_PHASE.week} · Hashmark` : "Preseason · Hashmark")
+    : "In preview";
   return `<header>
     <div class="htop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
       <div id="acctslot" class="acctslot">${accountControl()}</div></div>
@@ -2604,10 +2633,10 @@ async function refreshPushSub(){
 // unpicked games with the precomputed matchup_winprob (probabilities only — never a rating).
 const REAL_CONF_MIN = 8;   // a "conference" that crowns a champion (excludes 2-team Independents)
 let sim=null;
-async function fetchAllWinprob(){   // PostgREST caps at 1000 rows/request; matchup_winprob has ~9.5k
+async function fetchAllWinprob(){   // PostgREST caps at 1000 rows/request; pages until empty
   let all=[], off=0;
-  while(off<=20000){
-    const chunk=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.2026&order=team_a.asc,team_b.asc&limit=1000&offset=${off}`);
+  for(let page=0; page<100; page++){   // sane bound only — never a silent truncation
+    const chunk=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&order=team_a.asc,team_b.asc&limit=1000&offset=${off}`);
     all=all.concat(chunk); if(chunk.length<1000) break; off+=1000;
   }
   return all;
@@ -2617,7 +2646,7 @@ async function openSimulator(){
   try{
     await ensureTeamMeta();
     const [games, teams, wp] = await Promise.all([
-      api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site&season=eq.2026&order=week.asc`),
+      api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site,home_points,away_points,completed&season=eq.${SEASON_SCHED}&order=week.asc`),
       api(`teams?select=id,school,conference,classification`),
       SHOW_PREDICTIONS?fetchAllWinprob():Promise.resolve([]) ]);
     const conf={}, fbs=new Set();
@@ -2625,13 +2654,22 @@ async function openSimulator(){
     const wpmap=new Map(); wp.forEach(r=>wpmap.set(r.team_a+"-"+r.team_b, r));
     // only games between two FBS teams matter for the field
     const fgames=games.filter(g=>fbs.has(String(g.home_team_id))&&fbs.has(String(g.away_team_id)));
-    sim={games:fgames, conf, fbs, wp:wpmap, userPicks:{}, fav:{}, ranked:[]};
+    sim={games:fgames, conf, fbs, wp:wpmap, userPicks:{}, fav:{}, locked:{}, final:{}, ranked:[], lastRun:null};
+    // B1: completed games are LOCKED to their actual result — never re-picked, never
+    // re-randomized. The bracket is "actual results + your picks + model favorites".
+    fgames.forEach(g=>{ if(g.completed && g.home_points!=null && g.away_points!=null && g.home_points!==g.away_points){
+      sim.locked[g.id]= g.home_points>g.away_points ? String(g.home_team_id):String(g.away_team_id);
+      sim.final[g.id]= `${g.home_points>g.away_points?g.home_points:g.away_points}–${g.home_points>g.away_points?g.away_points:g.home_points}`; } });
     // model favorite per game (default pick); if predictions off, default home team
     fgames.forEach(g=>{ const ph=simPHome(g.home_team_id,g.away_team_id,g.neutral_site);
       sim.fav[g.id]= (SHOW_PREDICTIONS? (ph>=0.5):true) ? String(g.home_team_id):String(g.away_team_id); });
+    // B6: count missing winprob pairs (0.5 fallback) — surface a data-gap flag if material
+    sim.wpMissing = SHOW_PREDICTIONS ? fgames.filter(g=>{ const lo=Math.min(+g.home_team_id,+g.away_team_id),
+      hi=Math.max(+g.home_team_id,+g.away_team_id); return !wpmap.get(lo+"-"+hi); }).length : 0;
     sim.hasSOR = SHOW_PREDICTIONS && sim.wp.size>0;
     if(sim.hasSOR) precomputeSOR();
     renderSim();
+    if(SHOW_PREDICTIONS) simAutoOdds();   // B7: MC odds are the primary lens — auto-run on open (free)
   }catch(e){ app.innerHTML=backHeader("Simulator")+`<div class="list"><div class="err">Couldn't load simulator: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=load; }
 }
@@ -2683,7 +2721,9 @@ function simSOR(teamId, wins){
   const r=sim.refGeq[teamId]; if(!r) return 0;
   return 1 - r.geq[Math.min(Math.max(wins,0), r.N)];
 }
-const simEffective = ()=> Object.assign({}, sim.fav, sim.userPicks);
+// Locked (completed) games ALWAYS win: favorites < user picks < actual results (B1)
+const simEffective = ()=> Object.assign({}, sim.fav, sim.userPicks, sim.locked);
+const simPicksSig = ()=> JSON.stringify(sim.userPicks)+"|"+Object.keys(sim.locked).length;
 function simCompute(picks){
   const rec={}; sim.fbs.forEach(id=>rec[id]={w:0,l:0,cw:0,cl:0});
   const h2h={};        // winner -> Set(losers beaten)
@@ -2749,24 +2789,25 @@ function simRecord(id, r){ return `${r.rec[id].w}–${r.rec[id].l}`; }
 function renderSim(){
   const c=simCompute(simEffective());
   const nPicked=Object.keys(sim.userPicks).length;
+  const nLocked=Object.keys(sim.locked).length;
   const tnm=id=>{ const t=teamMeta[id]; return t?t.school:id; };
   let h=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 8px">Pick 2026 winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> see the standings, conference champions and the <b>12-team Playoff (2026 CFP format)</b>. ${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; run a simulation for the odds.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Hypothetical — no ratings or betting lines.</div>
+    <div class="secsub" style="padding:0 2px 8px">Pick ${SEASON_SCHED} winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> see the standings, conference champions and the <b>12-team Playoff (2026 CFP format)</b>. ${nLocked?`<b>${nLocked}</b> completed game${nLocked>1?"s are":" is"} locked to the real result. `:""}${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; the odds come from the Monte-Carlo run.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Records count <b>FBS games only</b>. Hypothetical — no ratings or betting lines.</div>
     <div class="navrow"><button class="navbtn primary" id="simpick"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg> Pick a team's games</button>
       <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button>
-      ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Simulate 1000×</button>`:""}</div>
-    <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game"}</div>`;
+      ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Simulate ${SIM_MC_N.toLocaleString()}×</button>`:""}</div>
+    <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · ${nLocked?`${nLocked} final${nLocked>1?"s":""} locked · `:""}the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:(nLocked?`${nLocked} final${nLocked>1?"s":""} locked to real results · no picks yet — the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game")}</div>`;
   // 12-team field bracket
   const sorTip="Strength of Record (resume): how hard it would be for an average top-tier team to match this team's record against this exact schedule — rewards tough schedules and quality wins, not just wins. Built from matchup win probabilities, not the hidden ratings.";
-  h+=`<div class="sec"><div class="sectitle">Projected 12-team Playoff — 2026 CFP format</div>
-    <div class="secsub" data-tip="${esc(sorTip)}">Seeded by <b>Strength of Record</b> (resume) <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg> — straight-seeded. <b>2026 CFP format:</b> all four Power Four champions are guaranteed in (any ranking), Notre Dame is in if ranked top 12, and the highest-ranked Group of Six team is in — a conference title is no longer required. Seeds 1–4 get first-round byes. Source: your picks.</div>`;
+  h+=`<div class="sec"><div class="sectitle">The bracket if every game goes to the model favorite</div>
+    <div class="secsub" data-tip="${esc(sorTip)}"><b>One specific scenario</b> — every unpicked game is handed to the model favorite, then the field is seeded by <b>Strength of Record</b> (resume) <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>. A team can look great in this single chalk world yet make the Playoff rarely across many seasons — the <b>MC %</b> on each row (Monte-Carlo Make-CFP odds) is the probability lens. <b>2026 CFP format:</b> all four Power Four champions are guaranteed in (any ranking), Notre Dame is in if ranked top 12, and the highest-ranked Group of Six team is in — a conference title is no longer required. Seeds 1–4 get first-round byes.</div>`;
   const seedRow=(id,seed,bye)=>{ const t=teamMeta[id]||{school:tnm(id)}, ch=c.champions.includes(id);
     const sorTxt=(sim.hasSOR&&c.sor[id]!=null)?`SOR ${Math.round(c.sor[id]*100)}`:"";
     const tag=[bye?"BYE":"", ch?"champ":"", sorTxt].filter(Boolean).join(" · ");
     return `<div class="simseed${c.bumped.has(id)?" bumped":""}" data-team="${id}"><div class="ssn">${seed}</div>
       ${crestEl("glcr",t.school,oppColor(id))}
       <div class="ssnm">${esc(t.school)}<small>${esc(shortConf(sim.conf[id]||""))}${c.bumped.has(id)?" · auto-bid":""}</small></div>
-      <div class="ssr">${simRecord(id,c)}${tag?`<small>${tag}</small>`:""}</div></div>`; };
+      <div class="ssr">${simRecord(id,c)}${tag?`<small>${tag}</small>`:""}<small class="ssmc"></small></div></div>`; };
   c.field.forEach((id,i)=>{ h+=seedRow(id,i+1,i<4); });
   if(c.field.length>=12){
     h+=`<div class="simbrk">First round: (12) ${esc(tnm(c.field[11]))} @ (5) ${esc(tnm(c.field[4]))} · (11) ${esc(tnm(c.field[10]))} @ (6) ${esc(tnm(c.field[5]))} · (10) ${esc(tnm(c.field[9]))} @ (7) ${esc(tnm(c.field[6]))} · (9) ${esc(tnm(c.field[8]))} @ (8) ${esc(tnm(c.field[7]))}</div>`;
@@ -2791,14 +2832,15 @@ function renderSim(){
         ${crestEl("glcr",tnm(t2),oppColor(t2))}<b>${esc(tnm(t2))}</b><small>${c.rec[t2].cw}–${c.rec[t2].cl}</small></div>
       <div class="more">Open ›</div></div>`; });
   h+=`</div>`;
-  h+=`<div id="simodds"></div>`;
-  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: your game picks determine the standings, conference champions and 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?"\"Simulate\" runs a Monte-Carlo of the unpicked games using the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.":""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
+  h+=`<div id="simodds">${sim.lastRun?simOddsPanel(sim.lastRun):""}</div>`;
+  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: completed games are locked to their real results; your picks and model favorites fill in the rest to determine standings, conference champions and the 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Simplifications, stated plainly: records count <b>FBS games only</b> (a real 12–0 with an FCS win shows as 11–0 here), and each <b>conference champion is the standings #1</b> — conference title games are not simulated. Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?`The Monte-Carlo runs ${SIM_MC_N.toLocaleString()} seasons of the unpicked games from the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.`:""}${sim.wpMissing>sim.games.length*0.03?` <b>Data gap:</b> ${sim.wpMissing} matchups are missing a model win probability and fall back to a coin flip.`:""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
-  const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={}; renderSim(); };
-  const run=document.getElementById("simrun"); if(run) run.onclick=()=>simRunOdds();
+  const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={}; renderSim(); if(SHOW_PREDICTIONS) simAutoOdds(); };
+  const run=document.getElementById("simrun"); if(run) run.onclick=async()=>{ if(await simRunGate()) simRunOdds(); };
   document.querySelectorAll("[data-ccg]").forEach(el=>el.onclick=()=>ccgSheet(el.dataset.ccg));
+  if(sim.lastRun) simSeedMC(sim.lastRun);
 }
 // SIM2: conference-championship scenario sandbox. First conference free (the taste), the rest
 // behind the scenario_sandbox seam — same free-taste-then-upsell pattern as the simulator.
@@ -2822,6 +2864,14 @@ async function ccgSheet(conf){
     const ids=c.confSorted[conf]||[];
     const t1=ids[0], t2=ids[1];
     let html=`<div class="strec">Projected title game: <b>${esc(nm(t1))}</b> vs <b>${esc(nm(t2))}</b></div>`;
+    // B2 (scenario_sandbox lane): optional Monte-Carlo odds for this race, gated like
+    // every other RUN. Fresh run = conf-title odds beside each contender.
+    if(SHOW_PREDICTIONS){
+      const run=sim.lastRun, fresh=run&&run.sig===simPicksSig();
+      if(fresh){ const line=ids.slice(0,4).map(id=>`${esc(nm(id))} ${Math.round(100*(run.tally[id]||{ct:0}).ct/run.N)}%`).join(" · ");
+        html+=`<div class="ha" style="padding:0 2px 6px">Conference-title odds (${run.N.toLocaleString()} Monte-Carlo seasons): ${line}</div>`; }
+      else html+=`<div class="ha" style="padding:0 2px 6px">${run?`<span class="simstale" style="display:inline-block">Picks changed since the last run.</span> `:""}<button class="navbtn" id="ccgrun" style="min-height:34px;font-size:11.5px">Run title-race odds — ${SIM_MC_N.toLocaleString()} seasons</button></div>`;
+    }
     const seedOf=(r,id)=>{ const i=r.field.indexOf(id); return i<0?null:i+1; };
     const inNow=c.field.filter(id=>sim.conf[id]===conf);
     const shifts=inNow.map(id=>{ const s=seedOf(c,id), b=seedOf(sim.baseline,id);
@@ -2837,6 +2887,11 @@ async function ccgSheet(conf){
     let wk=null;
     cgames.forEach(g=>{ const hId=String(g.home_team_id), aId=String(g.away_team_id), w=String(eff[g.id]);
       if(g.week!==wk){ wk=g.week; html+=`<div class="ha" style="padding:8px 2px 2px">Week ${wk}</div>`; }
+      if(sim.locked[g.id]){   // B1: completed = final, not flippable
+        html+=`<div class="stgame stfinal"><div class="stopp"><div><div class="on">${esc(nm(aId))} @ ${esc(nm(hId))}</div>
+            <div class="ha">Final — ${esc(nm(String(sim.locked[g.id])))} won ${esc(sim.final[g.id]||"")}</div></div></div>
+          <div class="stlock"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg></div></div>`;
+        return; }
       html+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(nm(aId))} @ ${esc(nm(hId))}</div>
           <div class="ha">${sim.userPicks[g.id]!=null?"your pick":"model favorite"}</div></div></div>
         <div class="stbtns"><button class="stb ${w===aId?"w":""}" data-cg="${g.id}" data-cpick="${aId}" title="${esc(nm(aId))} wins">${esc(monogram(nm(aId)))}</button>
@@ -2844,6 +2899,13 @@ async function ccgSheet(conf){
     document.getElementById("ccgsheet").innerHTML=html;
     document.querySelectorAll("#ccgsheet [data-cg]").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.cg]=b.dataset.cpick; draw(); });
     document.querySelectorAll("#ccgsheet [data-simteam]").forEach(r=>r.onclick=()=>{ ov.remove(); simTeamSheet(r.dataset.simteam); });
+    const cr=document.getElementById("ccgrun");
+    if(cr) cr.onclick=async()=>{
+      if(!(await simRunGate())) return;
+      cr.disabled=true;
+      simMonteCarlo(SIM_MC_N, ()=>draw(),
+        (done,N)=>{ cr.textContent=`Simulating… ${done.toLocaleString()} / ${N.toLocaleString()}`; });
+    };
   };
   draw();
   const close=()=>{ ov.remove(); renderSim(); };
@@ -2856,52 +2918,161 @@ function simTeamSheet(teamId){
   const t=teamMeta[teamId]||{school:teamId};
   const ov=document.createElement("div"); ov.className="pickov";
   ov.innerHTML=`<div class="picksheet"><div class="pickhd">
-    <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — pick games</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — pick games</div>
+    <button class="navbtn" id="stteampage" style="min-height:34px;font-size:11.5px;padding:4px 10px">Team page</button>
+    <button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="picklist" id="stsheet"></div></div>`;
   document.body.appendChild(ov);
+  // B2: per-team odds from the LAST Monte-Carlo run (persisted; stale-flagged), plus a
+  // RUN button right here — the picks and their consequences live in one place.
+  const teamOdds=()=>{
+    if(!SHOW_PREDICTIONS) return "";
+    const run=sim.lastRun;
+    let inner;
+    if(!run){ inner=`<div class="ha" style="padding:2px 0 6px">Run the simulation to see ${esc(t.school)}'s odds with your picks fixed.</div>`; }
+    else{
+      const stale=run.sig!==simPicksSig();
+      const ty=run.tally[teamId]||{po:0,ct:0,wo:0,seeds:{},wins:{}};
+      const N=run.N;
+      let modeW=null,best=0; Object.entries(ty.wins).forEach(([w,n])=>{ if(n>best){ best=n; modeW=+w; } });
+      const rec = modeW==null? "—" : `${modeW}–${Math.max(tgames.length-modeW,0)}`;
+      const seeds=Object.entries(ty.seeds).sort((a,b)=>b[1]-a[1]).slice(0,4)
+        .map(([s,n])=>`#${s} ${Math.round(100*n/N)}%`).join(" · ");
+      inner=`${stale?`<div class="simstale">Picks changed since this run — run again to refresh.</div>`:""}
+        <div class="stodds">
+          <div><b>${Math.round(100*ty.po/N)}%</b><small>Make CFP</small></div>
+          <div><b>${Math.round(100*ty.ct/N)}%</b><small>Conf title</small></div>
+          <div><b>${Math.round(100*ty.wo/N)}%</b><small>Win out</small></div>
+          <div><b>${rec}</b><small>Most likely record</small></div></div>
+        ${seeds?`<div class="ha" style="padding:2px 0 6px">Seed distribution when in the field: ${seeds}</div>`:""}`;
+    }
+    return `<div class="stoddswrap">${inner}
+      <button class="navbtn primary" id="strun" style="width:100%;min-height:40px"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Run simulation — ${SIM_MC_N.toLocaleString()} seasons</button></div>`;
+  };
   const draw=()=>{ const eff=simEffective(); let w=0,l=0;
     let html="";
     tgames.forEach(g=>{ const opp=String(g.home_team_id)===teamId?g.away_team_id:g.home_team_id;
       const home=String(g.home_team_id)===teamId; const win=String(eff[g.id])===teamId;
-      const isUser=sim.userPicks[g.id]!=null; win?w++:l++;
+      const isUser=sim.userPicks[g.id]!=null, lockW=sim.locked[g.id]; win?w++:l++;
       const ph=SHOW_PREDICTIONS?Math.round(simPTeam(teamId, g)*100):null;
+      if(lockW){   // B1: completed = FINAL — shown as a locked result, no toggles
+        html+=`<div class="stgame stfinal">
+          <div class="stopp">${crestEl("glcr",(teamMeta[opp]||{}).school||"opp",oppColor(opp))}
+            <div><div class="on">${home?"vs":"@"} ${esc((teamMeta[opp]||{}).school||"TBD")}</div>
+            <div class="ha">Wk ${g.week} · Final</div></div></div>
+          <div class="stlock">${String(lockW)===teamId?"W":"L"} ${esc(sim.final[g.id]||"")} <svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg></div></div>`;
+        return; }
       html+=`<div class="stgame">
         <div class="stopp">${crestEl("glcr",(teamMeta[opp]||{}).school||"opp",oppColor(opp))}
           <div><div class="on">${home?"vs":"@"} ${esc((teamMeta[opp]||{}).school||"TBD")}</div>
           <div class="ha">Wk ${g.week}${ph!=null?` · model ${ph}% to win`:""}${isUser?" · your pick":""}</div></div></div>
         <div class="stbtns"><button class="stb ${win?"w":""}" data-gid="${g.id}" data-pick="${teamId}">W</button>
           <button class="stb ${!win?"l":""}" data-gid="${g.id}" data-pick="${opp}">L</button></div></div>`; });
-    document.getElementById("stsheet").innerHTML=`<div class="strec">Projected: <b>${w}–${l}</b></div>`+html;
+    document.getElementById("stsheet").innerHTML=
+      `<div class="strec">Projected: <b>${w}–${l}</b> <small>FBS games only</small></div>`+teamOdds()+html;
     document.querySelectorAll("#stsheet .stb").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gid]=b.dataset.pick; draw(); });
+    const rb=document.getElementById("strun");
+    if(rb) rb.onclick=async()=>{
+      if(!(await simRunGate())) return;
+      rb.disabled=true;
+      simMonteCarlo(SIM_MC_N,
+        ()=>{ draw(); },
+        (done,N)=>{ rb.textContent=`Simulating… ${done.toLocaleString()} / ${N.toLocaleString()}`; });
+    };
   };
   draw();
-  const close=()=>{ ov.remove(); renderSim(); };
+  const close=()=>{ ov.remove(); renderSim(); if(SHOW_PREDICTIONS&&!sim.lastRun) simAutoOdds(); };
   ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  document.getElementById("stteampage").onclick=()=>{ ov.remove(); openDetail(+teamId); };
+}
+// ---- Monte Carlo engine (B4): chunked so the main thread never freezes — batches of
+// sims per frame with a live progress readout. Locked finals are never re-randomized
+// (B1); user picks stay fixed. Tallies per team: CFP / conf title / win-out counts plus
+// full seed and win-count distributions (the per-team sheet needs them, B2).
+const SIM_MC_N = 1000;                  // engine and copy must agree — benchmarked Jul 2026
+function simMonteCarlo(N, onDone, onProgress){
+  const fbs=[...sim.fbs], tally={};
+  fbs.forEach(id=>tally[id]={po:0,ct:0,wo:0,seeds:{},wins:{}});
+  const open=sim.games.filter(g=>!sim.userPicks[g.id] && !sim.locked[g.id]);
+  const fixed=Object.assign({}, sim.userPicks, sim.locked);
+  let s=0;
+  const BATCH=40;
+  function batch(){
+    const end=Math.min(s+BATCH, N);
+    for(; s<end; s++){
+      const picks=Object.assign({}, fixed);
+      open.forEach(g=>{ picks[g.id]= Math.random()<simPHome(g.home_team_id,g.away_team_id,g.neutral_site)?String(g.home_team_id):String(g.away_team_id); });
+      const r=simCompute(picks);
+      r.field.forEach((id,i)=>{ tally[id].po++; tally[id].seeds[i+1]=(tally[id].seeds[i+1]||0)+1; });
+      r.champions.forEach(id=>{ if(tally[id]) tally[id].ct++; });
+      fbs.forEach(id=>{ const w=r.rec[id].w; tally[id].wins[w]=(tally[id].wins[w]||0)+1;
+        if(r.rec[id].l===0 && w>0) tally[id].wo++; });
+    }
+    if(onProgress) onProgress(s, N);
+    if(s<N) setTimeout(batch, 0);
+    else { sim.lastRun={tally, N, sig:simPicksSig(), at:Date.now()}; onDone(sim.lastRun); }
+  }
+  batch();
+}
+// B5: the gate counts RUNS, not opens — one shared counter across the global run, the
+// per-team runs and the CCG odds runs. localStorage + profile-synced when signed in.
+// Viewing the bracket (and the auto-run chalk odds) stays free — that's the taste.
+async function simRunGate(){
+  if(!PLUS_GATED.simulator_unlimited) return true;
+  let runs = Number(localStorage.getItem(SIM_RUNS_KEY) || 0);
+  try{ if(typeof authProfile!=="undefined" && authProfile && authProfile.sim_runs!=null)
+    runs = Math.max(runs, Number(authProfile.sim_runs)||0); }catch(e){}
+  if(runs >= 1){
+    const go = await plusUpsell("Run unlimited simulations",
+      "Your first Monte-Carlo run was free. Unlimited runs — full-field odds, per-team odds and conference scenarios — are coming with Hashmark+. Free while we're in preview.");
+    if(!go) return false;
+  }
+  localStorage.setItem(SIM_RUNS_KEY, String(runs + 1));
+  try{ if(typeof authUser!=="undefined" && authUser){
+    authFetch("PATCH",`profiles?id=eq.${authUser.id}`,{sim_runs:runs+1,updated_at:new Date().toISOString()});
+    if(authProfile) authProfile.sim_runs=runs+1; } }catch(e){}
+  return true;
+}
+function simOddsPanel(run){
+  // Persistent odds panel (B2): survives re-renders; flags itself stale when picks
+  // changed after the run instead of silently vanishing.
+  const stale = run.sig!==simPicksSig();
+  const rows=[...sim.fbs].map(id=>({id, po:run.tally[id].po/run.N, ct:run.tally[id].ct/run.N, wo:run.tally[id].wo/run.N}))
+    .filter(r=>r.po>0).sort((a,b)=>b.po-a.po).slice(0,20);
+  let h=`<div class="sec"><div class="sectitle">Playoff &amp; title odds</div>
+    <div class="secsub">From <b>${run.N.toLocaleString()}</b> Monte-Carlo seasons — completed games locked to their real results, your picks fixed, the rest drawn from the model's matchup win probabilities. Probabilities only.</div>
+    ${stale?`<div class="simstale">Picks changed since this run — the odds below are from your previous picks. Run again to refresh.</div>`:""}
+    <div class="oddhead"><div></div><div>Make CFP</div><div>Conf title</div><div>Win out</div></div>`;
+  rows.forEach(r=>{ const t=teamMeta[r.id]||{school:r.id};
+    h+=`<div class="oddrow" data-team="${r.id}"><div class="onm">${crestEl("glcr",t.school,oppColor(r.id))}<span>${esc(t.school)}</span></div>
+      <div class="ov">${Math.round(r.po*100)}%</div><div class="ov">${Math.round(r.ct*100)}%</div><div class="ov">${Math.round(r.wo*100)}%</div></div>`; });
+  return h+`</div>`;
+}
+function simSeedMC(run){
+  // B7: Monte-Carlo Make-CFP% stamped next to every seeded team — the probability lens
+  // sits beside the chalk bracket so a soft-schedule seed can't read as a likely one.
+  if(!run) return;
+  document.querySelectorAll(".simseed").forEach(el=>{ const id=el.dataset.team;
+    const t=run.tally[id]; if(!t) return;
+    const v=Math.round(100*t.po/run.N);
+    const slot=el.querySelector(".ssmc"); if(slot) slot.textContent=`MC ${v}%`; });
 }
 function simRunOdds(){
   const odds=document.getElementById("simodds");
-  odds.innerHTML=`<div class="loading">Simulating 1000 seasons…</div>`;
-  setTimeout(()=>{
-    const N=1000, fbs=[...sim.fbs], tally={}; fbs.forEach(id=>tally[id]={po:0,ct:0,wo:0});
-    for(let s=0;s<N;s++){
-      const picks=Object.assign({}, sim.userPicks);
-      sim.games.forEach(g=>{ if(picks[g.id]) return;
-        picks[g.id]= Math.random()<simPHome(g.home_team_id,g.away_team_id,g.neutral_site)?String(g.home_team_id):String(g.away_team_id); });
-      const r=simCompute(picks);
-      r.field.forEach(id=>tally[id].po++);
-      r.champions.forEach(id=>{ if(tally[id]) tally[id].ct++; });
-      fbs.forEach(id=>{ if(r.rec[id].l===0 && r.rec[id].w>0) tally[id].wo++; });
-    }
-    const rows=fbs.map(id=>({id, po:tally[id].po/N, ct:tally[id].ct/N, wo:tally[id].wo/N}))
-      .filter(r=>r.po>0).sort((a,b)=>b.po-a.po).slice(0,20);
-    let h=`<div class="sec"><div class="sectitle">Playoff &amp; title odds</div>
-      <div class="secsub">From <b>1,000</b> Monte-Carlo seasons — your picks fixed, the rest drawn from the model's matchup win probabilities. Probabilities only. </div>
-      <div class="oddhead"><div></div><div>Make CFP</div><div>Conf title</div><div>Win out</div></div>`;
-    rows.forEach(r=>{ const t=teamMeta[r.id]||{school:r.id};
-      h+=`<div class="oddrow" data-team="${r.id}"><div class="onm">${crestEl("glcr",t.school,oppColor(r.id))}<span>${esc(t.school)}</span></div>
-        <div class="ov">${Math.round(r.po*100)}%</div><div class="ov">${Math.round(r.ct*100)}%</div><div class="ov">${Math.round(r.wo*100)}%</div></div>`; });
-    odds.innerHTML=h+`</div>`;
-  }, 30);
+  if(!odds) return;
+  simMonteCarlo(SIM_MC_N,
+    run=>{ odds.innerHTML=simOddsPanel(run); simSeedMC(run); },
+    (done,N)=>{ odds.innerHTML=`<div class="loading">Simulating… ${done.toLocaleString()} of ${N.toLocaleString()} seasons</div>`; });
+}
+function simAutoOdds(){
+  // Background chalk-world MC on open (free — part of the view). Skipped if a run
+  // already exists for the current picks.
+  if(sim.lastRun && sim.lastRun.sig===simPicksSig()){ simSeedMC(sim.lastRun); return; }
+  const odds=document.getElementById("simodds");
+  simMonteCarlo(SIM_MC_N,
+    run=>{ if(document.getElementById("simodds")){ document.getElementById("simodds").innerHTML=simOddsPanel(run); simSeedMC(run); } },
+    (done,N)=>{ const el=document.getElementById("simodds");
+      if(el && !el.querySelector(".oddhead")) el.innerHTML=`<div class="loading">Computing Monte-Carlo odds… ${done.toLocaleString()} of ${N.toLocaleString()}</div>`; });
 }
 
 // ---------- team detail page ----------
@@ -2918,7 +3089,7 @@ const CMETA = {
 
 let board2026=null, poll2025=null;
 async function ensureBoard(){ if(!board2026) board2026 = await api(
-  "power_ratings?select=team_id,overall,off,def,teams(school,conference,color,alt_color)&season=eq.2026&week=eq.0&order=overall.desc"); return board2026; }
+  `power_ratings?select=team_id,overall,off,def,teams(school,conference,color,alt_color)&season=eq.${SEASON_SCHED}&week=eq.0&order=overall.desc`); return board2026; }
 async function ensurePoll(){ if(!poll2025){ poll2025={};
   (await api("poll_rankings?select=rank,team_id&season=eq.2025&poll=eq.AP%20Top%2025")).forEach(x=>poll2025[x.team_id]=x.rank); }
   return poll2025; }
@@ -2955,7 +3126,7 @@ async function openDetail(teamId){
         preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), splits, hm});
     }
     const [comps, board, poll] = await Promise.all([
-      api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
+      api(`rating_components?select=component,value&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`),
       ensureBoard(), ensurePoll() ]);
     renderDetail(teamId, comps, board, poll, ts, games);
   }catch(e){
@@ -2981,7 +3152,7 @@ function hmSection(hm, t){
       <div class="dvk">${CMETA[k].name}</div>
       <div class="dvbar"><div class="mid"></div><i class="${v>=0?"pos":"neg"}" style="${v>=0?"left:50%":"right:50%"};width:${Math.max(2,w/2)}%"></i></div>
       <div class="dvv">${(v>=0?"+":"")+Number(v).toFixed(3)}</div></div>`; });
-  return `<div class="sec"><div class="sectitle">Hashmark rating <small>${SEASON_SCHED} preseason · free</small></div>
+  return `<div class="sec"><div class="sectitle">Hashmark rating <small>${phaseLabel()} · free</small></div>
     <div class="drating"><div class="dbig" data-tip="Hashmark overall power rating — opponent-adjusted efficiency blended with results, roster and coaching factors. 0 = FBS average; the breakdown below sums exactly to this number.">${Number(hm.overall).toFixed(3)}</div>
       <div class="drk">#${hm.rank||"—"} <small>of 138</small></div>
       <div class="dunits"><span data-tip="${esc('Offense unit rating — '+CMETA.off_eff.tip)}">OFF ${hm.off!=null?Number(hm.off).toFixed(2):"—"}</span>
@@ -3337,12 +3508,12 @@ function renderDetail(teamId, comps, board, poll, ts, games){
       <div class="secsub">Premium unlocks the forward-looking model for ${esc(t.school)}.</div>`;
   h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>',"Schedule projections","Unlock game-by-game win probabilities for all 12 games",
     `<div class="fakebar" style="width:92%"></div><div class="fakebar" style="width:74%"></div><div class="fakebar" style="width:84%"></div>`);
-  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg>',"Playoff simulator","See CFP & national-title odds from a 10,000-season Monte Carlo",
+  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg>',"Playoff simulator","See CFP & conference-title odds from a 1,000-season Monte Carlo",
     `<div class="fakebar" style="width:58%"></div><div class="fakebar" style="width:40%"></div>`);
   h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>',"Ask Hashmark",`Ask anything about ${esc(t.school)}'s outlook, matchups and roster`,
     `<div class="fakebar" style="width:95%"></div><div class="fakebar" style="width:68%"></div>`);
   h += `</div>
-    <div class="note"><b>2026 Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings (finishing + success rate + efficiency, with coordinator track records folded in where the staff changed); the breakdown shows each factor's contribution to the overall rating. Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer. ${BRAND_LINE}</div></div>`;
+    <div class="note"><b>${phaseTitle()} — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings (finishing + success rate + efficiency, with coordinator track records folded in where the staff changed); the breakdown shows each factor's contribution to the overall rating. ${SEASON_PHASE.started?`Updated weekly as ${SEASON_SCHED} results land.`:"Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer."} ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
   const dc=document.getElementById("dcmpcta");
@@ -3376,7 +3547,7 @@ const compCache = {};       // team_id -> {component: value}
 
 async function fetchComps(teamId){
   if(compCache[teamId]) return compCache[teamId];
-  const rows = await api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`);
+  const rows = await api(`rating_components?select=component,value&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`);
   const cv={}; rows.forEach(c=>cv[c.component]=Number(c.value));
   compCache[teamId]=cv; return cv;
 }
@@ -3494,7 +3665,7 @@ function drawCompare(){
   const offA=ea&&ea.off!=null?Number(ea.off):0, defA=ea&&ea.def!=null?Number(ea.def):0;
   const offB=eb&&eb.off!=null?Number(eb.off):0, defB=eb&&eb.def!=null?Number(eb.def):0;
   h+=`<div class="cmpsec"><div class="sectitle">Hashmark rating</div>
-    <div class="secsub">2026 preseason projection — higher is better. Amber marks the edge.</div>`;
+    <div class="secsub">${phaseLabel()} projection — higher is better. Amber marks the edge.</div>`;
   h+=cmpRow("Overall", oA, oB, cA, cB,
         `Hashmark Rating — ${ta.school} ${f3(oA)} (#${rkA}) vs ${tb.school} ${f3(oB)} (#${rkB}). The learned, results-aware blend the matchup is built on.`, true);
   h+=cmpRow("Offense", offA, offB, cA, cB,
@@ -3523,7 +3694,7 @@ function drawCompare(){
     `<div class="fakebar" style="width:93%"></div><div class="fakebar" style="width:70%"></div>`);
   h+=`</div>`;
 
-  h+=`<div class="note"><b>2026 Preseason — Hashmark projection.</b> A single-game projection from our way-too-early preseason ratings: projected margin = the teams' rating gap on a points scale plus the model's home-field value, and win probability is the normal-model share of outcomes above zero at the calibrated &sigma;=${ENGINE.sigma}. Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer. ${BRAND_LINE}</div></div>`;
+  h+=`<div class="note"><b>${phaseTitle()} — Hashmark projection.</b> A single-game projection from our ${SEASON_PHASE.started?"current":"way-too-early preseason"} ratings: projected margin = the teams' rating gap on a points scale plus the model's home-field value, and win probability is the normal-model share of outcomes above zero at the calibrated &sigma;=${ENGINE.sigma}. ${SEASON_PHASE.started?`Ratings update weekly as ${SEASON_SCHED} results land.`:"Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer."} ${BRAND_LINE}</div></div>`;
 
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
@@ -4260,7 +4431,14 @@ document.body.addEventListener("click", e=>{
     ah.setAttribute("aria-expanded", String(!open));
     if(body) body.hidden=open; return; }
   const row=e.target.closest("[data-team]");
-  if(row && row.dataset.team && row.dataset.team!=="undefined") openDetail(row.dataset.team);
+  if(row && row.dataset.team && row.dataset.team!=="undefined"){
+    // B3: inside the simulator, tapping a team (bracket seed, champ chip, odds row)
+    // opens its PICK SHEET — adjust the scenario in place. The team page stays
+    // reachable via the sheet's explicit "Team page" button.
+    if(sim && document.getElementById("simodds") && row.closest(".simseed,.simchip,.oddrow")){
+      simTeamSheet(row.dataset.team); return; }
+    openDetail(row.dataset.team);
+  }
 });
 
 // ---- in-app history stack (teampage brief #3): the browser Back button retraces the
@@ -4334,7 +4512,7 @@ wireToggle=function(){
 };
 
 initAuth();
-load();
+loadSeasonPhase().then(load);   // A5: label state resolves before first paint
 </script>
 
 <script>
@@ -4433,13 +4611,9 @@ async function refreshMyTeamTab(){
   }catch(e){ lbl.textContent="My team"; }
 }
 async function gatedSimulator(){
-  const runs = Number(localStorage.getItem(SIM_RUNS_KEY) || 0);
-  if(runs >= 1){
-    const go = await plusUpsell("Run unlimited scenarios",
-      "Your first full simulation was free. Unlimited bracket scenarios are coming with Hashmark+ — free while we're in preview.");
-    if(!go) return;
-  }
-  localStorage.setItem(SIM_RUNS_KEY, String(runs + 1));
+  // B5: OPENING the simulator is free everywhere (the chalk bracket is the taste) —
+  // the 1-free-then-upsell gate now lives on the RUN actions themselves (simRunGate:
+  // global run, per-team run, CCG odds run share one counter). Name kept for callers.
   openSimulator();
 }
 const TABS = { home:()=>load(), games:()=>openScores(), picks:()=>openPickem(),
@@ -4606,7 +4780,7 @@ async function openExplore(){
   <div class="card card-hero-amber" id="xsim" style="margin:10px 2px;padding:15px;cursor:pointer">
     <div class="eyebrow">The toy</div>
     <h2 style="margin:4px 0 2px;font-size:20px">Playoff Simulator</h2>
-    <p style="margin:0;color:var(--text2);font-size:12px">Pick winners, watch title chances rebuild — 10,000 sims of your bracket.</p></div>
+    <p style="margin:0;color:var(--text2);font-size:12px">Pick winners, watch title chances rebuild — 1,000 Monte-Carlo seasons of your bracket.</p></div>
   <div class="xgrid" style="padding:0 2px">
     <div class="xcard" data-x="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and more — named teams, tracked calls. One board free.</p></div>
     <div class="xcard" data-x="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>Leaderboards <span class="chip-plus">HASHMARK+</span></h4><p>Team & player stat leaders, every category.</p></div>
