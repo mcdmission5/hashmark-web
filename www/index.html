@@ -98,6 +98,11 @@
   .dconf{color:var(--text2);font-size:13px;margin-top:4px}
   .dconf .rk{color:var(--amber);font-weight:700}
   .drating{text-align:center;padding:10px 18px 18px}
+  .drk{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:20px;color:var(--amber);margin-top:8px}
+  .drk small{color:var(--text3);font-weight:600;font-size:11px}
+  .dunits{display:flex;gap:14px;justify-content:center;margin-top:6px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+  .dunits span{cursor:help}
+  .dunits span:first-child{color:var(--teal)} .dunits span:last-child{color:#7CA8FF}
   .dbig{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:46px;line-height:1;
     border-bottom:3px solid var(--amber);display:inline-block;padding-bottom:5px}
   .dlbl{color:var(--text2);font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;margin-top:9px}
@@ -341,6 +346,13 @@
   .ccgstand .ssnm{flex:1;font-weight:600;font-size:13.5px}
   .ccgstand .ssnm small{display:block;color:var(--text3);font-weight:500;font-size:10.5px}
   .ccgstand .more{color:var(--text3);font-size:11px}
+  .favpickcta.big{display:flex;align-items:center;gap:12px;margin:10px 2px;padding:14px;cursor:pointer;
+    background:linear-gradient(160deg,#241a08,#101828 60%);border:1px solid rgba(255,190,61,.35);border-radius:15px}
+  .favpickcta.big .ic{width:22px;height:22px;color:var(--amber);flex:none}
+  .favpickcta.big b{font-size:15px}
+  .favpickcta.big small{display:block;color:var(--text2);font-size:11.5px;margin-top:2px}
+  .favcard.big{margin:10px 2px}
+  .favcard .favnews{color:var(--text3);font-style:normal}
   /* What actually wins games */
   .wwhead{display:grid;grid-template-columns:1fr 84px 110px;gap:8px;padding:2px 2px 8px;
     font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
@@ -928,7 +940,9 @@ const BRAND_LINE = "<b>Entertainment only — not gambling advice.</b> Independe
 // breakdown, and the Compare projection — is hidden behind this flag, showing only official info
 // (the final 2025 AP Top 25) + factual team info with a "coming soon" placeholder. TRUE = the
 // full ratings experience is LIVE (launch). The preview-only code below stays intact and gated.
-const SHOW_HASHMARK_RATINGS = false;
+const SHOW_HASHMARK_RATINGS = true;   // REVEALED (audit-players brief #2, owner decision
+// Jul 19 2026): FREE = team ratings, player grades + position ranks, methodology, accuracy
+// tracker. HASHMARK+ = depth (grade history, full boards, CSV, sim depth, unlimited Ask).
 // PREDICTIONS VISIBILITY — a SEPARATE, owner-approved switch, decoupled from the ratings board.
 // When true, the app may surface a model WIN PROBABILITY for a chosen matchup and OUTCOME ODDS in
 // the simulator — and NOTHING else: never a rating number, ranked board, projected margin or score.
@@ -1039,7 +1053,11 @@ async function ensureProfile(){
     const sel = `profiles?select=id,display_name,favorite_team_id&id=eq.${authUser.id}`;
     let r = await authFetch("GET", sel);
     if(r.error) return;                          // transient/auth error: keep prior profile, don't clobber
-    if(r.data && r.data.length){ authProfile = r.data[0]; return; }
+    if(r.data && r.data.length){ authProfile = r.data[0];
+      // #4: a guest-picked favorite syncs into the empty profile on sign-in
+      const g=Number(localStorage.getItem(GUEST_FAV_KEY));
+      if(g && !authProfile.favorite_team_id){ setFavoriteTeam(g); }
+      return; }
     // genuinely no row -> create it on first sign-in
     const m = authUser.user_metadata || {};
     const dn = m.full_name || m.name || (authUser.email||"").split("@")[0] || "Fan";
@@ -1382,9 +1400,14 @@ async function render2026Home(){
   const GO={scores:openScores, sos:()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; openStandings(); },
             pickem:openPickem, signature:openSignature};
   document.querySelectorAll("[data-cs]").forEach(el=>el.onclick=()=>GO[el.dataset.cs]());
-  // preseason signal teasers (SOS #1 / collapse watch-list / checking our work)
+  injectSeasonExtras(); return;
+}
+// preseason signal teasers (SOS #1 / collapse watch-list / checking our work) + news —
+// shared by the coming-soon 2026 home AND the revealed ratings board
+async function injectSeasonExtras(){
   try{
     const host=document.getElementById("cs-teasers");
+    if(!host) return;
     const [sos, sig, acc]=await Promise.all([
       api(`standings?select=school,sos,sos_rank&season=eq.${SEASON_SCHED}&sos_rank=eq.1&limit=1`).catch(()=>[]),
       api(`signature_stats?select=team_id,season,drivers&free=eq.true&stat_key=eq.collapse_index&limit=1`).catch(()=>[]),
@@ -1473,23 +1496,12 @@ async function renderHome(){
       api("external_rankings?select=player,position,team_id,school,rank,ranking_type,source&season=eq.2026") ]);
     const lmap={}; leaders.forEach(r=>lmap[r.stat_key]=r);
     let h = header() + `<div class="list" style="padding-top:4px">`;
-    // personalized greeting + favorite team (signed-in only; logged-out home is unchanged)
+    // onboarding (#4): personalized module for EVERYONE — guests pick via localStorage
     if(authUser){
       const dn=(authProfile&&authProfile.display_name)||"there";
       h += `<div class="homegreet"> Welcome back, <b>${esc(dn)}</b></div>`;
-      const fav=authProfile&&authProfile.favorite_team_id;
-      if(fav && teamMeta[fav]){
-        const t=teamMeta[fav]; let st=null, pre=null;
-        try{ const sr=await api(`standings?select=season,wins,losses,conference,conf_rank,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${fav}`);
-          st=sr.find(r=>r.season===SEASON_RESULTS); pre=sr.find(r=>r.season===SEASON_SCHED); }catch(e){}
-        h += `<div class="favcard" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
-          <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span></div>
-            <div class="favsub">${st?`${st.wins}–${st.losses} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"} · ${pre?`2026 SoS #${pre.sos_rank||"—"}`:`SoS #${st.sos_rank||"—"}`}`:esc(t.conference||"")}</div></div>
-          <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
-      } else {
-        h += `<div class="favpickcta" data-auth="favpick"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> <b>Pick your favorite team</b> — we'll surface it here every visit.</div>`;
-      }
     }
+    h += `<div id="ytm"></div>`;
     // prominent combined team/player search
     h += `<div class="homesearch"><span class="si"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></span>
       <input id="homesearch" type="text" placeholder="Search any team or player…" autocomplete="off" autocapitalize="words">
@@ -1527,7 +1539,7 @@ async function renderHome(){
       h += `<div class="hsec"><div class="hsectitle">Preseason 2026 <small>third-party</small></div><div class="premod">`;
       if(cons.length){ h+=`<div class="precol"><div class="prehd">Consensus All-Americans</div><div class="prelist">`+
         cons.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}">${esc(r.player)} <small>${esc(r.position||"")} · ${esc(t.school||r.school||"")}</small></div>`; }).join("")+`</div></div>`; }
-      if(poll.length){ h+=`<div class="precol"><div class="prehd">${esc(poll[0].source||"Athlon")} Top 25</div><div class="prelist">`+
+      if(poll.length){ h+=`<div class="precol"><div class="prehd">Preseason Top 25 <small>${[...new Set(poll.map(p=>p.source))].length} src</small></div><div class="prelist">`+
         poll.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}"><b>${r.rank}</b> ${esc(t.school||r.school||"")}</div>`; }).join("")+`</div></div>`; }
       h += `</div><div class="morelink" data-go="preseason">All preseason honors <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
     }
@@ -1538,7 +1550,7 @@ async function renderHome(){
     h += `</div>`;
     // footer
     h += `<div class="note"><b>Hashmark — official college-football stats &amp; analytics.</b> Team &amp; player stats, game logs, standings, situational splits, matchups and a season simulator — all official (CFBD). <b>Hashmark's own power ratings are coming soon.</b> ${BRAND_LINE}</div></div>`;
-    app.innerHTML = h; wireHome();   // news moved to the current-season tab (brief #5)
+    app.innerHTML = h; wireHome(); injectYourTeam();   // news lives on the current-season tab
     if(location.hash==="#pickem"){ history.replaceState(null,"",location.pathname); openPickem(); }
   }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
 }
@@ -1722,6 +1734,46 @@ async function ensureUnits(){
   return unitRows;
 }
 
+// #4: the your-team module / unmissable picker — first thing on home, every viewport,
+// signed-in or not (guest picks live in localStorage and sync to the profile on sign-in).
+function pickFavAny(id){
+  if(authUser){ setFavoriteTeam(id); }
+  else { localStorage.setItem(GUEST_FAV_KEY, String(id)); }
+  load();
+}
+async function injectYourTeam(){
+  const host=document.getElementById("ytm");
+  if(!host) return;
+  await ensureTeamMeta();
+  const fav=favTeamId();
+  if(!fav || !teamMeta[fav]){
+    host.innerHTML=`<div class="favpickcta big" id="ytpick"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg>
+      <div><b>Pick your team</b><small>Your record, next game, news and rank — first thing, every visit. No account needed.</small></div>
+      <span class="navbtn primary" style="flex:none;min-height:40px;display:inline-flex;align-items:center">Choose</span></div>`;
+    document.getElementById("ytpick").onclick=()=>teamPicker(null, id=>pickFavAny(id));
+    return;
+  }
+  const t=teamMeta[fav];
+  let st=null, pre=null, nxt=null, news=null, rk=null;
+  try{
+    const [sr, gs, ns]=await Promise.all([
+      api(`standings?select=season,wins,losses,conference,conf_rank,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${fav}`),
+      api(`games?select=${GAME_SEL}&or=(home_team_id.eq.${fav},away_team_id.eq.${fav})&season=eq.${SEASON_SCHED}&completed=eq.false&order=start_date.asc&limit=1`),
+      api(`news_items?select=headline,published_at&team_tags=cs.{${fav}}&order=published_at.desc&limit=1`)]);
+    st=sr.find(r=>r.season===SEASON_RESULTS); pre=sr.find(r=>r.season===SEASON_SCHED);
+    nxt=gs[0]||null; news=ns[0]||null;
+    if(SHOW_HASHMARK_RATINGS){ await ensureBoard();
+      const i=board2026.findIndex(b=>String(b.team_id)===String(fav)); rk=i>=0?i+1:null; }
+  }catch(e){}
+  const v=nxt?gameView(nxt,fav):null;
+  host.innerHTML=`<div class="favcard big" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
+    <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--amber-tint);color:var(--amber)">HASHMARK #${rk}</span>`:""}</div>
+      <div class="favsub">${st?`${st.wins}–${st.losses} ${SEASON_RESULTS} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}`:esc(t.conference||"")}${pre?` · ${SEASON_SCHED} SoS #${pre.sos_rank||"—"}`:""}</div>
+      ${v?`<div class="favsub">Next: ${v.home?"vs":"at"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""}</div>`:""}
+      ${news?`<div class="favsub favnews">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""}</div>`:""}</div>
+    <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
+}
+
 function renderLeaderboard(){
   const mode = MODES[boardMode], val = mode.metric;
   const rows = unitRows.filter(r=>val(r)!=null);
@@ -1741,7 +1793,7 @@ function renderLeaderboard(){
   const confRankOf = {}; RANKABLE.forEach((c,i)=>confRankOf[c.conf]=i+1);
   const cmax = Math.max(0.0001, ...RANKABLE.map(c=>Math.abs(c.avg)));
 
-  let h = header() + listTop();
+  let h = header() + listTop() + `<div id="ytm"></div>`;
   // board-type nav
   h += `<div class="bnav">`;
   ["overall","offense","defense"].forEach(k=>{
@@ -1785,8 +1837,11 @@ function renderLeaderboard(){
     const main = `<div class="rval" style="border-color:${mode.accent}" data-tip="${esc(mode.tip(r,rk,n))}">${f3(val(r))}</div><div class="rlbl">${mode.lbl}</div>`;
     h += rowHTML(rk-1, r.t, main, r.team_id);
   });
-  h += `</div><div class="note"><b>2026 Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings — a validated blend of finishing (points per drive), success rate and efficiency, with each unit's coordinator track record folded in where the staff changed. Conference strength is the simple average of a league's member teams. Free to browse. Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer. ${BRAND_LINE}</div>`;
+  h += `</div><div class="note"><b>${SEASON_SCHED} Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings — a validated blend of finishing (points per drive), success rate and efficiency, with each unit's coordinator track record folded in where the staff changed. Conference strength is the simple average of a league's member teams. Free to browse. Early-offseason data is thin, so it leans on ${SEASON_RESULTS} results and will sharpen through the summer. ${BRAND_LINE}</div>`;
+  h += `<div id="cs-teasers"></div><div class="hsec" id="cs-newshost"></div>`;
   app.innerHTML = h; wireToggle();
+  injectSeasonExtras();   // preseason signal teasers + news under the live board (brief #5 kept)
+  injectYourTeam();
 }
 
 function wireToggle(){
@@ -2869,7 +2924,8 @@ async function openDetail(teamId){
     await ensureTeamMeta();
     // official/factual data shown in BOTH preview and full mode (record + schedule)
     const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
-    if(!SHOW_HASHMARK_RATINGS){
+    if(true){   // reveal reconciliation: the modern team page IS the page — the old
+                // renderDetail full-mode layout stays dormant; ratings render inline below
       const [team, ap, cat, stats, players, honors, gamelog, standing, splits] = await Promise.all([
         api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
         api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
@@ -2880,9 +2936,17 @@ async function openDetail(teamId){
         api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`),
         api(`standings?select=season,conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${teamId}`),
         api(`team_splits?select=side,split_type,split_key,plays,epa_per_play,success_rate,explosive_rate&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`) ]);
+      let hm=null;
+      if(SHOW_HASHMARK_RATINGS){ try{
+        const [pr, comps] = await Promise.all([
+          api(`power_ratings?select=overall,off,def&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`),
+          api(`rating_components?select=component,value&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`)]);
+        if(pr[0]){ await ensureBoard();
+          hm={...pr[0], rank: board2026.findIndex(b=>String(b.team_id)===String(teamId))+1, comps}; }
+      }catch(e){} }
       return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog,
         standing:(standing||[]).find(r=>r.season===SEASON_RESULTS),
-        preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), splits});
+        preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), splits, hm});
     }
     const [comps, board, poll] = await Promise.all([
       api(`rating_components?select=component,value&season=eq.2026&week=eq.0&team_id=eq.${teamId}`),
@@ -2898,6 +2962,28 @@ async function openDetail(teamId){
 
 // team stat page: official record + schedule + FULL stat profile (ranks) + leaders + preseason
 // honors. The "ratings coming soon" slot sits ready for the Hashmark rating section (SHOW=false).
+// the LIVE Hashmark rating block (reveal): overall + rank, unit ratings, and the
+// exactly-additive factor breakdown with the registry's plain-English tips. FREE.
+function hmSection(hm, t){
+  if(!hm) return "";
+  const comps=(hm.comps||[]).filter(c=>CMETA[c.component]);
+  const cmax=Math.max(0.0001, ...comps.map(c=>Math.abs(Number(c.value))));
+  let rowsH="";
+  CORDER.forEach(k=>{ const c=comps.find(x=>x.component===k); if(!c) return;
+    const v=Number(c.value), w=Math.abs(v)/cmax*100;
+    rowsH+=`<div class="driver" data-tip="${esc(CMETA[k].name+" — "+CMETA[k].tip)}">
+      <div class="dvk">${CMETA[k].name}</div>
+      <div class="dvbar"><div class="mid"></div><i class="${v>=0?"pos":"neg"}" style="${v>=0?"left:50%":"right:50%"};width:${Math.max(2,w/2)}%"></i></div>
+      <div class="dvv">${(v>=0?"+":"")+Number(v).toFixed(3)}</div></div>`; });
+  return `<div class="sec"><div class="sectitle">Hashmark rating <small>${SEASON_SCHED} preseason · free</small></div>
+    <div class="drating"><div class="dbig" data-tip="Hashmark overall power rating — opponent-adjusted efficiency blended with results, roster and coaching factors. 0 = FBS average; the breakdown below sums exactly to this number.">${Number(hm.overall).toFixed(3)}</div>
+      <div class="drk">#${hm.rank||"—"} <small>of 138</small></div>
+      <div class="dunits"><span data-tip="${esc('Offense unit rating — '+CMETA.off_eff.tip)}">OFF ${hm.off!=null?Number(hm.off).toFixed(2):"—"}</span>
+        <span data-tip="${esc('Defense unit rating — '+CMETA.def_eff.tip)}">DEF ${hm.def!=null?Number(hm.def).toFixed(2):"—"}</span></div></div>
+    ${rowsH?`<div class="secsub" style="padding:6px 2px 2px">What's driving it (tap a factor):</div>${rowsH}`:""}
+    </div>`;
+}
+
 function renderDetailPreview(t, ap, ts, games, teamId, ext){
   setTimeout(async()=>{ try{
     const html = await teamNewsHTML(teamId);
@@ -2959,6 +3045,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div>
     ${head}
     ${standLine}
+    ${hmSection(e.hm, t)}
     ${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)}
     <div id="tp-accordions">
     ${acc("profile", `${SEASON_RESULTS} stat profile`, "ranks + percentiles", profile)}
@@ -2968,13 +3055,13 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     ${acc("results", `${SEASON_RESULTS} results`, "final scores", scheduleSection(games||[], teamId, "results"))}
     ${acc("honors", "Preseason honors", "third-party, attributed", honors)}
     </div>
-    <div class="sec" style="padding-top:6px">
+    ${e.hm?"":`<div class="sec" style="padding-top:6px">
       <div class="soon" style="padding:22px 20px 6px">
         <div class="soonbadge">COMING SOON</div>
         <div class="soontitle" style="font-size:17px">Hashmark rating — coming soon</div>
         <div class="soontext" style="font-size:12.5px">${esc(t.school)}'s Hashmark power rating, offense &amp; defense grades and projection will appear here above the official stats when the ratings go live.</div>
       </div>
-    </div>
+    </div>`}
     <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
@@ -3584,7 +3671,16 @@ async function openPlayer(aid){
 function _catStat(stats, t){ const v=stats&&stats[t]; return v==null||v===""?null:v; }
 function renderPlayer(aid, idx, seasons, games, grades){
   if(!idx){ app.innerHTML=backHeader("Player")+`<div class="list"><div class="err">Player not found.</div></div>`;
-    document.querySelector(".back").onclick=load; return; }
+    document.querySelector(".back").onclick=load;
+  const gh=document.getElementById("gradehist");
+  if(gh) gh.onclick=async()=>{ if(PLUS_GATED.grade_history &&
+      !(await plusUpsell("Grade history","Season-by-season Hashmark grades for every player — how the grade built over a career. Free during preview."))) return;
+    const out=document.getElementById("gradehistout");
+    const tier2=v=>v>=90?"elite":v>=70?"starter-quality":v>=45?"average":"below average";
+    out.innerHTML=(window._gradeHist||[]).map(g=>`<div class="boxrow"><div class="bva">${g.qualified?Number(g.rating).toFixed(0):"—"}</div>
+      <div class="bk">${g.season} · ${esc(g.role)} <small>${g.qualified?`${Math.round(g.percentile||0)}th pct · ${tier2(g.rating)}`:"below qualifying threshold"}</small></div>
+      <div class="bvb"><small>${g.plays} plays</small></div></div>`).join("");
+    out.style.display="block"; gh.style.display="none"; }; return; }
   const t=teamMeta[idx.team_id]||{school:"—"}, c=hx(t.color);
   let h=`<div class="cmp">${backHeader("Player")}
     <div class="phead">
@@ -3601,7 +3697,11 @@ function renderPlayer(aid, idx, seasons, games, grades){
                     receiving:"Target value — includes QB/scheme context",
                     kicker:"Kicking — points vs distance-based expectation"};
     h+=`<div class="sec"><div class="sectitle">Hashmark grades <small>0–100 · 50 = FBS average</small></div>`;
-    grades.slice(0,6).forEach(g=>{
+    const latestSeason=Math.max(...grades.map(g=>Number(g.season)));
+    const curG=grades.filter(g=>Number(g.season)===latestSeason);
+    const histG=grades.filter(g=>Number(g.season)!==latestSeason);
+    window._gradeHist=histG;
+    curG.slice(0,4).forEach(g=>{
       const badge = g.qualified
         ? `<small>${Math.round(g.percentile||0)}th pct · ${tier(g.rating)}</small>`
         : `<small class="qbadge">below qualifying threshold — shown, not ranked</small>`;
@@ -3609,6 +3709,7 @@ function renderPlayer(aid, idx, seasons, games, grades){
         <div class="bk">${g.season} · ${ROLE_LBL[g.role]||g.role} ${badge}</div>
         <div class="bvb"><small>${g.plays} plays</small></div></div>`;
     });
+    if(histG.length) h+=`<div class="navrow" style="padding-top:6px;margin:0"><button class="navbtn" id="gradehist">Grade history (${histG.length} prior season${histG.length>1?"s":""}) <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div><div id="gradehistout" style="display:none"></div>`;
     h+=`<div class="secsub" style="padding:4px 2px 2px">Performance evaluation of past play —
       value produced in role, not isolated skill. <span data-go="methodology"
       style="color:var(--amber);font-weight:600">How grades work</span>.</div></div>`;
@@ -3752,8 +3853,8 @@ function teamHonors(honors){
   if(!aa.length && !poll.length) return "";
   const seen=new Set(); let h=`<div class="sec"><div class="sectitle">Around CFB — preseason 2026</div>
     <div class="secsub">Third-party preseason honors &amp; rankings, attributed to each outlet — <b>not</b> Hashmark ratings.</div>`;
-  poll.forEach(x=>{ h+=`<div class="honor"><div class="hb">ATHLON</div>
-    <div class="hn">Projected <b>#${x.rank}</b> in <a class="srcpill" href="${esc(x.source_url)}" target="_blank" rel="noopener">Athlon's 2026 preseason Top&nbsp;25</a></div></div>`; });
+  poll.forEach(x=>{ h+=`<div class="honor"><div class="hb">${esc((x.source||"").toUpperCase().slice(0,10))}</div>
+    <div class="hn">Projected <b>#${x.rank}</b> in <a class="srcpill" href="${esc(x.source_url)}" target="_blank" rel="noopener">${esc(x.source)}'s 2026 preseason Top&nbsp;25</a></div></div>`; });
   const row=(x,badge)=>{ seen.add(normName(x.player));
     return `<div class="honor"><div class="hb">${badge}</div>
       <div class="hn">${esc(x.player)} <small>· ${esc(x.position||"")}</small></div>
@@ -4025,6 +4126,9 @@ function renderPreseason(rows){
   const asof=(rows.find(r=>r.as_of_date)||{}).as_of_date||"";
   const link=(src,url)=>url?`<a class="srcpill" href="${esc(url)}" target="_blank" rel="noopener"><b>${esc(src)}</b> <svg class="ic" aria-hidden="true"><use href="#i-up-r"/></svg></a>`:`<span class="srcpill"><b>${esc(src)}</b></span>`;
   const teamTap=r=>r.team_id?` data-team="${r.team_id}"`:"";
+  // audit-players brief //5: All-American PLAYER cells are display-only — browsing the AA
+  // team must never dump the user onto a random team's home page.
+  const aaTap=_r=>"";
 
   let h=`<div class="cmp">`+backHeader("Preseason")+`<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 10px">Preseason 2026 — <b>third-party</b> selections &amp; projections, attributed and linked. <b>Not</b> Hashmark ratings. As of ${esc(asof)}.</div>`;
@@ -4037,7 +4141,7 @@ function renderPreseason(rows){
     Object.keys(grp).forEach(g=>{
       h+=`<div class="sgtitle" style="margin-top:10px">${g}</div><div class="aagrid">`;
       grp[g].forEach(r=>{ const t=teamMeta[r.team_id];
-        h+=`<div class="aacell"${teamTap(r)}><div class="ap">${esc(r.position||"")}</div>
+        h+=`<div class="aacell"${aaTap(r)}><div class="ap">${esc(r.position||"")}</div>
           <div class="anm">${esc(r.player)}<span class="scbadge sc-cons">2+</span></div>
           <div class="asc">${esc(t?t.school:r.school)}</div></div>`; });
       h+=`</div>`;
@@ -4050,21 +4154,38 @@ function renderPreseason(rows){
     let b=`<div class="sec"><div class="sectitle">${label} — preseason All-America</div>
       <div class="secsub">First team, per ${link(label,url)}. Facts only (player · position · school).</div><div class="aagrid">`;
     list.forEach(r=>{ const t=teamMeta[r.team_id];
-      b+=`<div class="aacell"${teamTap(r)}><div class="ap">${esc(r.position||"")}</div>
+      b+=`<div class="aacell"${aaTap(r)}><div class="ap">${esc(r.position||"")}</div>
         <div class="anm">${esc(r.player)}</div><div class="asc">${esc(t?t.school:r.school)}</div></div>`; });
     return b+`</div></div>`;
   };
   h+=srcBlock("ESPN", espn, espn[0]&&espn[0].source_url);
   h+=srcBlock("Phil Steele", steele, steele[0]&&steele[0].source_url);
 
-  // Preseason poll / projection
-  h+=`<div class="sec"><div class="sectitle">Preseason Top 25</div>`;
-  if(poll.length){
-    h+=`<div class="secsub">${link(poll[0].source, poll[0].source_url)} media projection for 2026. The official <b>AP &amp; Coaches</b> preseason polls auto-appear here when released in August.</div>`;
-    poll.forEach(r=>{ const t=teamMeta[r.team_id];
-      h+=`<div class="t25row"${teamTap(r)}><div class="trk">${r.rank}</div>
-        ${crestEl("schedcr",(t?t.school:r.school),t?hx(t.color):"#384455")}
-        <div class="tnm">${esc(t?t.school:r.school)}</div></div>`; });
+  // Preseason Top 25 — EVERY source, per-source lists + a consensus (brief #6: no single
+  // outlet is featured as THE source; facts only, attributed and linked)
+  const bySrc={}; poll.forEach(r=>{ (bySrc[r.source]=bySrc[r.source]||[]).push(r); });
+  const srcs=Object.keys(bySrc).sort();
+  h+=`<div class="sec"><div class="sectitle">Preseason Top 25 <small>${srcs.length} source${srcs.length===1?"":"s"}</small></div>`;
+  if(srcs.length){
+    if(srcs.length>=2){
+      const agg={};
+      srcs.forEach(sc=>bySrc[sc].forEach(r=>{ const k=r.team_id||r.school;
+        (agg[k]=agg[k]||{team_id:r.team_id, school:r.school, ranks:[]}).ranks.push(Number(r.rank)); }));
+      const consT=Object.values(agg).map(x=>({...x, avg:x.ranks.reduce((a2,b2)=>a2+b2,0)/x.ranks.length, n:x.ranks.length}))
+        .sort((x,y)=>(y.n-x.n)||(x.avg-y.avg)).slice(0,25);
+      h+=`<div class="sgtitle">Hashmark consensus <small>average rank · appearances across ${srcs.length} outlets</small></div>`;
+      consT.forEach((r,i)=>{ const t=teamMeta[r.team_id];
+        h+=`<div class="t25row"${r.team_id?` data-team="${r.team_id}"`:""}><div class="trk">${i+1}</div>
+          ${crestEl("schedcr",(t?t.school:r.school),t?hx(t.color):"#384455")}
+          <div class="tnm">${esc(t?t.school:r.school)}<small> avg #${r.avg.toFixed(1)} · ${r.n}/${srcs.length} lists</small></div></div>`; });
+    }
+    srcs.forEach(sc=>{ const list=bySrc[sc].slice().sort((x,y)=>x.rank-y.rank);
+      h+=`<div class="sgtitle" style="margin-top:10px">${esc(sc)} <small>${link(sc+"'s 2026 preseason Top 25", list[0].source_url)}</small></div>`;
+      list.forEach(r=>{ const t=teamMeta[r.team_id];
+        h+=`<div class="t25row"${teamTap(r)}><div class="trk">${r.rank}</div>
+          ${crestEl("schedcr",(t?t.school:r.school),t?hx(t.color):"#384455")}
+          <div class="tnm">${esc(t?t.school:r.school)}</div></div>`; }); });
+    h+=`<div class="secsub" style="padding-top:8px">The official <b>AP &amp; Coaches</b> preseason polls auto-appear here when released in August.</div>`;
   } else {
     h+=`<div class="secsub">The official AP &amp; Coaches preseason Top 25 release in August — they'll appear here automatically (CFBD).</div>`;
   }
@@ -4151,6 +4272,7 @@ const NAV_ROUTES={
   matchup:()=>openMatchup(),
   explore:()=>openExplore(),
   whatwins:()=>openWhatWins(),
+  playerrank:()=>openPlayerRankings(),
   newsarchive:p=>openNewsArchive(p&&p.team),
   standingsboard:()=>openStandings(),
 };
@@ -4181,7 +4303,7 @@ setTimeout(()=>{
  ["openStandings","standings"],["openSimulator","sim"],["openPickem","pickem"],
  ["openMethodology","method"],["openCheckingWork","checking"],["openAccuracy","accuracy"],
  ["openSignature","signature"],["openPreseason","preseason"],["openMatchup","matchup"],
- ["openExplore","explore"],["openWhatWins","whatwins"],
+ ["openExplore","explore"],["openWhatWins","whatwins"],["openPlayerRankings","playerrank"],
  ["openNewsArchive","newsarchive",team=>({team})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
@@ -4321,6 +4443,7 @@ const OMNI_TOOLS = [
   ["Signature stats","flame",()=>openSignature()],
   ["Ask Hashmark","chat",()=>openAsk(null)],
   ["What actually wins games","target",()=>openWhatWins()],
+  ["Player rankings","person",()=>openPlayerRankings()],
   ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
 ];
 function openOmni(){ const o=document.getElementById("omni"); o.classList.add("show");
@@ -4353,6 +4476,59 @@ async function omniRun(q){
   res.querySelectorAll("[data-player]").forEach(el=>el.onclick=()=>{ closeOmni(); openPlayer(+el.dataset.player); });
 }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeOmni(); });
+
+/* -------- Player rankings by position (audit-players brief #3 — reveal era, FREE) -------- */
+let prkPos="QB", prkFull=false;
+async function openPlayerRankings(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading player rankings…</div>`;
+  try{ await ensureTeamMeta();
+    const rows=await api(`player_rankings?select=*&season=eq.${SEASON_SCHED}&order=position.asc,pos_rank.asc`);
+    renderPlayerRankings(rows);
+  }catch(e){ app.innerHTML=backHeader("Player rankings")+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=load; }
+}
+function renderPlayerRankings(rows){
+  const positions=[...new Set(rows.map(r=>r.position))];
+  const list=rows.filter(r=>r.position===prkPos);
+  const shown=prkFull?list:list.slice(0,25);
+  const tierCls=t=>t==="elite"?"r-1":t==="starter-quality"?"r-2":t==="average"?"r-3":"r-4";
+  let h=`<div class="cmp">${backHeader("Player rankings")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px"><b>Returning players, ranked within position</b> by their
+    Hashmark value-in-role grade (0-100 · 50 = FBS average · 90+ elite / 70s starter-quality). Grades include
+    the surrounding context (a QB grade includes his line and receivers). Audited weekly against the transfer
+    portal — transfers are ranked at their <b>new</b> school. ${SEASON_RESULTS} play, ${SEASON_SCHED} teams.</div>
+    <div class="confbar">${positions.map(p=>`<button class="confpill ${p===prkPos?"on":""}" data-prk="${esc(p)}">${esc(p)}</button>`).join("")}</div>`;
+  shown.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.team};
+    h+=`<div class="exprow"${r.team_id?` data-team="${r.team_id}"`:""}>
+      <div class="erk">${r.pos_rank}</div>
+      ${crestEl("schedcr",t.school||r.team,r.team_id?oppColor(r.team_id):"#384455")}
+      <div class="enm">${esc(r.player)}${r.transferred?` <small style="color:var(--amber)">NEW</small>`:""}<small>${esc(t.school||r.team)} · ${Math.round(r.percentile)}th pct · ${esc(r.tier)}</small></div>
+      <div class="eval ${tierCls(r.tier)}" data-tip="${esc(`${r.player} — value-in-role grade ${Number(r.rating).toFixed(1)} on ${r.plays} plays (${SEASON_RESULTS}). #${r.pos_rank} of ${list.length} returning qualified ${prkPos}s. 50 = FBS average; the grade includes surrounding context, not isolated skill.`)}">${Number(r.rating).toFixed(1)}</div></div>`; });
+  if(!prkFull && list.length>25)
+    h+=`<div class="navrow" style="padding-top:8px"><button class="navbtn" id="prkfull">Full ${esc(prkPos)} board (${list.length}) + CSV <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>`;
+  if(prkFull)
+    h+=`<div class="navrow" style="padding-top:8px"><button class="navbtn" id="prkcsv">Download CSV</button></div>`;
+  h+=`<div class="sec"><div class="sectitle">What we can't grade — and why</div><div class="secsub">
+    Public play-by-play has no charting or snap participation, so <b>offensive linemen and most defenders can't be
+    individually graded honestly</b> — line play is served as team unit metrics, and defenders as PRODUCTION
+    leaders (tackles, TFL, havoc) in the stats explorer — production counts, not PFF-style grades. Kickers are
+    graded on points versus distance-based expectation.</div></div>
+    <div class="note"><b>Hashmark player grades — performance evaluation only.</b> Value produced in role on ${SEASON_RESULTS}
+    play, opponent-adjusted, garbage-time down-weighted, shrunk by sample. Returning set audited against the
+    transfer portal weekly. Not framed for wagering of any kind. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-prk]").forEach(b=>b.onclick=()=>{ prkPos=b.dataset.prk; prkFull=false; openPlayerRankings(); });
+  const fb=document.getElementById("prkfull");
+  if(fb) fb.onclick=async()=>{ if(PLUS_GATED.csv_export &&
+      !(await plusUpsell("Full position boards + CSV","Every returning qualified player at every position, ranked — plus CSV export. Free during preview."))) return;
+    prkFull=true; renderPlayerRankings(rows); };
+  const cb=document.getElementById("prkcsv");
+  if(cb) cb.onclick=()=>{ const csv="pos_rank,player,team,rating,percentile,tier,plays\n"+
+      list.map(r=>[r.pos_rank,r.player,(teamMeta[r.team_id]||{}).school||r.team,r.rating,r.percentile,r.tier,r.plays].join(",")).join("\n");
+    const a2=document.createElement("a"); a2.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+    a2.download=`hashmark_${prkPos.replace(/\W+/g,"")}_rankings_${SEASON_SCHED}.csv`; a2.click(); };
+}
 
 /* -------- "What actually wins games" (teampage brief #4 — FREE, credibility lane) -------- */
 async function openWhatWins(){
@@ -4427,6 +4603,7 @@ async function openExplore(){
     <div class="xcard" data-x="movers"><svg class="ic"><use href="#i-trend"/></svg><h4>Weekly Movers</h4><p>Who rose, who fell — updated Sundays.</p></div>
     <div class="xcard" data-x="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 and season boards.</p></div>
     <div class="xcard" data-x="accuracy"><svg class="ic"><use href="#i-check"/></svg><h4 style="color:var(--amber)">Checking Our Work</h4><p>Every call logged before kickoff. Misses stay up.</p></div>
+    <div class="xcard" data-x="playerrank"><svg class="ic"><use href="#i-person"/></svg><h4 style="color:var(--amber)">Player rankings</h4><p>Returning players ranked within every position by Hashmark grade.</p></div>
     <div class="xcard" data-x="whatwins"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--teal)">What actually wins games</h4><p>Five factors: what wins now vs what repeats next year.</p></div>
     <div class="xcard" data-x="method"><svg class="ic"><use href="#i-info"/></svg><h4>Methodology</h4><p>How the numbers get made.</p></div>
     <div class="xcard dashed" id="xask"><svg class="ic" style="color:var(--text3)"><use href="#i-chat"/></svg><h4>AI Analyst Chat</h4><p>Coming to this search box. Ask anything, get sourced answers.</p></div>
@@ -4445,7 +4622,7 @@ async function openExplore(){
   const GO={stats:()=>openStats(),matchup:()=>openMatchup(),standings:()=>openStandings(),
     movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),
     notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature(),
-    whatwins:()=>openWhatWins()};
+    whatwins:()=>openWhatWins(), playerrank:()=>openPlayerRankings()};
   document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
   document.getElementById("xask").onclick=openOmni;
   document.getElementById("foundgo").onclick=async()=>{
