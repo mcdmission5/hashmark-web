@@ -684,6 +684,22 @@
   .landrow{display:flex;gap:12px;align-items:flex-start;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;padding:13px;margin:7px 2px}
   .landrow b{font-size:13.5px} .landrow small{display:block;color:var(--text2);font-size:11.5px;padding-top:2px;line-height:1.5}
+  #awaybanner{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:70;width:min(480px,94vw);
+    background:var(--surface);border:1px solid var(--amber);border-radius:14px;padding:10px 12px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .awayhd{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding-bottom:4px}
+  .awayhd button{background:none;border:0;color:var(--text3);cursor:pointer;padding:2px}
+  .awayrow{display:flex;gap:8px;align-items:baseline;padding:5px 0;text-decoration:none;color:var(--text)}
+  .awaycat{flex:none;font-size:8px;font-weight:800;letter-spacing:.05em;color:var(--amber);
+    border:1px solid rgba(232,182,87,.4);border-radius:999px;padding:2px 6px}
+  .awayhl{font-size:12px;font-weight:600;line-height:1.35;flex:1}
+  .awayrow small{color:var(--text3);font-size:9.5px;flex:none}
+  .sigtop{display:flex;gap:14px;align-items:center;padding:6px 0}
+  .sigauge{width:76px;height:76px;flex:none}
+  .sigclaim{font-size:15px;line-height:1.45}
+  .sigchips{display:flex;flex-wrap:wrap;gap:6px;padding-top:4px}
+  .sigchip{background:rgba(232,182,87,.1);border:1px solid rgba(232,182,87,.35);color:var(--text2);
+    border-radius:999px;padding:4px 10px;font-size:10.5px;font-weight:600}
   .teaserow{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;
     background:var(--surface);border:1px dashed var(--line2);border-radius:11px;margin:6px 0;
     font-size:12px;font-weight:700;color:var(--text2);cursor:pointer}
@@ -1097,10 +1113,36 @@ function textOn(bg){const h=hx(bg).replace("#","");if(h.length<6)return"#fff";
   const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
   return (0.299*r+0.587*g+0.114*b)>150?"#10130c":"#fff";}
 
-async function api(q){
+// Batch 8 #3: stale-while-revalidate client cache for GETs. In-memory Map (fast, big
+// payloads OK) keyed by query; TTL per table class — live tables never cached, news
+// short, everything else hours. Fresh hit = instant; stale hit = serve cached NOW and
+// refresh in the background so the next render is current.
+const _apiCache=new Map();
+function _apiTTL(q){
+  if(/^live_/.test(q)) return 0;                                   // live: never
+  if(/^news_items|^availability_report/.test(q)) return 2*60e3;    // news: minutes
+  if(/^pickem_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
+  return 3*3600e3;                                                 // ratings/standings/stats: hours
+}
+async function _apiFetch(q){
   const res = await fetch(SUPABASE_URL+"/rest/v1/"+q, {headers:{apikey:KEY,Authorization:"Bearer "+KEY}});
   if(!res.ok) throw new Error("HTTP "+res.status);
   return res.json();
+}
+const skelView=(rows=6)=>`<div style="padding:8px 12px"><div class="skel" style="height:64px"></div>${Array.from({length:rows},()=>`<div class="skel" style="height:46px"></div>`).join("")}</div>`;
+async function api(q){
+  const ttl=_apiTTL(q);
+  if(!ttl) return _apiFetch(q);
+  const hit=_apiCache.get(q);
+  const now=Date.now();
+  if(hit && now-hit.t<ttl) return hit.v;
+  if(hit){   // stale: serve instantly, revalidate behind
+    _apiFetch(q).then(v=>_apiCache.set(q,{t:Date.now(),v})).catch(()=>{});
+    return hit.v;
+  }
+  const v=await _apiFetch(q);
+  _apiCache.set(q,{t:now,v});
+  return v;
 }
 
 // ===================================================================================
@@ -1506,7 +1548,7 @@ async function load(){
   // news, with an INLINE ratings-coming-soon element (brief #5 — never a blank page).
   // prior-season tab = the historical stats dashboard.
   if(view===String(SEASON_SCHED)){
-    app.innerHTML = `<div class="loading">Loading ${SEASON_SCHED}…</div>`;
+    app.innerHTML = skelView(9);
     try{
       if(!SHOW_HASHMARK_RATINGS) return render2026Home();
       await ensureUnits(); return renderLeaderboard();
@@ -2837,16 +2879,22 @@ async function refreshPushSub(){
 // unpicked games with the precomputed matchup_winprob (probabilities only — never a rating).
 const REAL_CONF_MIN = 8;   // a "conference" that crowns a champion (excludes 2-team Independents)
 let sim=null;
-async function fetchAllWinprob(){   // PostgREST caps at 1000 rows/request; pages until empty
-  let all=[], off=0;
-  for(let page=0; page<100; page++){   // sane bound only — never a silent truncation
-    const chunk=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&order=team_a.asc,team_b.asc&limit=1000&offset=${off}`);
-    all=all.concat(chunk); if(chunk.length<1000) break; off+=1000;
+async function fetchAllWinprob(){   // PostgREST caps at 1000 rows/request
+  // Batch 8 #3: first page sequential, remaining pages IN PARALLEL (was ~10 serial
+  // round-trips on sim open); stops at the first short page; sane 40-page bound.
+  const Q=off=>`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&order=team_a.asc,team_b.asc&limit=1000&offset=${off}`;
+  let all=await api(Q(0));
+  if(all.length<1000) return all;
+  for(let base=1000; base<40000; base+=8000){
+    const chunks=await Promise.all(Array.from({length:8},(_,i)=>api(Q(base+i*1000)).catch(()=>[])));
+    let short=false;
+    chunks.forEach(c=>{ all=all.concat(c); if(c.length<1000) short=true; });
+    if(short) break;
   }
   return all;
 }
 async function openSimulator(){
-  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading simulator…</div>`;
+  window.scrollTo(0,0); app.innerHTML=skelView(10);
   try{
     await ensureTeamMeta();
     const [games, teams, wp, pf] = await Promise.all([
@@ -3356,7 +3404,7 @@ async function ensurePoll(){ if(!poll2025){ poll2025={};
 
 async function openDetail(teamId){
   window.scrollTo(0,0);
-  app.innerHTML = `<div class="loading">Loading team…</div>`;
+  app.innerHTML = skelView(8);   // batch 8 #3: skeleton, not a bare line
   try{
     await ensureTeamMeta();
     // official/factual data shown in BOTH preview and full mode (record + schedule)
@@ -4792,6 +4840,7 @@ const NAV_ROUTES={
   modelhub:()=>openModelHub(),
   injuries:()=>openInjuries(),
   landing:()=>openLanding(),
+  nilperf:()=>openNILPerformance(),
 };
 function navPush(v,p){
   if(_navRestoring) return;
@@ -4832,7 +4881,7 @@ setTimeout(()=>{
  ["openBox","box",(id,team)=>({id,team})],["openPickemBoard","pickemboard"],
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
- ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],
+ ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -4853,7 +4902,7 @@ initAuth();
 if(typeof PREVIEW_UNLOCK!=="undefined" && PREVIEW_UNLOCK){   // batch 8 #4: full-view preview
   _boardsOpen=true; _hubOK=true; _matchupOpen=true; _wwOpen=true; _simResultsOK=true;
 }
-loadSeasonPhase().then(()=>{ landingDue() ? openLanding() : load(); });   // C1 boot seam + A5 labels
+loadSeasonPhase().then(()=>{ landingDue() ? openLanding() : load(); setTimeout(checkAwayBanner, 2500); });   // C1 boot + batch 8 #7
 </script>
 
 <script>
@@ -5333,6 +5382,7 @@ async function openNILEconomy(){
   let h=`<div class="cmp">${backHeader("NIL Economy")}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px"><b>Who's spending what on the roster — as honest tiers.</b> Built only from attributed public reporting and on-record statements (tap a team for every underlying figure + link). Teams absent from the board have <b>limited public disclosure</b> — most of the G5 and private schools; we don't guess. ${SEASON_SCHED} season.</div>
     <div class="navrow"><button class="navbtn primary" id="nileff"><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Performance vs resources <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button>
+      <button class="navbtn" id="nilperf25"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg> 2025: performance vs the money <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button>
       <button class="navbtn" id="nilmeth"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg> Methodology</button></div>`;
   Object.keys(byTier).sort((a,b)=>a-b).forEach(tn=>{
     const rows=byTier[tn];
@@ -5347,6 +5397,7 @@ async function openNILEconomy(){
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   document.getElementById("nileff").onclick=()=>gatedNILEfficiency();
+  document.getElementById("nilperf25").onclick=()=>gatedNILPerformance();
   document.getElementById("nilmeth").onclick=()=>openNILMethodology();
   document.querySelectorAll("[data-nil]").forEach(el=>el.onclick=()=>{
     const r=tiers.find(x=>String(x.team_id)===String(el.dataset.nil));
@@ -5362,6 +5413,72 @@ async function openNILEconomy(){
     document.body.appendChild(ov);
     ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
   });
+}
+
+// Batch 8 #2: NIL 2025 — performance vs the money. Reads nil_performance_2025 (robust
+// fit of final-2025 rating percentile ~ log est. spend; bands from residual spread).
+// Free teaser = the Indiana headline card; the full board rides the NIL Hashmark+ lane.
+async function openNILPerformance(){
+  window.scrollTo(0,0); app.innerHTML=skelView(8);
+  await ensureTeamMeta();
+  const rows=await api(`nil_performance_2025?select=*&order=residual.desc.nullslast`).catch(()=>[]);
+  if(!rows.length){ app.innerHTML=backHeader("NIL 2025 - performance vs the money")+`<div class="list"><div class="err">The 2025 performance board has not been built yet.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  const IND=rows.find(r=>r.school==="Indiana");
+  const dollar=rows.filter(r=>r.band!=="tier_context"&&r.est_mid_musd!=null);
+  const BANDC={outperformed:"#5BD39A", in_line:"#94A3B8", underperformed:"#E5705C", tier_context:"#7CA8FF"};
+  const BANDL={outperformed:"Outperformed the money", in_line:"In line", underperformed:"Underperformed", tier_context:"Tier context"};
+  // scatter: log est spend x vs rating percentile y + a simple display expectation line
+  const pct=v=>{ v=Number(v); return v<=1?v*100:v; };   // rating_pct stored 0-1
+  const xs=dollar.map(r=>Math.log(Number(r.est_mid_musd))), ys=dollar.map(r=>pct(r.rating_pct));
+  const n=xs.length, mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
+  const beta=xs.reduce((a,x,i)=>a+(x-mx)*(ys[i]-my),0)/Math.max(1e-9,xs.reduce((a,x)=>a+(x-mx)*(x-mx),0));
+  const a0=my-beta*mx;
+  const W=360,H=300,PAD=30;
+  const xlo=Math.min(...xs), xhi=Math.max(...xs);
+  const X=v=>PAD+(v-xlo)/Math.max(1e-9,xhi-xlo)*(W-2*PAD), Y=v=>H-PAD-(v/100)*(H-2*PAD);
+  let svg=`<svg class="quad" viewBox="0 0 ${W} ${H}">`;
+  svg+=`<line x1="${X(xlo)}" y1="${Y(a0+beta*xlo)}" x2="${X(xhi)}" y2="${Y(a0+beta*xhi)}" stroke="rgba(148,163,184,.5)" stroke-dasharray="4 3" stroke-width="1.5"/>`;
+  dollar.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
+    const x=X(Math.log(Number(r.est_mid_musd))), y=Y(pct(r.rating_pct));
+    svg+=`<circle cx="${x}" cy="${y}" r="8" fill="${hx(t.color)}" stroke="${BANDC[r.band]}" stroke-width="2.5" data-nilp="${r.team_id}" style="cursor:pointer"><title>${esc(t.school+" — est. $"+Number(r.est_low_musd).toFixed(0)+"-"+Number(r.est_high_musd).toFixed(0)+"M ("+r.confidence+"), "+r.wins+"-"+r.losses+", "+BANDL[r.band]+(r.disputed?" — figure disputed":""))}</title></circle>
+      <text x="${x}" y="${y+2.6}" fill="${textOn(t.color)}" font-size="5.4" font-weight="800" text-anchor="middle" pointer-events="none">${esc(monogram(t.school))}</text>`; });
+  svg+=`<text x="${PAD}" y="${H-8}" fill="var(--text3)" font-size="8">less est. money</text>
+    <text x="${W-PAD}" y="${H-8}" fill="var(--text3)" font-size="8" text-anchor="end">more est. money</text></svg>`;
+  const line=r=>{ const t=teamMeta[r.team_id]||{school:r.school};
+    return `<div class="nilrow" data-nilp="${r.team_id}">${crestEl("glcr",t.school,hx(t.color))}
+      <div class="lknm">${esc(t.school)}<small>${r.wins}-${r.losses} on est. ${r.est_low_musd!=null?"$"+Number(r.est_low_musd).toFixed(0)+"-"+Number(r.est_high_musd).toFixed(0)+"M":"(tier only)"} · ${esc(r.confidence||"")}</small></div>
+      <span class="nilconf" style="color:${BANDC[r.band]};background:transparent;border:1px solid ${BANDC[r.band]}">${BANDL[r.band]}</span>
+      ${r.disputed?`<span class="nilconf disputed">disputed</span>`:""}</div>`; };
+  app.innerHTML=`<div class="cmp">${backHeader("NIL 2025 - performance vs money")}<div class="list" style="padding-top:6px">
+    ${IND?`<div class="card card-hero-amber" style="margin:2px 2px 10px;padding:14px">
+      <div class="eyebrow">The headline · 2025 season · FREE</div>
+      <div style="font-size:14px;padding-top:4px"><b>Indiana went ${IND.wins}-${IND.losses} and won the national title on an estimated $${Number(IND.est_low_musd).toFixed(0)}-${Number(IND.est_high_musd).toFixed(0)}M roster</b> — the sport's best performance per estimated dollar in 2025.</div></div>`:""}
+    <div class="secsub" style="padding:0 2px 8px"><b>Final 2025 performance vs estimated roster money.</b> Dot ring color = the band from a robust fit of rating vs log est. spend; dashed line = expectation. Estimates only — sources on every tap; disputed figures carry their badge. 2025 season throughout.</div>
+    <div class="sec">${svg}</div>
+    <div class="sectitle" style="padding:6px 2px 4px">Beat the money — ranked</div>
+    ${rows.filter(r=>r.band==="outperformed").map(line).join("")}
+    <div class="sectitle" style="padding:10px 2px 4px">In line / tier context</div>
+    ${rows.filter(r=>r.band==="in_line"||r.band==="tier_context").map(line).join("")}
+    <div class="sectitle" style="padding:10px 2px 4px">Underperformed the estimate</div>
+    ${rows.filter(r=>r.band==="underperformed").map(line).join("")}
+    <div class="note"><b>NIL 2025 performance vs money.</b> ${NIL_DISCLAIMER} Bands are opinion drawn from the linked figures and the final 2025 Hashmark rating; measurement types are never mixed, tier-only teams are compared within tier, and single-source figures are graded down. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=()=>openNILEconomy();
+  document.querySelectorAll("[data-nilp]").forEach(el=>el.onclick=()=>{
+    const r=rows.find(x=>String(x.team_id)===String(el.dataset.nilp)); if(!r) return;
+    const t=teamMeta[r.team_id]||{school:r.school};
+    const figs=((r.sources||{}).figures)||[];
+    const ov=document.createElement("div"); ov.className="pickov";
+    ov.innerHTML=`<div class="picksheet"><div class="pickhd"><div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — 2025 figures</div><button class="pickx"><svg class="ic"><use href="#i-close"/></svg></button></div>
+      <div class="picklist">${figs.map(f=>nilFigLine({source:f.source,url:f.url,type:(f.type||"").replace(/_/g," "),range:f.range})+(f.disputed?`<div class="ha" style="color:#E8B657;padding:0 0 6px">Publicly disputed by the program.</div>`:"")).join("")||"<div class='ha'>Tier/rank basis only.</div>"}
+      ${(r.sources||{}).confidence_note?`<div class="ha" style="padding-top:6px">${esc(String(r.sources.confidence_note))}</div>`:""}</div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  });
+}
+async function gatedNILPerformance(){
+  if(PLUS_GATED.nil_efficiency && !(await plusUpsell("NIL 2025 - performance vs the money",
+    "The full 2025 board: who beat their estimated money, who did not - scatter, bands, every source linked. Free during preview."))) return;
+  openNILPerformance();
 }
 async function gatedNILEfficiency(){
   if(PLUS_GATED.nil_efficiency && !(await plusUpsell("Performance vs estimated resources",
@@ -5630,6 +5747,38 @@ async function openMatchupGrid(a,b){
 // First-time visitors (no flag, no favorite, logged out) get one skippable intro in the
 // Primetime aesthetic; the flag persists and it never shows again (About Hashmark reopens it).
 const LANDING_KEY="hm_seen_landing";
+
+// Batch 8 #7: "While you were away" — ONE dismissible banner on return when major
+// stories landed since the last visit; favorite team first, capped once/day, never modal.
+async function checkAwayBanner(){
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    if(localStorage.getItem("hm_away_shown")===today) return;
+    const lastSeen=localStorage.getItem("hm_last_visit");
+    localStorage.setItem("hm_last_visit", new Date().toISOString());
+    if(!lastSeen) return;
+    const majors=await api(`news_items?select=headline,url,source,published_at,team_tags,category&major=eq.true&published_at=gt.${encodeURIComponent(lastSeen)}&order=published_at.desc&limit=20`).catch(()=>[]);
+    if(!majors.length) return;
+    const fav=Number(favTeamId()||0);
+    const mine=fav?majors.filter(m=>(m.team_tags||[]).some(t=>Number(t)===fav)):[];
+    const top=[...mine, ...majors.filter(m=>!mine.includes(m))].slice(0,3);
+    const CAT={injury_out:"INJURY",coaching_change:"COACHING",realignment:"REALIGNMENT",
+      transfer_major:"TRANSFER",controversy:"NEWS",rankings_shakeup:"RANKINGS",title_cfp:"CFP"};
+    const b=document.createElement("div"); b.id="awaybanner";
+    b.innerHTML=`<div class="awayhd"><b>While you were away</b>
+      <button id="awayx" aria-label="Dismiss"><svg class="ic"><use href="#i-close"/></svg></button></div>
+      ${top.map(m=>`<a class="awayrow" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">
+        <span class="awaycat">${CAT[m.category]||"NEWS"}</span>
+        <span class="awayhl">${esc(decodeEnt(m.headline))}</span>
+        <small>${esc(m.source||"")}</small></a>`).join("")}`;
+    document.body.appendChild(b);
+    const dismiss=()=>{ b.remove(); localStorage.setItem("hm_away_shown", today);
+      try{ if(typeof authUser!=="undefined"&&authUser) authFetch("PATCH",`profiles?id=eq.${authUser.id}`,
+        {notify_prefs:Object.assign({},(authProfile||{}).notify_prefs||{},{away_shown:today})}); }catch(e){} };
+    document.getElementById("awayx").onclick=dismiss;
+    setTimeout(()=>{ if(document.getElementById("awaybanner")) dismiss(); }, 30000);
+  }catch(e){}
+}
 function landingDue(){
   try{ return !localStorage.getItem(LANDING_KEY) && !favTeamId()
     && !(typeof authUser!=="undefined" && authUser); }catch(e){ return false; }
@@ -6242,27 +6391,44 @@ async function openSignature(){
     <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Signature stats</div></div>
     <div class="secsub" style="padding:4px 2px">Named teams, tracked calls — every card links to its own record. Misses stay up.</div>`;
   if(collapse){
+    // Batch 8 #8: instant comprehension — gauge + ONE-line claim + 3 driver chips +
+    // an expandable holding every caveat (nothing deleted, relocated).
     const t=teamMeta[collapse.team_id]||{};
     const d=collapse.drivers||{}; const drv=(d.top_drivers||d.drivers||[]).slice(0,3);
     const tr=collapse.track||{};
+    const p=Math.round(Number(collapse.value||0)*100);
+    const arc=(pct)=>{ const r=26, c=2*Math.PI*r, f=c*pct/100;
+      return `<svg viewBox="0 0 64 64" class="sigauge"><circle cx="32" cy="32" r="${r}" fill="none" stroke="rgba(148,163,184,.18)" stroke-width="7"/>
+        <circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--amber)" stroke-width="7" stroke-linecap="round"
+          stroke-dasharray="${f} ${c-f}" transform="rotate(-90 32 32)"/>
+        <text x="32" y="30" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="800">${pct}</text>
+        <text x="32" y="42" text-anchor="middle" fill="var(--text3)" font-size="8">of 100</text></svg>`; };
     h+=`<div class="card card-hero-amber" style="margin:10px 2px;padding:15px">
-      <div class="eyebrow" data-tip="The Collapse Index — which preseason top-10 team our regression factors flag hardest as likely to fall short of its ranking. A watch-list, not a prediction; every call is logged and scored.">The Collapse Index · regression watch-list · ${collapse.season} preseason · FREE <svg class="ic pkinfo" aria-hidden="true"><use href="#i-info"/></svg></div>
-      <h2 style="margin:6px 0 2px">${esc(t.school||"?")}</h2>
-      <p style="margin:0 0 6px;color:var(--text2);font-size:12.5px">The preseason top-10 team our factors flag hardest${d.chance?` — ${esc(String(d.chance))}`:""}.${d.base_rate?` For scale: ${esc(String(d.base_rate))}.`:""}</p>
-      ${d.poll_basis?`<div class="eyebrow" style="margin-bottom:6px">Built on the ${esc(String(d.poll_basis))}</div>`:""}
-      ${drv.map(x=>`<div style="font-size:12px;color:var(--text2)"><svg class="ic" style="color:var(--amber)"><use href="#i-chev-r"/></svg> ${esc(String(x))}</div>`).join("")}
-      ${tr.n?`<div class="eyebrow" style="margin-top:8px">This call's record since ${tr.since||2014}: ${tr.hits} of ${tr.n}</div>`:""}
-      <div class="eyebrow" style="margin-top:4px">${esc(String(d.disclaimer||"n=11 seasons — no proven edge claimed; we log and score every call"))}</div>
+      <div class="eyebrow">The Collapse Index · ${collapse.season} preseason · FREE</div>
+      <div class="sigtop">${arc(p)}
+        <div class="sigclaim"><b>${esc(t.school||"?")}</b> is the preseason top-10 team most likely to fall out of the rankings.</div></div>
+      <div class="sigchips">${drv.map(x=>`<span class="sigchip">${esc(String(x)).slice(0,52)}</span>`).join("")}</div>
+      ${tr.n?`<div class="eyebrow" style="margin-top:8px">record: ${tr.hits}/${tr.n}</div>`:""}
+      <div class="acc" style="margin-top:8px"><button class="acchdr" aria-expanded="false" aria-controls="accb-sighow" data-acc="sighow">
+        <span>How this works</span><small>basis, scale, honesty</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+      <div class="accbody" id="accb-sighow" hidden>
+        <div class="secsub" style="padding:6px 2px">A regression watch-list, not a prediction — every call is logged and scored, and misses stay up.
+        ${d.chance?` This call: ${esc(String(d.chance))}.`:""}${d.base_rate?` For scale: ${esc(String(d.base_rate))}.`:""}
+        ${d.poll_basis?` Built on the ${esc(String(d.poll_basis))}.`:""}
+        ${tr.n?` Record since ${tr.since||2014}: ${tr.hits} of ${tr.n}.`:""}
+        ${esc(String(d.disclaimer||"n=11 seasons — no proven edge claimed; we log and score every call"))}</div></div></div>
     </div>`;
   } else {
     h+=`<div class="card" style="margin:10px 2px;padding:14px"><b>Collapse Index</b>
       <p style="color:var(--text2);font-size:12px;margin:4px 0 0">First board publishes with the preseason run.</p></div>`;
   }
-  const LOCKED=[["Luck Audit","Teams most likely to fall back to earth"],
-    ["Hidden Riser","The breakout the numbers already see"],
-    ["Model vs Poll","Where we disagree with the voters"],
-    ["The Gauntlet","The toughest three-game stretch in football"],
-    ["Talent Bomb","Elite rosters underperforming their talent"]];
+  // Batch 8 #8: every card leads with its one-line claim (boards themselves stay
+  // server-side RLS-locked to Hashmark+ rows)
+  const LOCKED=[["Luck Audit","The teams whose records ran ahead of their play — flagged to step back."],
+    ["Hidden Riser","The breakout the underlying numbers already see coming."],
+    ["Model vs Poll","The teams we rank furthest from the voters — tracked to a verdict."],
+    ["The Gauntlet","The single toughest three-game stretch in football this season."],
+    ["Talent Bomb","Elite rosters that underperformed their talent — the usual bounce-back list."]];
   h+=`<div class="sect-h">The full set</div><div class="xgrid" style="padding:0 2px">`;
   LOCKED.forEach(([t2,p])=>{ h+=`<div class="xcard" data-lock="1"><svg class="ic" style="color:var(--text3)"><use href="#i-lock"/></svg>
     <h4>${t2} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>${p}</p></div>`; });
