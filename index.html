@@ -3032,10 +3032,18 @@ function confEngineCtx(picks){
     wpct:id=>{ const r=rec[id]; return (r.w+r.l)?r.w/(r.w+r.l):0; }};
 }
 // shared tiebreak helpers — every step returns a sorted copy or null (unresolved)
-function tbH2H(ids, ctx){        // mini round-robin record among the tied (sweep separates)
-  const w={}; ids.forEach(a=>{ w[a]=0; ids.forEach(b=>{ if(a!==b&&ctx.beat[a].has(b)) w[a]++; }); });
-  const s=[...ids].sort((a,b)=>w[b]-w[a]);
-  return w[s[0]]!==w[s[s.length-1]] ? s : null;
+function tbH2H(ids, ctx){
+  // two-team: the head-to-head decides if played. 3+ (MAC 2025 Miami precedent, mirrored
+  // from the model port): a SWEEP only ADVANCES the sweeper — nobody is eliminated by
+  // H2H record alone; without a sweeper the step is unresolved and the chain continues.
+  if(ids.length===2){
+    if(ctx.beat[ids[0]].has(ids[1])) return [ids[0], ids[1]];
+    if(ctx.beat[ids[1]].has(ids[0])) return [ids[1], ids[0]];
+    return null;
+  }
+  const sweeper=ids.find(a=>ids.every(b=>a===b||ctx.beat[a].has(b)));
+  if(sweeper) return [sweeper, ...ids.filter(x=>x!==sweeper)];
+  return null;
 }
 function tbOppWpct(ids, ctx){    // opponents' cumulative conference win%
   const v={}; ids.forEach(t=>{ let s2=0,n=0; ctx.sched[t].forEach(o=>{ s2+=ctx.wpct(o); n++; }); v[t]=n?s2/n:0; });
