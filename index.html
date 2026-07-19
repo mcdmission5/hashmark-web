@@ -2905,7 +2905,7 @@ async function openSimulator(){
   try{
     await ensureTeamMeta();
     const [games, teams, wp, pf] = await Promise.all([
-      api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site,home_points,away_points,completed&season=eq.${SEASON_SCHED}&season_type=eq.regular&order=week.asc`),
+      api(`games?select=id,week,season_type,home_team_id,away_team_id,home_team,away_team,neutral_site,conference_game,home_points,away_points,completed&season=eq.${SEASON_SCHED}&season_type=eq.regular&order=week.asc`),
       api(`teams?select=id,school,conference,classification`),
       SHOW_PREDICTIONS?fetchAllWinprob():Promise.resolve([]),
       api(`playoff_odds?select=team_id,make_cfp,exp_wins&season=eq.${SEASON_SCHED}&order=make_cfp.desc&limit=12`).catch(()=>[]) ]);
@@ -3000,14 +3000,138 @@ const pFcsFor=(tid, confMap)=>P4_FCS.has((confMap||sim.conf)[String(tid)])?P_FCS
 // Locked (completed) games ALWAYS win: favorites < user picks < actual results (B1)
 const simEffective = ()=> Object.assign({}, sim.fav, sim.userPicks, sim.locked);
 const simPicksSig = ()=> JSON.stringify(sim.userPicks)+"|"+Object.keys(sim.locked).length;
-function simCompute(picks, fcsDraw){
+
+// ================= Batch 9 3a: REAL 2026 conference championship rules =================
+// Ported from conference-rules-2026.md (verified Jul 19 2026). Champion = CCG WINNER.
+// Analytic/CFP-ranking steps use the Hashmark rating as the documented proxy. UNVERIFIED
+// items are provisional behind CONF_FLAGS (Pac-12 tiebreaks, CUSA post-H2H, MAC 3+ tail,
+// MW CFP step) — never guessed.
+const SB_EAST=new Set(["Appalachian State","Coastal Carolina","Georgia Southern","Georgia State","James Madison","Marshall","Old Dominion"]);
+const CCG_NEUTRAL=new Set(["SEC","Big Ten","Big 12","ACC","Mid-American"]);
+const CONF_FLAGS={"Pac-12":"tiebreakers not yet published — provisional H2H, multi-team via rating proxy",
+  "Conference USA":"post-H2H order unverified — provisional",
+  "Mid-American":"3-plus-team tail order unverified — provisional",
+  "Mountain West":"written CFP-ranking step unverified — omitted"};
+const MW_INELIGIBLE=new Set(["North Dakota State"]);   // FCS transition: no CCG/CFP until 2028
+function confEngineCtx(picks){
+  // conference records + results from CONFERENCE games only (conference_game flag —
+  // Pac-12 Week-13 flex rematches are officially non-conference and never count)
+  const rec={}, beat={}, sched={}, division={};
+  sim.fbs.forEach(id=>{ rec[id]={w:0,l:0}; beat[id]=new Set(); sched[id]=new Set(); });
+  sim.games.forEach(g=>{ if(g.conference_game===false) return;
+    const h=String(g.home_team_id), a=String(g.away_team_id);
+    if(!sim.conf[h] || sim.conf[h]!==sim.conf[a]) return;
+    const w=String(picks[g.id]); if(!w) return;
+    const l=w===h?a:h;
+    rec[w].w++; rec[l].l++; beat[w].add(l); sched[h].add(a); sched[a].add(h);
+  });
+  sim.fbs.forEach(id=>{ const t=teamMeta[id]||{};
+    if(sim.conf[id]==="Sun Belt") division[id]=SB_EAST.has(t.school)?"E":"W"; });
+  const rating={}; (board2026||[]).forEach(b=>rating[String(b.team_id)]=Number(b.overall));
+  return {rec, beat, sched, division, rating,
+    wpct:id=>{ const r=rec[id]; return (r.w+r.l)?r.w/(r.w+r.l):0; }};
+}
+// shared tiebreak helpers — every step returns a sorted copy or null (unresolved)
+function tbH2H(ids, ctx){        // mini round-robin record among the tied (sweep separates)
+  const w={}; ids.forEach(a=>{ w[a]=0; ids.forEach(b=>{ if(a!==b&&ctx.beat[a].has(b)) w[a]++; }); });
+  const s=[...ids].sort((a,b)=>w[b]-w[a]);
+  return w[s[0]]!==w[s[s.length-1]] ? s : null;
+}
+function tbOppWpct(ids, ctx){    // opponents' cumulative conference win%
+  const v={}; ids.forEach(t=>{ let s2=0,n=0; ctx.sched[t].forEach(o=>{ s2+=ctx.wpct(o); n++; }); v[t]=n?s2/n:0; });
+  const s=[...ids].sort((a,b)=>v[b]-v[a]);
+  return Math.abs(v[s[0]]-v[s[s.length-1]])>1e-9 ? s : null;
+}
+function tbCommonOpps(ids, ctx){ // record vs opponents common to ALL tied teams
+  let common=null;
+  ids.forEach(t=>{ const o=new Set([...ctx.sched[t]].filter(x=>!ids.includes(x)));
+    common=common?new Set([...common].filter(x=>o.has(x))):o; });
+  if(!common||!common.size) return null;
+  const v={}; ids.forEach(t=>{ let w=0,n=0; common.forEach(o=>{ n++; if(ctx.beat[t].has(o)) w++; }); v[t]=n?w/n:0; });
+  const s=[...ids].sort((a,b)=>v[b]-v[a]);
+  return Math.abs(v[s[0]]-v[s[s.length-1]])>1e-9 ? s : null;
+}
+function tbRating(ids, ctx){     // the documented analytic/CFP proxy — always resolves
+  return [...ids].sort((a,b)=>(ctx.rating[b]||-9)-(ctx.rating[a]||-9));
+}
+// per-league chains (two-team and multi-team collapse to the same helper sequence; the
+// league-specific margin/total-wins steps that need scores fall through to the proxy in
+// simulated seasons — disclosed in methodology)
+const CONF_CHAINS={
+  "SEC":[["head-to-head",tbH2H],["common opponents",tbCommonOpps],["opponents' conference win%",tbOppWpct],["rating proxy (capped-margin step)",tbRating]],
+  "Big Ten":[["head-to-head",tbH2H],["common opponents",tbCommonOpps],["opponents' conference win% (step 4)",tbOppWpct],["rating proxy (TRS step)",tbRating]],
+  "Big 12":[["head-to-head",tbH2H],["common opponents",tbCommonOpps],["opponents' conference win%",tbOppWpct],["rating proxy (total-wins/TRS steps)",tbRating]],
+  "ACC":[["head-to-head",tbH2H],["rating proxy (Team Success Ranking)",tbRating]],
+  "American Athletic":[["head-to-head",tbH2H],["rating proxy (composite step)",tbRating],["common opponents",tbCommonOpps]],
+  "Conference USA":[["head-to-head",tbH2H],["rating proxy (provisional post-H2H)",tbRating]],
+  "Mid-American":[["head-to-head",tbH2H],["common opponents",tbCommonOpps],["opponents' conference win%",tbOppWpct],["rating proxy (TRS)",tbRating]],
+  "Mountain West":[["head-to-head",tbH2H],["rating proxy (composite)",tbRating]],
+  "Pac-12":[["head-to-head (provisional)",tbH2H],["rating proxy (provisional)",tbRating]],
+  "Sun Belt":[["head-to-head",tbH2H],["divisional win%",tbOppWpct],["rating proxy (composite steps)",tbRating]],
+};
+function breakTie(conf, ids, ctx, decided){
+  if(ids.length===1) return ids;
+  for(const [name,fn] of (CONF_CHAINS[conf]||CONF_CHAINS["Big Ten"])){
+    const r=fn(ids, ctx);
+    if(r){ r.forEach(t=>decided[t]=`${shortConf(conf)}: ${name}`);
+      // partially separated groups recurse on remaining internal ties
+      return r; }
+  }
+  return tbRating(ids, ctx);
+}
+function confQualify(conf, ids, ctx){
+  // ACC column-tie definition (Jul 15 2026): teams tied on the WIN column or the LOSS
+  // column group together even with different win% (7-1 ties 8-1); elsewhere pure win%.
+  const decided={};
+  let pool=ids.filter(id=>!(conf==="Mountain West"&&MW_INELIGIBLE.has((teamMeta[id]||{}).school)));
+  if(conf==="Sun Belt"){
+    const div=d=>pool.filter(id=>ctx.division[id]===d);
+    const champ=d=>{ const g=div(d).sort((a,b)=>ctx.wpct(b)-ctx.wpct(a));
+      const top=g.filter(t=>Math.abs(ctx.wpct(t)-ctx.wpct(g[0]))<1e-9);
+      return breakTie(conf, top, ctx, decided)[0]; };
+    const e=champ("E"), w=champ("W");
+    // host = division champ with higher conference win%
+    const pair=ctx.wpct(e)>=ctx.wpct(w)?[e,w]:[w,e];
+    return {pair, decided};
+  }
+  const groupKey = conf==="ACC"
+    ? id=>null   // handled below
+    : id=>ctx.wpct(id).toFixed(6);
+  let ordered;
+  if(conf==="ACC"){
+    ordered=[...pool].sort((a,b)=>ctx.wpct(b)-ctx.wpct(a));
+    // group by column ties around the top-2 boundary
+    const tiedWith=(x,y)=>{ const rx=ctx.rec[x], ry=ctx.rec[y];
+      return (rx.w===ry.w&&rx.l===ry.l)||rx.w===ry.w||rx.l===ry.l; };
+    const out=[];
+    let rest=[...ordered];
+    while(rest.length){
+      const head=rest[0];
+      const grp=rest.filter(t=>tiedWith(head,t));
+      const brk=grp.length>1?breakTie(conf, grp, ctx, decided):grp;
+      out.push(...brk);
+      rest=rest.filter(t=>!grp.includes(t));
+    }
+    return {pair:[out[0], out[1]], decided};
+  }
+  // generic: order by win%, break tied groups
+  const byPct={};
+  pool.forEach(id=>{ const k=groupKey(id); (byPct[k]=byPct[k]||[]).push(id); });
+  ordered=[];
+  Object.keys(byPct).sort((a,b)=>Number(b)-Number(a)).forEach(k=>{
+    ordered.push(...(byPct[k].length>1?breakTie(conf, byPct[k], ctx, decided):byPct[k]));
+  });
+  return {pair:[ordered[0], ordered[1]], decided};
+}
+
+function simCompute(picks, fcsDraw, ccgDraw){
   const rec={}; sim.fbs.forEach(id=>rec[id]={w:0,l:0,cw:0,cl:0});
   const h2h={};        // winner -> Set(losers beaten)
   const tg={};         // team -> {opp: wonBool}  (for common-opponents tiebreak)
   sim.games.forEach(g=>{ const w=picks[g.id]; if(!w) return;
     const h=String(g.home_team_id), a=String(g.away_team_id);
     const loser = (String(w)===h)?a:h;
-    const cg = sim.conf[h] && sim.conf[h]===sim.conf[a];
+    const cg = g.conference_game!==false && sim.conf[h] && sim.conf[h]===sim.conf[a];   // 3a: flex/dual games excluded
     if(rec[w]){ rec[w].w++; if(cg) rec[w].cw++; (h2h[w]=h2h[w]||new Set()).add(loser); }
     if(rec[loser]){ rec[loser].l++; if(cg) rec[loser].cl++; }
     (tg[w]=tg[w]||{})[loser]=true; (tg[loser]=tg[loser]||{})[w]=false;
@@ -3027,11 +3151,30 @@ function simCompute(picks, fcsDraw){
   // conference standings + champions (real conferences only). SIM2 needs the FULL order per
   // conference (the top two meet in the title game), so keep each sorted list. Tiebreak:
   // conference record, overall record, head-to-head, then common opponents.
+  // Batch 9 3a: REAL qualification (per-league official tiebreaks) + the CCG as a GAME.
+  // Champion = CCG winner. User-pickable via the virtual pick id "ccg|<conference>".
   const byConf={}; sim.fbs.forEach(id=>{ const c=sim.conf[id]; (byConf[c]=byConf[c]||[]).push(id); });
-  const confSorted={}, champions=[];
+  const ctx=confEngineCtx(picks);
+  const confSorted={}, champions=[], ccg={};
   Object.entries(byConf).forEach(([c,ids])=>{ if(ids.length<REAL_CONF_MIN) return;
-    ids.sort((x,y)=>cpct(y)-cpct(x)||wpct(y)-wpct(x)||((h2h[y]&&h2h[y].has(x))?1:(h2h[x]&&h2h[x].has(y))?-1:0)||commonEdge(x,y));
-    confSorted[c]=ids; champions.push(ids[0]); });
+    ids.sort((x,y)=>ctx.wpct(y)-ctx.wpct(x)||wpct(y)-wpct(x));
+    confSorted[c]=ids;
+    const q=confQualify(c, ids, ctx);
+    const [t1,t2]=q.pair;
+    if(!t1||!t2){ champions.push(ids[0]); return; }
+    const ccgId="ccg|"+c;
+    const venue=CCG_NEUTRAL.has(c)?"neutral":"home";   // campus leagues: No. 1 seed hosts
+    let w;
+    if(picks[ccgId]===String(t1)||picks[ccgId]===String(t2)) w=String(picks[ccgId]);
+    else if(ccgDraw) w=ccgDraw(t1,t2,venue);
+    else w = simPair(t1,t2,venue)>=0.5?String(t1):String(t2);
+    const lsr = w===String(t1)?String(t2):String(t1);
+    if(rec[w]) rec[w].w++;
+    if(rec[lsr]) rec[lsr].l++;
+    ccg[c]={pair:[String(t1),String(t2)], decided:q.decided, winner:w,
+      flag:CONF_FLAGS[c]||null};
+    champions.push(w);
+  });
   const champSet=new Set(champions);
   // resume metric: Strength of Record (falls back to win% if predictions/winprob are off)
   const sor={}; sim.fbs.forEach(id=>{ const s=simSOR(id, rec[id].w); sor[id]=(s==null?wpct(id):s); });
@@ -3060,12 +3203,17 @@ function simCompute(picks, fcsDraw){
   const missing=guaranteed.filter(id=>!inTop.has(id));
   let field;
   if(!missing.length){ field=top12.slice(); }
-  else { // bump the lowest-SOR non-guaranteed teams; slot the missing auto-bids at the bottom (#12, #11…)
+  else {
     const drop=new Set(top12.filter(id=>!guarSet.has(id)).sort(cmp).slice(-missing.length));
-    const kept=top12.filter(id=>!drop.has(id)).sort(cmp);
-    field=[...kept, ...missing.slice().sort(cmp)].slice(0,12);
+    field=[...top12.filter(id=>!drop.has(id)), ...missing];
   }
-  return {rec, wpct, cpct, sor, cmp, rank:cmp, champions, champSorted:champions.slice().sort(cmp), field, byConf, confSorted, bumped:new Set(missing)};
+  // Batch 9 3a CFP re-check: STRAIGHT SEEDING — everyone seeds by ranking (champions are
+  // NOT bumped upward); only an auto-qualifier ranked outside the top 25 seeds at the bottom.
+  const rankIdx=id=>allRanked.indexOf(id);
+  field.sort((a,b)=>{ const aOut=guarSet.has(a)&&rankIdx(a)>=25, bOut=guarSet.has(b)&&rankIdx(b)>=25;
+    if(aOut!==bOut) return aOut?1:-1; return cmp(a,b); });
+  field=field.slice(0,12);
+  return {rec, wpct, cpct, sor, cmp, rank:cmp, champions, champSorted:champions.slice().sort(cmp), field, byConf, confSorted, ccg, bumped:new Set(missing)};
 }
 function simRecord(id, r){ return `${r.rec[id].w}–${r.rec[id].l}`; }
 function renderSim(){
@@ -3157,8 +3305,21 @@ async function ccgSheet(conf){
   const draw=()=>{
     const eff=simEffective(), c=simCompute(eff);
     const ids=c.confSorted[conf]||[];
-    const t1=ids[0], t2=ids[1];
-    let html=`<div class="strec">Projected title game: <b>${esc(nm(t1))}</b> vs <b>${esc(nm(t2))}</b></div>`;
+    const cg=c.ccg&&c.ccg[conf];
+    const t1=cg?cg.pair[0]:ids[0], t2=cg?cg.pair[1]:ids[1];
+    // Batch 9 3a: the REAL qualification — pair, the tiebreak step that decided it, and
+    // the title game itself as a pickable game (champion = winner)
+    let html=`<div class="strec">Title game: <b>${esc(nm(t1))}</b> vs <b>${esc(nm(t2))}</b>${cg?` — champion: <b>${esc(nm(cg.winner))}</b>`:""}</div>`;
+    if(cg){
+      const steps=[...new Set(Object.values(cg.decided||{}))];
+      if(steps.length) html+=`<div class="ha" style="padding:0 2px 4px">Qualification decided by: ${steps.map(esc).join(" · ")}</div>`;
+      if(cg.flag) html+=`<div class="ha" style="padding:0 2px 4px;color:#E8B657">Provisional: ${esc(cg.flag)} — re-checked when the league publishes.</div>`;
+      const ccgId="ccg|"+conf;
+      html+=`<div class="stgame"><div class="stopp"><div><div class="on">Championship game${CCG_NEUTRAL.has(conf)?" (neutral site)":" (No. 1 seed hosts)"}</div>
+        <div class="ha">${sim.userPicks[ccgId]?"your pick":"model favorite wins"}</div></div></div>
+        <div class="stbtns"><button class="stb ${cg.winner===cg.pair[0]?"w":""}" data-ccgpick="${cg.pair[0]}" data-ccgconf="${esc(conf)}">${esc(monogram(nm(cg.pair[0])))}</button>
+        <button class="stb ${cg.winner===cg.pair[1]?"w":""}" data-ccgpick="${cg.pair[1]}" data-ccgconf="${esc(conf)}">${esc(monogram(nm(cg.pair[1])))}</button></div></div>`;
+    }
     // B2 (scenario_sandbox lane): optional Monte-Carlo odds for this race, gated like
     // every other RUN. Fresh run = conf-title odds beside each contender.
     if(SHOW_PREDICTIONS){
@@ -3197,6 +3358,9 @@ async function ccgSheet(conf){
       if(!(await simResultsGate("Conference what-ifs",
         "Flipping outcomes is free to try — watching the title game and CFP seeds SHIFT with them is Hashmark+. Free while we're in preview."))) return;
       sim.userPicks[b.dataset.cg]=b.dataset.cpick; draw(); });
+    document.querySelectorAll("#ccgsheet [data-ccgpick]").forEach(b=>b.onclick=async()=>{
+      if(!(await simResultsGate())) return;
+      sim.userPicks["ccg|"+b.dataset.ccgconf]=b.dataset.ccgpick; draw(); });
     document.querySelectorAll("#ccgsheet [data-simteam]").forEach(r=>r.onclick=()=>{ ov.remove(); simTeamSheet(r.dataset.simteam); });
     const cr=document.getElementById("ccgrun");
     if(cr) cr.onclick=async()=>{
@@ -3319,7 +3483,7 @@ function simMonteCarlo(N, onDone, onProgress){
     for(; s<end; s++){
       const picks=Object.assign({}, fixed);
       open.forEach(g=>{ picks[g.id]= Math.random()<simPHome(g.home_team_id,g.away_team_id,g.neutral_site)?String(g.home_team_id):String(g.away_team_id); });
-      const r=simCompute(picks, g=>Math.random()<g.p);   // B1: FCS drawn at the base rate
+      const r=simCompute(picks, g=>Math.random()<g.p, (a,b,v)=>Math.random()<simPair(a,b,v)?String(a):String(b));   // FCS + CCGs drawn
       r.field.forEach((id,i)=>{ tally[id].po++; tally[id].seeds[i+1]=(tally[id].seeds[i+1]||0)+1; });
       if(r.field.length>=12){   // P4: first-round pairings (5v12, 6v11, 7v10, 8v9)
         [[4,11],[5,10],[6,9],[7,8]].forEach(([x,y])=>{ const A=r.field[x],B=r.field[y];
