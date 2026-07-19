@@ -26,7 +26,16 @@ PWA_HEAD = '''<title>Hashmark — College Football Stats & Analytics</title>
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Hashmark" />'''
+<meta name="apple-mobile-web-app-title" content="Hashmark" />
+<!-- SEO/OG (batch 6 C1) -->
+<link rel="canonical" href="https://hash-mark.com/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Hashmark" />
+<meta property="og:title" content="Hashmark — Gambling-free college football analytics" />
+<meta property="og:description" content="Official stats, a model that shows its work, and tools built for fans — the Playoff simulator, signature stats, live win probability, and your team first. Independent and gambling-free." />
+<meta property="og:url" content="https://hash-mark.com/" />
+<meta property="og:image" content="https://hash-mark.com/icons/icon-512.png" />
+<meta name="twitter:card" content="summary" />'''
 
 SW_SCRIPT = '''
 <script>

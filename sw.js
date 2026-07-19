@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v32";   // v32: UX batch 5 - injury updates view, 4 new home tiles, sim results paywall, board/hub teasers (owner pivot), compare button removed, 25-story bar
+const VERSION = "hashmark-v33";   // v33: batch 6 - landing page, probability-first field (Iowa fix), 12-game FCS records, trimmed-mean conf strength, dynamic stat season, 2025 tab cleanup
 const SHELL = [
   "./",
   "./index.html",
