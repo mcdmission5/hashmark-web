@@ -631,6 +631,17 @@
   /* visuals core (V1-V5) */
   .wfall,.quad{width:100%;height:auto;display:block;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin:6px 0}
+  /* batch 8 #1: headlines lead — weight/size hierarchy, tight meta line */
+  .boxrow .bk a{font-size:14px;font-weight:700;line-height:1.35;display:-webkit-box;
+    -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .boxrow .bva small,.boxrow .bvb small{font-size:9.5px;color:var(--text3);font-weight:600;
+    text-transform:uppercase;letter-spacing:.03em}
+  #previewpill{position:fixed;left:10px;bottom:86px;z-index:60;background:var(--surface);
+    border:1px solid var(--line2);border-radius:999px;padding:5px 10px;font-size:10px;
+    font-weight:700;color:var(--text2);display:flex;align-items:center;gap:6px;opacity:.92}
+  .skel{background:linear-gradient(100deg,var(--surface) 40%,rgba(148,163,184,.12) 50%,var(--surface) 60%);
+    background-size:200% 100%;animation:skel 1.1s infinite;border-radius:11px;margin:8px 2px}
+  @keyframes skel{to{background-position:-200% 0}}
   .newsstrip{display:flex;align-items:center;gap:8px;background:var(--surface);
     border:1px solid var(--line);border-radius:999px;padding:7px 12px;margin:2px 2px 8px;min-height:38px}
   .nsline{flex:1;min-width:0;font-size:12px;color:var(--text);text-decoration:none;
@@ -1004,7 +1015,7 @@
 <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v6h14v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
 <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 8h13m0 0-4-4m4 4-4 4M17 16H4m0 0 4 4m-4-4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-vs" viewBox="0 0 24 24"><path d="M5 5l6 6M19 5l-6 6M5 19l14-14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 19l4-1-3-3z" fill="currentColor" stroke="currentColor" stroke-width="1"/></symbol>
+<symbol id="i-vs" viewBox="0 0 24 24"><path d="M5.5 18.5 17 7m0 0v3.4M17 7h-3.4M18.5 18.5 7 7m0 0v3.4M7 7h3.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1" fill="currentColor"/></symbol>
 <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6m0 0-5 5m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -1963,29 +1974,43 @@ function renderLeaderboard(){
   injectYourTeam();
   injectHomeTiles();
 }
+// Batch 8 #5: ONE tile config renders both the home feature row and the Explore grid
+// (Explore additionally appends Methodology, Checking Our Work, Notifications + About).
+const FEATURE_TILES=[
+  ["modelhub","target","Hashmark Model","amber",false,"Quadrant, Luck Ledger, Gauntlet, playoff odds and more — one hub.",()=>openModelHub()],
+  ["sim","trophy","Playoff Simulator",null,true,"Pick winners, watch the bracket rebuild.",()=>gatedSimulator()],
+  ["standings","list","Standings + SoS",null,false,"Every conference, schedule strength.",()=>openStandings()],
+  ["matchup","vs","Matchup Lab",null,false,"Any two teams, head to head.",()=>openMatchup()],
+  ["nil","flame","NIL Economy",null,true,"Estimated spend tiers, attributed.",()=>openNILEconomy()],
+  ["rankings","trophy","Rankings",null,false,"AP Top 25 + preseason consensus.",()=>openPreseason()],
+  ["signature","flame","Signature Stats",null,true,"The Collapse Index and friends — tracked calls.",()=>openSignature()],
+  ["stats","chart","General Stats",null,false,"Explorer + leaderboards, every category.",()=>openStats()],
+  ["injuries","bell","Injury Updates",null,false,"Availability reports + injury headlines, attributed.",()=>openInjuries()],
+  ["aateam","star","Preseason All-Americans",null,false,"The AA team + preseason polls.",()=>openPreseason()],
+  ["whatwins","target","What wins games",null,true,"What wins today vs what repeats next season.",()=>openWhatWins()],
+  ["movers","trend","Weekly Movers",null,false,"Who rose, who fell — updated Sundays.",()=>openMovers()],
+];
+const EXPLORE_EXTRA=[
+  ["method","info","Methodology",null,false,"How the numbers get made.",()=>openMethodology()],
+  ["accuracy","check","Checking Our Work","amber",false,"Every call logged before kickoff. Misses stay up.",()=>openCheckingWork()],
+  ["notify","bell","Notifications",null,false,"Picks reminders and results.",()=>openNotifyPrefs()],
+  ["about","info","About Hashmark",null,false,"What this is, and what Hashmark+ gets you.",()=>openLanding()],
+];
+function tileHTML([key,ic,title,color,chip,desc]){
+  return `<div class="xcard" data-tile="${key}"><svg class="ic"><use href="#i-${ic}"/></svg>
+    <h4${color?` style="color:var(--${color})"`:""}>${title}${chip?` <span class="chip-plus" style="display:inline-flex">HASHMARK+</span>`:""}</h4><p>${desc}</p></div>`;
+}
+function wireTiles(host, tiles){
+  const GO=Object.fromEntries(tiles.map(t=>[t[0], t[6]]));
+  host.querySelectorAll("[data-tile]").forEach(el=>el.onclick=()=>GO[el.dataset.tile]());
+}
 // UX batch 4 #7: the Explore feature tiles surfaced on home, right under the news block
 // (with the consolidated Hashmark Model tile up front).
 function injectHomeTiles(){
   const host=document.getElementById("home-tiles");
   if(!host) return;
-  host.innerHTML=`<div class="xgrid" style="padding:2px 2px 8px">
-    <div class="xcard" data-ht="modelhub"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--amber)">Hashmark Model</h4><p>Quadrant, Luck Ledger, Gauntlet, playoff odds and more — one hub.</p></div>
-    <div class="xcard" data-ht="sim"><svg class="ic"><use href="#i-trophy"/></svg><h4>Playoff Simulator <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Pick winners, watch the bracket rebuild.</p></div>
-    <div class="xcard" data-ht="standings"><svg class="ic"><use href="#i-list"/></svg><h4>Standings + SoS</h4><p>Every conference, schedule strength.</p></div>
-    <div class="xcard" data-ht="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
-    <div class="xcard" data-ht="nil"><svg class="ic"><use href="#i-flame"/></svg><h4>NIL Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Estimated spend tiers, attributed.</p></div>
-    <div class="xcard" data-ht="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 + preseason consensus.</p></div>
-    <div class="xcard" data-ht="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and friends — tracked calls.</p></div>
-    <div class="xcard" data-ht="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>General Stats</h4><p>Explorer + leaderboards, every category.</p></div>
-    <div class="xcard" data-ht="injuries"><svg class="ic"><use href="#i-bell"/></svg><h4>Injury Updates</h4><p>Availability reports + injury headlines, attributed.</p></div>
-    <div class="xcard" data-ht="aateam"><svg class="ic"><use href="#i-star"/></svg><h4>Preseason All-Americans</h4><p>The AA team + preseason polls.</p></div>
-    <div class="xcard" data-ht="whatwins"><svg class="ic"><use href="#i-target"/></svg><h4>What wins games <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>What wins today vs what repeats next season.</p></div>
-  </div>`;
-  const GO={modelhub:()=>openModelHub(), sim:()=>gatedSimulator(), standings:()=>openStandings(),
-    matchup:()=>openMatchup(), nil:()=>openNILEconomy(), rankings:()=>openPreseason(),
-    signature:()=>openSignature(), stats:()=>openStats(), injuries:()=>openInjuries(),
-    aateam:()=>openPreseason(), whatwins:()=>openWhatWins()};
-  host.querySelectorAll("[data-ht]").forEach(el=>el.onclick=()=>GO[el.dataset.ht]());
+  host.innerHTML=`<div class="xgrid" style="padding:2px 2px 8px">${FEATURE_TILES.map(tileHTML).join("")}</div>`;
+  wireTiles(host, FEATURE_TILES);
 }
 
 function wireToggle(){
@@ -4825,6 +4850,9 @@ wireToggle=function(){
 };
 
 initAuth();
+if(typeof PREVIEW_UNLOCK!=="undefined" && PREVIEW_UNLOCK){   // batch 8 #4: full-view preview
+  _boardsOpen=true; _hubOK=true; _matchupOpen=true; _wwOpen=true; _simResultsOK=true;
+}
 loadSeasonPhase().then(()=>{ landingDue() ? openLanding() : load(); });   // C1 boot seam + A5 labels
 </script>
 
@@ -4876,7 +4904,19 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   matchup_full:true,          // batch 7 #4: first 2 matchup stats free, rest gated
   whatwins_full:true };       // batch 7 #5 owner pivot: headline free, full board gated       // P5: gated with the NIL lane (conference teaser free)
 const SIM_RUNS_KEY = "hm_sim_runs";   // legacy counter (batch 5 removed the 1-free-run)
+// Batch 8 #4 (temporary, owner preview): ALL Hashmark+ gates pass through silently —
+// no upsell modal — with a small "preview" pill marking what will be paid. Every seam
+// stays intact; flip to false at payments and gating restores exactly.
+const PREVIEW_UNLOCK = true;
+function showPreviewPill(){
+  if(!PREVIEW_UNLOCK) return;
+  let p=document.getElementById("previewpill");
+  if(!p){ p=document.createElement("div"); p.id="previewpill";
+    p.innerHTML=`<span class="chip-plus" style="display:inline-flex">HASHMARK+</span> preview`;
+    document.body.appendChild(p); }
+}
 function plusUpsell(title, body){
+  if(PREVIEW_UNLOCK){ showPreviewPill(); return Promise.resolve(true); }
   const el=document.createElement("div");
   el.className="omni show"; el.style.justifyContent="center";
   el.innerHTML=`<div class="card card-hero-amber" style="max-width:420px;margin:0 auto;padding:18px">
@@ -5902,20 +5942,7 @@ async function openExplore(){
     <div class="eyebrow">The toy</div>
     <h2 style="margin:4px 0 2px;font-size:20px">Playoff Simulator <span class="chip-plus" style="display:inline-flex;vertical-align:3px">HASHMARK+</span></h2>
     <p style="margin:0;color:var(--text2);font-size:12px">Pick winners, watch title chances rebuild — 1,000 Monte-Carlo seasons of your bracket.</p></div>
-  <div class="xgrid" style="padding:0 2px">
-    <div class="xcard" data-x="modelhub" style="grid-column:1/-1"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--amber)">Hashmark Model</h4><p>The Power Quadrant, Luck Ledger, Schedule Gauntlet, playoff odds, player rankings and every other model view — one hub, live previews inside.</p></div>
-    <div class="xcard" data-x="nil"><svg class="ic"><use href="#i-flame"/></svg><h4 style="color:var(--amber)">NIL Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Estimated spend tiers, attributed — and who beats their tier.</p></div>
-    <div class="xcard" data-x="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>Leaderboards <span class="chip-plus">HASHMARK+</span></h4><p>Team & player stat leaders, every category.</p></div>
-    <div class="xcard" data-x="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head — official stats.</p></div>
-    <div class="xcard" data-x="standings"><svg class="ic"><use href="#i-list"/></svg><h4>Standings + SoS</h4><p>Every conference, schedule strength.</p></div>
-    <div class="xcard" data-x="movers"><svg class="ic"><use href="#i-trend"/></svg><h4>Weekly Movers</h4><p>Who rose, who fell — updated Sundays.</p></div>
-    <div class="xcard" data-x="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 and season boards.</p></div>
-    <div class="xcard" data-x="accuracy"><svg class="ic"><use href="#i-check"/></svg><h4 style="color:var(--amber)">Checking Our Work</h4><p>Every call logged before kickoff. Misses stay up.</p></div>
-    <div class="xcard" data-x="method"><svg class="ic"><use href="#i-info"/></svg><h4>Methodology</h4><p>How the numbers get made.</p></div>
-    <div class="xcard" data-x="about"><svg class="ic"><use href="#i-info"/></svg><h4>About Hashmark</h4><p>What this is, and what Hashmark+ gets you.</p></div>
-    <div class="xcard dashed" id="xask"><svg class="ic" style="color:var(--text3)"><use href="#i-chat"/></svg><h4>AI Analyst Chat</h4><p>Coming to this search box. Ask anything, get sourced answers.</p></div>
-    <div class="xcard" data-x="notify"><svg class="ic"><use href="#i-bell"/></svg><h4>Notifications</h4><p>Picks reminders and results.</p></div>
-  </div>
+  <div class="xgrid" style="padding:0 2px" id="xtiles"></div>
   <div class="card" style="margin:12px 2px;padding:14px" id="foundcard">
     <div class="eyebrow">Founding member</div>
     <p style="margin:6px 0 8px;font-size:12px;color:var(--text2)">Hashmark stays free. A supporter tier is coming — first 500 get a locked-for-life rate. No payment now, just a heads-up when it opens.</p>
@@ -5926,15 +5953,11 @@ async function openExplore(){
   app.innerHTML=h;
   document.getElementById("xsim").onclick=()=>gatedSimulator();
   document.getElementById("xsearch").onclick=openOmni;
-  const GO={stats:()=>openStats(),matchup:()=>openMatchup(),standings:()=>openStandings(),
-    movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),
-    notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature(),
-    whatwins:()=>openWhatWins(), playerrank:()=>openPlayerRankings(),
-    modelhub:()=>openModelHub(),
-    about:()=>openLanding(),
-    nil:()=>openNILEconomy()};
-  document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
-  document.getElementById("xask").onclick=openOmni;
+  // batch 8 #5: same tiles as home, plus the Explore-only quartet
+  const xt=document.getElementById("xtiles");
+  const allTiles=[...FEATURE_TILES, ...EXPLORE_EXTRA];
+  xt.innerHTML=allTiles.map(tileHTML).join("");
+  wireTiles(xt, allTiles);
   document.getElementById("foundgo").onclick=async()=>{
     const em=document.getElementById("foundemail").value.trim(), msg=document.getElementById("foundmsg");
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ msg.textContent="That email doesn't look right."; return; }
