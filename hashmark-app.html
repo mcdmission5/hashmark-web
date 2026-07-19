@@ -648,6 +648,9 @@
   .wallnm{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wallcells{display:flex;gap:2px} .wallcells i{flex:1;height:14px;border-radius:3px}
   /* NIL economy + premium depth */
+  .teaserow{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;
+    background:var(--surface);border:1px dashed var(--line2);border-radius:11px;margin:6px 0;
+    font-size:12px;font-weight:700;color:var(--text2);cursor:pointer}
   .hubrow{display:flex;align-items:center;gap:11px;padding:11px 12px;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;margin-bottom:6px;cursor:pointer}
   .hubmeta{flex:1;min-width:0} .hubmeta b{font-size:13.5px}
@@ -1044,6 +1047,7 @@ async function loadSeasonPhase(){
 let view = String(SEASON_SCHED);   // land on the CURRENT/upcoming season (brief #5)
 let boardMode = "overall";   // 2026 leaderboard: overall | offense | defense
 let confFilter = null;        // null = all FBS, else a conference name
+let _boardsOpen = false;      // batch 5 #3 owner pivot: home boards tease until upsell accepted
 
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const f3 = n => (n>=0?"+":"") + Number(n).toFixed(3);
@@ -1438,8 +1442,10 @@ function header(){
 // shared top of the scrolling list: the Compare CTA (live) or a preview banner (ratings hidden),
 // then a Scores & schedule entry (official — available in both modes).
 function listTop(hint){
+  // batch 5 #4: the home "Compare two teams" button is gone (Compare stays reachable
+  // from team pages only — an intentional entry point)
   const top = SHOW_HASHMARK_RATINGS
-    ? `<div class="cmpcta" id="cmpcta"><span class="ar"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg></span>Compare two teams — projected matchup</div>`
+    ? ``
     : `<div class="previewbar"><span class="pb-badge">PREVIEW</span>Deep <b>official stats &amp; analytics</b> for every FBS team — Hashmark's own ratings are coming soon.</div>`;
   return `<div class="list">${top}
     <div class="searchwrap"><span class="si"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></span>
@@ -1915,8 +1921,10 @@ function renderLeaderboard(){
       <div class="csub">average <b>${mode.short.toLowerCase()}</b> rating across its ${cs.n} FBS teams · tap a team for its full breakdown</div></div>`;
   } else {
     // conference-strength comparison (tap a row to filter)
+    // batch 5 #3 (owner pivot): top 2 conferences free; the rest behind Hashmark+
     h += `<div class="cstr"><div class="cstrtitle">Conference strength · avg ${mode.short.toLowerCase()} rating</div>`;
-    RANKABLE.forEach((c,i)=>{
+    const confShow = _boardsOpen ? RANKABLE : RANKABLE.slice(0,2);
+    confShow.forEach((c,i)=>{
       const w = Math.abs(c.avg)/cmax*100, neg = c.avg<0;
       h += `<div class="cstrrow" data-conf="${esc(c.conf)}">
         <div class="ci">${i+1}</div>
@@ -1924,6 +1932,8 @@ function renderLeaderboard(){
         <div class="cbar"><i class="${neg?"neg":""}" style="width:${w}%;${neg?"":"background:"+mode.accent}"></i></div>
         <div class="cvv">${f3(c.avg)}</div></div>`;
     });
+    if(!_boardsOpen && RANKABLE.length>2)
+      h += `<div class="teaserow" data-boardup="conf">See all ${RANKABLE.length} conferences <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`;
     h += `</div>`;
   }
 
@@ -1931,11 +1941,15 @@ function renderLeaderboard(){
   const teamRows = (confFilter ? rows.filter(r=>(r.t.conference||"Independent")===confFilter) : rows)
     .sort((a,b)=>val(b)-val(a));
   h += `<div class="cstrtitle" style="margin-top:8px">${confFilter?esc(confFilter)+" — by "+mode.short.toLowerCase():"Best "+(boardMode==="overall"?"teams":mode.noun+"s")} · 2026</div>`;
-  teamRows.forEach(r=>{
+  // batch 5 #3 (owner pivot): top 3 teams free; the full board behind Hashmark+
+  const teamShow = _boardsOpen ? teamRows : teamRows.slice(0,3);
+  teamShow.forEach(r=>{
     const rk = rankOf[r.team_id];
     const main = `<div class="rval" style="border-color:${mode.accent}" data-tip="${esc(mode.tip(r,rk,n))}">${f3(val(r))}</div><div class="rlbl">${mode.lbl}</div>`;
     h += rowHTML(rk-1, r.t, main, r.team_id);
   });
+  if(!_boardsOpen && teamRows.length>3)
+    h += `<div class="teaserow" data-boardup="teams">See all ${teamRows.length} teams, ranked <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`;
   h += `</div><div class="note"><b>${SEASON_SCHED} Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings — a validated blend of finishing (points per drive), success rate and efficiency, with each unit's coordinator track record folded in where the staff changed. Conference strength is the simple average of a league's member teams. Free to browse. Early-offseason data is thin, so it leans on ${SEASON_RESULTS} results and will sharpen through the summer. ${BRAND_LINE}</div>`;
   h += `<div id="cs-teasers"></div>`;
   app.innerHTML = h; wireToggle();
@@ -1955,9 +1969,15 @@ function injectHomeTiles(){
     <div class="xcard" data-ht="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
     <div class="xcard" data-ht="nil"><svg class="ic"><use href="#i-flame"/></svg><h4>NIL Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Estimated spend tiers, attributed.</p></div>
     <div class="xcard" data-ht="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 + preseason consensus.</p></div>
+    <div class="xcard" data-ht="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and friends — tracked calls.</p></div>
+    <div class="xcard" data-ht="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>General Stats</h4><p>Explorer + leaderboards, every category.</p></div>
+    <div class="xcard" data-ht="injuries"><svg class="ic"><use href="#i-bell"/></svg><h4>Injury Updates</h4><p>Availability reports + injury headlines, attributed.</p></div>
+    <div class="xcard" data-ht="aateam"><svg class="ic"><use href="#i-star"/></svg><h4>Preseason All-Americans</h4><p>The AA team + preseason polls.</p></div>
   </div>`;
   const GO={modelhub:()=>openModelHub(), sim:()=>gatedSimulator(), standings:()=>openStandings(),
-    matchup:()=>openMatchup(), nil:()=>openNILEconomy(), rankings:()=>openPreseason()};
+    matchup:()=>openMatchup(), nil:()=>openNILEconomy(), rankings:()=>openPreseason(),
+    signature:()=>openSignature(), stats:()=>openStats(), injuries:()=>openInjuries(),
+    aateam:()=>openPreseason()};
   host.querySelectorAll("[data-ht]").forEach(el=>el.onclick=()=>GO[el.dataset.ht]());
 }
 
@@ -1965,8 +1985,6 @@ function wireToggle(){
   document.querySelectorAll(".toggle button").forEach(b=>{
     b.onclick = ()=>{ if(b.dataset.v!==view){ view=b.dataset.v; load(); } };
   });
-  const cta=document.getElementById("cmpcta");
-  if(cta) cta.onclick = ()=> openCompare();
   const statsnav=document.getElementById("statsnav"); if(statsnav) statsnav.onclick = ()=> openStats();
   const scoresnav=document.getElementById("scoresnav"); if(scoresnav) scoresnav.onclick = ()=> openScores();
   const standnav=document.getElementById("standnav"); if(standnav) standnav.onclick = ()=> openStandings();
@@ -1980,6 +1998,11 @@ function wireToggle(){
   });
   document.querySelectorAll("[data-conf]").forEach(el=>{
     el.onclick = ()=>{ const c=el.dataset.conf||null; if(confFilter!==c){ confFilter=c; renderLeaderboard(); window.scrollTo(0,0); } };
+  });
+  document.querySelectorAll("[data-boardup]").forEach(el=>el.onclick=async()=>{
+    if(PLUS_GATED.ratings_boards && !(await plusUpsell("The full Hashmark boards",
+      "All 138 teams and every conference, ranked by the Hashmark model — the full boards are a Hashmark+ feature. Free while we're in preview."))) return;
+    _boardsOpen=true; renderLeaderboard();
   });
 }
 
@@ -2318,7 +2341,7 @@ function newsRow(n){
 let _stripT=null;
 async function injectNews(){
   try{
-    const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=10`);
+    const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=25`);   // batch 5 #5: bar rotates the 25 most recent
     if(!items.length) return;
     const host = document.getElementById("cs-newshost");
     let div;
@@ -3009,7 +3032,11 @@ async function ccgSheet(conf){
         <div class="stbtns"><button class="stb ${w===aId?"w":""}" data-cg="${g.id}" data-cpick="${aId}" title="${esc(nm(aId))} wins">${esc(monogram(nm(aId)))}</button>
           <button class="stb ${w===hId?"w":""}" data-cg="${g.id}" data-cpick="${hId}" title="${esc(nm(hId))} wins">${esc(monogram(nm(hId)))}</button></div></div>`; });
     document.getElementById("ccgsheet").innerHTML=html;
-    document.querySelectorAll("#ccgsheet [data-cg]").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.cg]=b.dataset.cpick; draw(); });
+    document.querySelectorAll("#ccgsheet [data-cg]").forEach(b=>b.onclick=async()=>{
+      // batch 5 #2: the seed-shift/what-if REVEAL is the gated moment, not the tap
+      if(!(await simResultsGate("Conference what-ifs",
+        "Flipping outcomes is free to try — watching the title game and CFP seeds SHIFT with them is Hashmark+. Free while we're in preview."))) return;
+      sim.userPicks[b.dataset.cg]=b.dataset.cpick; draw(); });
     document.querySelectorAll("#ccgsheet [data-simteam]").forEach(r=>r.onclick=()=>{ ov.remove(); simTeamSheet(r.dataset.simteam); });
     const cr=document.getElementById("ccgrun");
     if(cr) cr.onclick=async()=>{
@@ -3098,7 +3125,11 @@ function simTeamSheet(teamId){
     };
   };
   draw();
-  const close=()=>{ ov.remove(); renderSim(); if(SHOW_PREDICTIONS&&!sim.lastRun) simAutoOdds(); };
+  // batch 5 #2: picking is free; the RECOMPUTED bracket on close is the gated reveal
+  const openSig=simPicksSig();
+  const close=async()=>{ ov.remove();
+    if(simPicksSig()!==openSig && !(await simResultsGate())) return;
+    renderSim(); if(SHOW_PREDICTIONS&&!sim.lastRun) simAutoOdds(); };
   ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
   document.getElementById("stteampage").onclick=()=>{ ov.remove(); openDetail(+teamId); };
 }
@@ -3134,25 +3165,20 @@ function simMonteCarlo(N, onDone, onProgress){
   }
   batch();
 }
-// B5: the gate counts RUNS, not opens — one shared counter across the global run, the
-// per-team runs and the CCG odds runs. localStorage + profile-synced when signed in.
-// Viewing the bracket (and the auto-run chalk odds) stays free — that's the taste.
-async function simRunGate(){
-  if(!PLUS_GATED.simulator_unlimited) return true;
-  let runs = Number(localStorage.getItem(SIM_RUNS_KEY) || 0);
-  try{ if(typeof authProfile!=="undefined" && authProfile && authProfile.sim_runs!=null)
-    runs = Math.max(runs, Number(authProfile.sim_runs)||0); }catch(e){}
-  if(runs >= 1){
-    const go = await plusUpsell("Run unlimited simulations",
-      "Your first Monte-Carlo run was free. Unlimited runs — full-field odds, per-team odds and conference scenarios — are coming with Hashmark+. Free while we're in preview.");
-    if(!go) return false;
-  }
-  localStorage.setItem(SIM_RUNS_KEY, String(runs + 1));
-  try{ if(typeof authUser!=="undefined" && authUser){
-    authFetch("PATCH",`profiles?id=eq.${authUser.id}`,{sim_runs:runs+1,updated_at:new Date().toISOString()});
-    if(authProfile) authProfile.sim_runs=runs+1; } }catch(e){}
-  return true;
+// UX batch 5 #2: INTERACTING with the simulator is free (open, chalk bracket, pick
+// sheets, making picks) — every RESULTS-OF-CHANGES reveal is HASHMARK+: the recomputed
+// bracket/standings, CCG seed shifts, and all Monte-Carlo runs. No free-run allowance;
+// one soft upsell per session ("continue free during preview") until payments land.
+let _simResultsOK=false;
+async function simResultsGate(title, body){
+  if(!PLUS_GATED.sim_results || _simResultsOK) return true;
+  const go = await plusUpsell(title||"See your scenario play out",
+    body||"Making picks is free — seeing the bracket, standings and odds REBUILD around them is a Hashmark+ feature. Free while we're in preview.");
+  if(go) _simResultsOK=true;
+  return go;
 }
+const simRunGate = ()=> simResultsGate("Run the Monte-Carlo",
+  "Monte-Carlo runs — full-field odds, per-team odds and conference scenarios — are part of Hashmark+. Free while we're in preview.");
 function simOddsPanel(run){
   // Persistent odds panel (B2): survives re-renders; flags itself stale when picks
   // changed after the run instead of silently vanishing.
@@ -4619,6 +4645,7 @@ const NAV_ROUTES={
   gauntletwall:()=>openGauntletWall(),
   nileff:()=>openNILEfficiency(),
   modelhub:()=>openModelHub(),
+  injuries:()=>openInjuries(),
 };
 function navPush(v,p){
   if(_navRestoring) return;
@@ -4659,7 +4686,7 @@ setTimeout(()=>{
  ["openBox","box",(id,team)=>({id,team})],["openPickemBoard","pickemboard"],
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
- ["openModelHub","modelhub"],
+ ["openModelHub","modelhub"],["openInjuries","injuries"],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -4711,7 +4738,9 @@ if ("serviceWorker" in navigator) {
 <script>
 /* ================= v2 shell: tabs, omnibox, explore, movers, live, receipts ================= */
 const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purchasable yet
-  simulator_unlimited:true,   // free taste: view field + ONE full run; upsell at 2nd run
+  sim_results:true,           // batch 5 #2: interact free; ALL results-of-changes reveals gated
+  model_views:true,           // batch 5 #3 owner pivot: hub previews free, full metric views gated
+  ratings_boards:true,        // batch 5 #3 owner pivot: home boards tease top 2 confs / top 3 teams
   ask_unlimited:true,         // free tier: 3 questions/month (edge fn enforces)
   signature_full:true,        // Collapse Index teaser free; full boards Hashmark+
   grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true,
@@ -4723,7 +4752,7 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   matchup_grid:true,           // P1: dial + top-line free; the unit heat grid gated
   player_compare:true,         // P3: cards free; compare-two gated
   roster_economy:true };       // P5: gated with the NIL lane (conference teaser free)
-const SIM_RUNS_KEY = "hm_sim_runs";
+const SIM_RUNS_KEY = "hm_sim_runs";   // legacy counter (batch 5 removed the 1-free-run)
 function plusUpsell(title, body){
   const el=document.createElement("div");
   el.className="omni show"; el.style.justifyContent="center";
@@ -5421,9 +5450,52 @@ async function openMatchupGrid(a,b){
   document.querySelector(".back").onclick=()=>openMatchup(a,b);
 }
 
+/* ---------------- Injury Updates (UX batch 5 #1) ---------------- */
+// Display-only: shadow-scraped availability notes (attributed; thin until the Week 0
+// source re-probe) + injury-tagged news as fallback. NO model implications — the
+// availability shadow-log decision stands. Never medical information.
+async function openInjuries(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading availability reports…</div>`;
+  await ensureTeamMeta();
+  const KW=["injur","surgery","questionable","doubtful","concussion","hamstring","sidelined","carted","out%20indefinitely","season-ending"];
+  const [avail, news]=await Promise.all([
+    api(`availability_report?select=fetch_ts,source,team_id,player,position,status&order=fetch_ts.desc&limit=120`).catch(()=>[]),
+    api(`news_items?select=headline,url,source,published_at,team_tags&or=(${KW.map(k=>`headline.ilike.*${k}*`).join(",")})&order=published_at.desc&limit=40`).catch(()=>[]) ]);
+  let h=`<div class="cmp">${backHeader("Injury updates")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px"><b>Reports from cited sources — not Hashmark medical information.</b> Official availability/injury reports where schools publish them, plus injury-tagged headlines from the news feed. Nothing here feeds the model.</div>`;
+  if(avail.length){
+    h+=`<div class="sec"><div class="sectitle">Official availability reports <small>attributed</small></div>`;
+    let lastTeam=null;
+    avail.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.team_raw||"?"};
+      if(r.team_id!==lastTeam){ lastTeam=r.team_id;
+        h+=`<div class="glseason" style="display:flex;align-items:center;gap:7px">${crestEl("glcr",t.school,hx(t.color))}${esc(t.school)}</div>`; }
+      h+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(r.player||"?")}${r.position?` <small>${esc(r.position)}</small>`:""}</div>
+        <div class="ha">${esc(r.status||"listed")} · ${esc(r.source||"report")} · ${new Date(r.fetch_ts).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div></div></div></div>`; });
+    h+=`</div>`;
+  } else {
+    h+=`<div class="sec"><div class="sectitle">Official availability reports</div>
+      <div class="secsub" style="padding:6px 2px">Availability reports populate in-season — schools begin publishing them around Week 0 (SEC Wednesdays; B1G and CFP game-day reports). Check back then.</div></div>`;
+  }
+  h+=`<div class="sec"><div class="sectitle">Injury-tagged headlines <small>from the news feed</small></div>`;
+  h+= news.length ? news.slice(0,15).map(newsRow).join("")
+    : `<div class="secsub" style="padding:6px 2px">No injury-tagged headlines right now.</div>`;
+  h+=`</div>
+    <div class="note"><b>Injury updates — reports from cited sources.</b> Headlines and availability listings are attributed to their original publishers and link out; Hashmark adds no medical judgment, and availability never adjusts a published rating without the separately-gated availability engine (currently shadow mode). ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+}
+
 /* ---------------- Hashmark Model hub (UX batch 4 #1) ---------------- */
 // One front door for every model-derived visual: each row = name + one-line preview +
 // a representative live stat (not just a label). Non-model tools stay on Explore.
+// Batch 5 #3 (owner pivot): the PREVIEWS are free — the hook; every full metric view
+// behind them is Hashmark+ (one soft upsell per session until payments land).
+let _hubOK=false;
+async function hubGate(go){
+  if(!PLUS_GATED.model_views || _hubOK) return go();
+  if(await plusUpsell("The full model views",
+    "The live previews are free — the full boards behind them (Power Quadrant, Luck Ledger, Schedule Gauntlet, playoff odds and the rest) are Hashmark+. Free while we're in preview.")){ _hubOK=true; go(); }
+}
 async function openModelHub(){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the Model hub…</div>`;
   await ensureTeamMeta(); await ensureBoard();
@@ -5439,25 +5511,25 @@ async function openModelHub(){
   const favT=fav&&teamMeta[fav]?teamMeta[fav].school:null;
   const rows=[
     ["quad","target","Power Quadrant","All 138 teams on one offense-vs-defense map — find the complete teams.",
-      `#1 ${esc((top.teams||{}).school||"?")} · OFF ${f3(Number(top.off||0))} / DEF ${f3(Number(top.def||0))}`, ()=>openQuadrant(), false],
+      `#1 ${esc((top.teams||{}).school||"?")} · OFF ${f3(Number(top.off||0))} / DEF ${f3(Number(top.def||0))}`, ()=>openQuadrant(), true],
     ["why","ruler","Why this rating","Any team's rating, factor by factor — the anti-black-box waterfall.",
-      `${esc((top.teams||{}).school||"?")} sums to ${f3(Number(top.overall||0))} — see every piece`, ()=>openWhyRating(), false],
+      `${esc((top.teams||{}).school||"?")} sums to ${f3(Number(top.overall||0))} — see every piece`, ()=>openWhyRating(), true],
     ["luck","dice","Luck Ledger","Actual record vs deserved record, every team — who banked wins.",
-      luck[0]?`Luckiest ${SEASON_RESULTS}: ${esc(nm(luck[0].team_id))} ${luck[0].wins}-${luck[0].losses} (+${Number(luck[0].luck_wins).toFixed(1)} banked)`:"", ()=>openLuckLedger(), false],
+      luck[0]?`Luckiest ${SEASON_RESULTS}: ${esc(nm(luck[0].team_id))} ${luck[0].wins}-${luck[0].losses} (+${Number(luck[0].luck_wins).toFixed(1)} banked)`:"", ()=>openLuckLedger(), true],
     ["gaunt","cal","Schedule Gauntlet","12 cells colored by win odds + the projected-record distribution.",
-      favT?`${esc(favT)}'s ${SEASON_SCHED} path, game by game`:"Any team's path, game by game", ()=>openGauntlet(), false],
+      favT?`${esc(favT)}'s ${SEASON_SCHED} path, game by game`:"Any team's path, game by game", ()=>openGauntlet(), true],
     ["odds","trend","Playoff odds over time","Make-CFP odds at every weekly Monte-Carlo snapshot.",
-      arch[0]?`Current top: ${esc(nm(arch[0].team_id))} makes it ${Math.round(Number(arch[0].make_cfp)*100)} of 100 times`:"", ()=>openOddsTimeline(), false],
+      arch[0]?`Current top: ${esc(nm(arch[0].team_id))} makes it ${Math.round(Number(arch[0].make_cfp)*100)} of 100 times`:"", ()=>openOddsTimeline(), true],
     ["crowd","vs","Crowd vs Model","Where the crowd and the model disagree — trap-game radar in season.",
-      `Preseason mode: model vs the multi-outlet consensus`, ()=>openUpsetRadar(), false],
+      `Preseason mode: model vs the multi-outlet consensus`, ()=>openUpsetRadar(), true],
     ["sig","flame","Signature Stats","The Collapse Index and friends — named teams, every call logged and scored.",
       sig[0]?`Current top regression flag: ${esc(nm(sig[0].team_id))}`:"", ()=>openSignature(), true],
     ["prank","person","Player rankings","Returning players ranked within position by Hashmark grade.",
-      pr[0]?`QB1: ${esc(pr[0].player)} (${esc(pr[0].team)}) — ${Number(pr[0].rating).toFixed(1)}`:"", ()=>openPlayerRankings(), false],
+      pr[0]?`QB1: ${esc(pr[0].player)} (${esc(pr[0].team)}) — ${Number(pr[0].rating).toFixed(1)}`:"", ()=>openPlayerRankings(), true],
     ["rost","swap","Roster Economy","Portal production in vs out + talent-vs-performance with the coaching lane.",
       pe[0]?`Biggest net portal gain: ${esc(nm(pe[0].team_id))} +${Number(pe[0].net_value).toFixed(1)}`:"", ()=>gatedRosterEconomy(), true],
     ["ww","target","What actually wins games","Five factors: what wins now vs what carries to next season.",
-      `Explosive-play rate wins 62 of 100 games`, ()=>openWhatWins(), false],
+      `Explosive-play rate wins 62 of 100 games`, ()=>openWhatWins(), true],
   ];
   let h=`<div class="cmp">${backHeader("Hashmark Model")}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px">Everything built on the Hashmark model, in one place — each with a live taste. Ratings are ${phaseLabel()}; luck and player data are ${SEASON_RESULTS} season.</div>`;
@@ -5471,27 +5543,28 @@ async function openModelHub(){
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   const GO=Object.fromEntries(rows.map(r=>[r[0], r[5]]));
-  document.querySelectorAll("[data-hub]").forEach(el=>el.onclick=()=>GO[el.dataset.hub]());
+  document.querySelectorAll("[data-hub]").forEach(el=>el.onclick=()=>hubGate(GO[el.dataset.hub]));
 }
 
 /* ---------------- omnibox ---------------- */
 const OMNI_TOOLS = [
   ["Hashmark Model (all model views)","target",()=>openModelHub()],
+  ["Injury updates","bell",()=>openInjuries()],
   ["Simulator","target",()=>gatedSimulator()],["Scores & schedule","cal",()=>openScores()],
   ["Standings & SoS","list",()=>openStandings()],["Matchup Lab","vs",()=>openMatchup()],
   ["Leaderboards & stats","chart",()=>openStats()],["Rankings","trophy",()=>openPreseason()],
-  ["Power Quadrant","target",()=>openQuadrant()],
-  ["Why this rating","ruler",()=>openWhyRating()],
-  ["Luck Ledger","dice",()=>openLuckLedger()],
-  ["Schedule Gauntlet","cal",()=>openGauntlet()],
-  ["Playoff odds over time","trend",()=>openOddsTimeline()],
+  ["Power Quadrant","target",()=>hubGate(openQuadrant)],
+  ["Why this rating","ruler",()=>hubGate(()=>openWhyRating())],
+  ["Luck Ledger","dice",()=>hubGate(openLuckLedger)],
+  ["Schedule Gauntlet","cal",()=>hubGate(()=>openGauntlet())],
+  ["Playoff odds over time","trend",()=>hubGate(()=>openOddsTimeline())],
   ["NIL Economy","flame",()=>openNILEconomy()],
-  ["Crowd vs Model","vs",()=>openUpsetRadar()],
+  ["Crowd vs Model","vs",()=>hubGate(openUpsetRadar)],
   ["Roster Economy","swap",()=>gatedRosterEconomy()],
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
   ["Signature stats","flame",()=>openSignature()],
   ["Ask Hashmark","chat",()=>openAsk(null)],
-  ["What actually wins games","target",()=>openWhatWins()],
+  ["What actually wins games","target",()=>hubGate(openWhatWins)],
   ["Player rankings","person",()=>openPlayerRankings()],
   ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
 ];
