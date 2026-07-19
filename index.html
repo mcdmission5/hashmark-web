@@ -657,6 +657,34 @@
   .wallrk{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text3);text-align:right}
   .wallnm{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wallcells{display:flex;gap:2px} .wallcells i{flex:1;height:14px;border-radius:3px}
+  /* NIL economy + premium depth */
+  .nilrow{display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--surface);
+    border:1px solid var(--line);border-radius:11px;margin-bottom:5px;cursor:pointer}
+  .nilrow.hot{border-color:#E8B657}
+  .nilconf{flex:none;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+    border-radius:999px;padding:3px 8px}
+  .nilconf.high{background:rgba(91,211,154,.15);color:#5BD39A}
+  .nilconf.medium{background:rgba(124,168,255,.15);color:#7CA8FF}
+  .nilconf.low{background:rgba(148,163,184,.15);color:#94A3B8}
+  .nilconf.disputed{background:rgba(232,182,87,.15);color:#E8B657}
+  .nilfig{font-size:11.5px;padding:5px 0;border-bottom:1px solid rgba(42,53,66,.5)}
+  .nilfig small{color:var(--text3);margin:0 6px}
+  .flowwrap{padding:6px 0}
+  .flowbar{display:flex;align-items:center;gap:8px;padding:4px 0}
+  .flowlbl{width:32px;font-size:9px;font-weight:800;color:var(--text3)}
+  .flowbar i{display:block;height:16px;border-radius:5px;min-width:3px}
+  .flowbar i.in{background:#5BD39A} .flowbar i.out{background:#E5705C}
+  .flowbar b{font-family:"IBM Plex Mono",monospace;font-size:12px}
+  .pctrow{display:grid;grid-template-columns:minmax(80px,1fr) 2fr 38px;gap:8px;align-items:center;padding:4px 0}
+  .pctk{font-size:10.5px;color:var(--text2);text-transform:capitalize}
+  .pctbar{height:9px;background:var(--bg);border-radius:5px;overflow:hidden}
+  .pctbar i{display:block;height:100%;border-radius:5px}
+  .pctv{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text2);text-align:right}
+  .mgrid{display:grid;grid-template-columns:70px repeat(6,1fr);gap:3px;padding:4px 0;overflow-x:auto}
+  .mgh{font-size:8px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;
+    display:flex;align-items:center;justify-content:center;text-align:center;min-height:18px}
+  .mgc{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:700;text-align:center;
+    border-radius:6px;padding:8px 2px;cursor:default}
   .stodds{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;padding:2px 0 8px}
   .stodds b{display:block;font-family:"IBM Plex Mono",monospace;font-size:15px}
   .stodds small{display:block;color:var(--text2);font-size:9px;font-weight:700;
@@ -2095,6 +2123,7 @@ async function drawMatchup(){
     SHOW_PREDICTIONS?fetchWinProb(a,b):Promise.resolve(null),
     fetchH2H(a,b) ]);
   renderMatchup(statsRows, wp, hh, S);
+  setTimeout(()=>{ try{ injectMatchupGrid(a,b); }catch(_e){} }, 0);   // P1 heat-grid seam
 }
 function mPickCard(slot){
   const id=matchup[slot], t=teamMeta[id]||{school:"?"}, c=hx(t.color);
@@ -3017,15 +3046,20 @@ function simTeamSheet(teamId){
       const N=run.N;
       let modeW=null,best=0; Object.entries(ty.wins).forEach(([w,n])=>{ if(n>best){ best=n; modeW=+w; } });
       const rec = modeW==null? "—" : `${modeW}–${Math.max(tgames.length-modeW,0)}`;
-      const seeds=Object.entries(ty.seeds).sort((a,b)=>b[1]-a[1]).slice(0,4)
-        .map(([s,n])=>`#${s} ${Math.round(100*n/N)}%`).join(" · ");
+      // P4: full seed-distribution histogram + first-round matchup probabilities
+      const smax=Math.max(1,...Object.values(ty.seeds));
+      const hist=Array.from({length:12},(_,i)=>{ const n=ty.seeds[i+1]||0;
+        return `<div class="rdcol" data-tip="${esc(`Seed ${i+1}: ${Math.round(100*n/N)} of 100 seasons in the field`)}"><i style="height:${Math.max(n?2:0,n/smax*30)}px"></i><small>${i+1}</small></div>`; }).join("");
+      const frTop=Object.entries(ty.fr||{}).sort((a,b)=>b[1]-a[1]).slice(0,3)
+        .map(([oid,n])=>`${esc((teamMeta[oid]||{}).school||"?")} ${Math.round(100*n/N)}%`).join(" · ");
       inner=`${stale?`<div class="simstale">Picks changed since this run — run again to refresh.</div>`:""}
         <div class="stodds">
           <div><b>${Math.round(100*ty.po/N)}%</b><small>Make CFP</small></div>
           <div><b>${Math.round(100*ty.ct/N)}%</b><small>Conf title</small></div>
           <div><b>${Math.round(100*ty.wo/N)}%</b><small>Win out</small></div>
           <div><b>${rec}</b><small>Most likely record</small></div></div>
-        ${seeds?`<div class="ha" style="padding:2px 0 6px">Seed distribution when in the field: ${seeds}</div>`:""}`;
+        ${ty.po?`<div class="rdbars" style="height:36px">${hist}</div><div class="ha" style="padding:1px 0 4px">Seed distribution when in the field (1-12)</div>`:""}
+        ${frTop?`<div class="ha" style="padding:0 0 6px">Most likely first-round hosts/visitors: ${frTop}</div>`:""}`;
     }
     return `<div class="stoddswrap">${inner}
       <button class="navbtn primary" id="strun" style="width:100%;min-height:40px"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Run simulation — ${SIM_MC_N.toLocaleString()} seasons</button></div>`;
@@ -3073,7 +3107,7 @@ function simTeamSheet(teamId){
 const SIM_MC_N = 1000;                  // engine and copy must agree — benchmarked Jul 2026
 function simMonteCarlo(N, onDone, onProgress){
   const fbs=[...sim.fbs], tally={};
-  fbs.forEach(id=>tally[id]={po:0,ct:0,wo:0,seeds:{},wins:{}});
+  fbs.forEach(id=>tally[id]={po:0,ct:0,wo:0,seeds:{},wins:{},fr:{}});
   const open=sim.games.filter(g=>!sim.userPicks[g.id] && !sim.locked[g.id]);
   const fixed=Object.assign({}, sim.userPicks, sim.locked);
   let s=0;
@@ -3085,6 +3119,9 @@ function simMonteCarlo(N, onDone, onProgress){
       open.forEach(g=>{ picks[g.id]= Math.random()<simPHome(g.home_team_id,g.away_team_id,g.neutral_site)?String(g.home_team_id):String(g.away_team_id); });
       const r=simCompute(picks);
       r.field.forEach((id,i)=>{ tally[id].po++; tally[id].seeds[i+1]=(tally[id].seeds[i+1]||0)+1; });
+      if(r.field.length>=12){   // P4: first-round pairings (5v12, 6v11, 7v10, 8v9)
+        [[4,11],[5,10],[6,9],[7,8]].forEach(([x,y])=>{ const A=r.field[x],B=r.field[y];
+          tally[A].fr[B]=(tally[A].fr[B]||0)+1; tally[B].fr[A]=(tally[B].fr[A]||0)+1; }); }
       r.champions.forEach(id=>{ if(tally[id]) tally[id].ct++; });
       fbs.forEach(id=>{ const w=r.rec[id].w; tally[id].wins[w]=(tally[id].wins[w]||0)+1;
         if(r.rec[id].l===0 && w>0) tally[id].wo++; });
@@ -3926,6 +3963,14 @@ async function openPlayer(aid){
       grades=[...qb.map(r=>({...r, role:"qb"})), ...pv];
     }
     renderPlayer(aid, idx[0], seasons, games, grades);
+    // P3: percentile-card entry on every graded player page
+    setTimeout(()=>{ try{ if(!grades.length) return;
+      const anchor=app.querySelector(".note"); if(!anchor) return;
+      const d=document.createElement("div");
+      d.innerHTML=`<div class="navrow" style="padding:6px 2px"><button class="navbtn primary" id="pcardgo"><svg class="ic" aria-hidden="true"><use href="#i-person"/></svg> Percentile card + compare</button></div>`;
+      anchor.parentNode.insertBefore(d.firstChild, anchor);
+      document.getElementById("pcardgo").onclick=()=>openPlayerCard(aid);
+    }catch(_e){} }, 0);
   }catch(e){
     app.innerHTML = backHeader("Player")+`<div class="list"><div class="err">Couldn't load player: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=load;
@@ -4556,6 +4601,10 @@ const NAV_ROUTES={
   luck:()=>openLuckLedger(),
   gauntlet:p=>openGauntlet(p&&p.id),
   oddstime:p=>openOddsTimeline(p&&p.id),
+  nileconomy:()=>openNILEconomy(),
+  crowdmodel:()=>openUpsetRadar(),
+  rosterecon:p=>openRosterEconomy(p&&p.id),
+  playercard:p=>openPlayerCard(p&&p.a, p&&p.b),
 };
 function navPush(v,p){
   if(_navRestoring) return;
@@ -4589,6 +4638,8 @@ setTimeout(()=>{
  ["openQuadrant","quadrant"],["openWhyRating","whyrating",id=>({id})],
  ["openLuckLedger","luck"],["openGauntlet","gauntlet",id=>({id})],
  ["openOddsTimeline","oddstime",id=>({id})],
+ ["openNILEconomy","nileconomy"],["openUpsetRadar","crowdmodel"],
+ ["openRosterEconomy","rosterecon",id=>({id})],["openPlayerCard","playercard",(a,b2)=>({a,b:b2})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -4647,7 +4698,11 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   news_full:true,              // N1: home/team pages tease 3-4 free; full feed + archive gated
   pace_player_box:true,        // on-track-pace: team pace free; full player pace board gated
   luck_games:true,             // V3: ledger board free; per-game deserved-win dots gated
-  gauntlet_wall:true };        // V4: per-team gauntlet free; the all-138 wall gated
+  gauntlet_wall:true,          // V4: per-team gauntlet free; the all-138 wall gated
+  nil_efficiency:true,         // Part 2: tier board free teaser; efficiency scatter gated
+  matchup_grid:true,           // P1: dial + top-line free; the unit heat grid gated
+  player_compare:true,         // P3: cards free; compare-two gated
+  roster_economy:true };       // P5: gated with the NIL lane (conference teaser free)
 const SIM_RUNS_KEY = "hm_sim_runs";
 function plusUpsell(title, body){
   const el=document.createElement("div");
@@ -5029,6 +5084,317 @@ async function openOddsTimeline(teamId){
   document.getElementById("otpick").onclick=()=>teamPicker(null, id=>openOddsTimeline(id));
 }
 
+/* ================================================================================
+   NIL ECONOMY (Part 2) + PREMIUM DEPTH (Part 3) — attributed estimates only, tiers
+   never point figures; opinion-from-facts language; every figure carries "est.".
+   ================================================================================ */
+const NIL_DISCLAIMER = `<b>Estimates, not disclosures.</b> Schools do not publish football NIL/rev-share spending; every figure here is an attributed third-party estimate or an on-record statement, shown as a RANGE and bucketed into $5M-wide tiers — never a point figure. Sources disagree, sometimes by 2-4x; the tier + confidence flag is the honest resolution. "est." on everything.`;
+const nilSrcs = r => (r.sources && r.sources.figures) || (Array.isArray(r.sources)?r.sources:[]);
+function nilFigLine(f){
+  const rng = f.range ? `est. $${esc(String(f.range).replace(/\.0$/,""))}M` : "est.";
+  return `<div class="nilfig">${esc(f.source||"?")}: <b>${rng}</b> <small>${esc(f.type||"")}</small>
+    ${f.url?`<a class="srcpill" href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">source</a>`:""}</div>`;
+}
+async function openNILEconomy(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the NIL board…</div>`;
+  await ensureTeamMeta(); await ensureBoard();
+  const tiers=await api(`nil_tiers?select=*&season=eq.${SEASON_SCHED}&order=tier.asc`);
+  if(!tiers.length){ app.innerHTML=backHeader("NIL Economy")+`<div class="list"><div class="err">No tier data yet.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  const byTier={}; tiers.forEach(r=>{ (byTier[r.tier]=byTier[r.tier]||[]).push(r); });
+  const confBadge=c=>`<span class="nilconf ${c}">${c==="high"?"on record":c==="medium"?"multiple reports":"single source"}</span>`;
+  let h=`<div class="cmp">${backHeader("NIL Economy")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px"><b>Who's spending what on the roster — as honest tiers.</b> Built only from attributed public reporting and on-record statements (tap a team for every underlying figure + link). Teams absent from the board have <b>limited public disclosure</b> — most of the G5 and private schools; we don't guess. ${SEASON_SCHED} season.</div>
+    <div class="navrow"><button class="navbtn primary" id="nileff"><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Performance vs resources <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button>
+      <button class="navbtn" id="nilmeth"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg> Methodology</button></div>`;
+  Object.keys(byTier).sort((a,b)=>a-b).forEach(tn=>{
+    const rows=byTier[tn];
+    h+=`<div class="sec"><div class="sectitle">Tier ${tn} — ${esc(rows[0].tier_label||"")}</div>`;
+    rows.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
+      const srcs=nilSrcs(r), disputed=srcs.some(s=>s.disputed);
+      h+=`<div class="nilrow" data-nil="${r.team_id}">${crestEl("glcr",t.school,hx(t.color))}
+        <div class="lknm">${esc(t.school)}<small>${srcs.length} figure${srcs.length!==1?"s":""} on file${r.limited_disclosure?" · limited disclosure":""}</small></div>
+        ${confBadge(r.confidence)}${disputed?`<span class="nilconf disputed">disputed</span>`:""}</div>`; });
+    h+=`</div>`; });
+  h+=`<div class="note"><b>NIL Economy — ${SEASON_SCHED}.</b> ${NIL_DISCLAIMER} Named sources include The NIL Standard, On3/Pete Nakos, CBS Sports, 247Sports and on-record school statements — see Methodology for every source and why they disagree. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.getElementById("nileff").onclick=()=>gatedNILEfficiency();
+  document.getElementById("nilmeth").onclick=()=>openNILMethodology();
+  document.querySelectorAll("[data-nil]").forEach(el=>el.onclick=()=>{
+    const r=tiers.find(x=>String(x.team_id)===String(el.dataset.nil));
+    const t=teamMeta[r.team_id]||{school:r.school};
+    const ov=document.createElement("div"); ov.className="pickov";
+    ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+      <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — every figure on file</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="picklist">
+      <div class="secsub" style="padding:2px 0 8px">Tier ${r.tier} (${esc(r.tier_label||"")}) · confidence: ${esc(r.confidence)}. Every underlying figure, attributed:</div>
+      ${nilSrcs(r).map(s=>nilFigLine({source:s.source, url:s.url, type:(s.type||"").replace(/_/g," "), range:s.range})+(s.disputed?`<div class="ha" style="padding:0 0 6px;color:#E8B657">This figure was publicly disputed by the program.</div>`:"")).join("")||"<div class='ha'>No stored figures.</div>"}
+      ${r.sources&&r.sources.confidence_note?`<div class="ha" style="padding:6px 0 0">${esc(r.sources.confidence_note)}</div>`:""}
+      <div class="ha" style="padding:8px 0 0">Figure types are never mixed into one number: roster VALUE, reported SPEND, collective estimates and rev-share splits are different measurements — the tier reflects the ensemble.</div></div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  });
+}
+async function gatedNILEfficiency(){
+  if(PLUS_GATED.nil_efficiency && !(await plusUpsell("Performance vs estimated resources",
+    "Every tiered team plotted: Hashmark rating vs estimated spend tier — who beats their tier, and who doesn't. Free during preview."))) return;
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the efficiency view…</div>`;
+  await ensureTeamMeta(); await ensureBoard();
+  const tiers=await api(`nil_tiers?select=*&season=eq.${SEASON_SCHED}`);
+  const pts=tiers.map(r=>{ const i=board2026.findIndex(b=>String(b.team_id)===String(r.team_id));
+    return i<0?null:{r, t:teamMeta[r.team_id]||{school:r.school}, rating:Number(board2026[i].overall), rank:i+1, x:6-r.tier}; }).filter(Boolean);
+  // expectation line: least-squares rating ~ spend position (x = 6-tier, so right = bigger spend)
+  const n=pts.length, mx=pts.reduce((s,p)=>s+p.x,0)/n, my=pts.reduce((s,p)=>s+p.rating,0)/n;
+  const bcoef=pts.reduce((s,p)=>s+(p.x-mx)*(p.rating-my),0)/Math.max(1e-9,pts.reduce((s,p)=>s+(p.x-mx)*(p.x-mx),0));
+  const a0=my-bcoef*mx;
+  pts.forEach(p=>p.resid=p.rating-(a0+bcoef*p.x));
+  const W=360,H=300,PAD=30;
+  const ylo=Math.min(...pts.map(p=>p.rating)), yhi=Math.max(...pts.map(p=>p.rating));
+  const X=x=>PAD+(x-1)/4*(W-2*PAD), Y=v=>H-PAD-(v-ylo)/Math.max(1e-9,yhi-ylo)*(H-2*PAD);
+  let s=`<svg class="quad" viewBox="0 0 ${W} ${H}">`;
+  s+=`<line x1="${X(1)}" y1="${Y(a0+bcoef*1)}" x2="${X(5)}" y2="${Y(a0+bcoef*5)}" stroke="rgba(148,163,184,.5)" stroke-dasharray="4 3" stroke-width="1.5"/>`;
+  s+=`<text x="${W-PAD}" y="${PAD-8}" fill="#5BD39A" font-size="9" font-weight="700" text-anchor="end">beats their tier</text>`;
+  s+=`<text x="${W-PAD}" y="${H-8}" fill="#E5705C" font-size="9" font-weight="700" text-anchor="end">underperforms tier</text>`;
+  [5,4,3,2,1].forEach(tn=>{ s+=`<text x="${X(6-tn)}" y="${H-14}" fill="var(--text3)" font-size="8" text-anchor="middle">T${tn}</text>`; });
+  pts.forEach(p=>{ s+=`<circle cx="${X(p.x)}" cy="${Y(p.rating)}" r="8" fill="${hx(p.t.color)}" opacity=".9" data-team="${p.r.team_id}" style="cursor:pointer"><title>${esc(p.t.school+" — rating "+f3(p.rating)+" (#"+p.rank+"), tier "+p.r.tier+"; "+(p.resid>=0?"above":"below")+" the tier expectation line")}</title></circle>
+    <text x="${X(p.x)}" y="${Y(p.rating)+2.8}" fill="${textOn(p.t.color)}" font-size="5.6" font-weight="800" text-anchor="middle" pointer-events="none">${esc(monogram(p.t.school))}</text>`; });
+  s+=`</svg>`;
+  const best=pts.slice().sort((x,y)=>y.resid-x.resid).slice(0,3);
+  const worst=pts.slice().sort((x,y)=>x.resid-y.resid).slice(0,2);
+  app.innerHTML=`<div class="cmp">${backHeader("Performance vs resources")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px"><b>Hashmark rating vs estimated NIL spend tier.</b> The dashed line is the tier expectation; distance above it is performance beyond estimated resources. In our read, <b>${best.map(p=>esc(p.t.school)).join(", ")}</b> get the most for their estimated dollar; the teams furthest below the line are the least efficient per estimated dollar (${worst.map(p=>esc(p.t.school)).join(", ")}) — an opinion from the linked facts, not a statement of fact.</div>
+    <div class="sec">${s}<div class="secsub" style="padding:2px 2px 0">Rating: ${phaseLabel()} · tiers: attributed ${SEASON_SCHED} estimates (see Methodology)</div></div>
+    <div class="navrow"><button class="navbtn" id="nilrostecon"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg> Roster Economy (portal flow)</button></div>
+    <div class="note"><b>Performance vs resources — ${SEASON_SCHED}.</b> ${NIL_DISCLAIMER} Research on football spend-vs-wins finds a real but MODEST correlation — which is exactly why "who beats their tier" is the interesting question. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.getElementById("nilrostecon").onclick=()=>gatedRosterEconomy();
+}
+function openNILMethodology(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="cmp">${backHeader("NIL methodology")}<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">How the tiers are built</div>
+      <div class="secsub" style="padding:4px 2px">Five $5M-wide buckets: Tier 1 est. $40M+, Tier 2 est. $30-40M, Tier 3 est. $20-30M, Tier 4 est. $12-20M, Tier 5 under est. $12M or limited data. A team's tier comes from the ENSEMBLE of its stored figures — on-record school statements outrank multiple consistent reports, which outrank single-source or model-only estimates (that's the confidence flag). Disputed figures never place a tier on their own; all-sports totals and pre-rev-share-era figures are context only.</div></div>
+    <div class="sec"><div class="sectitle">Why sources disagree</div>
+      <div class="secsub" style="padding:4px 2px">There is no ground truth: schools' actual NIL and rev-share payments are shielded from open-records laws, so everything public is an estimate — and estimates for the SAME school routinely differ 2-4x because they measure different things. Roster VALUE (what a roster would cost) is not cash SPEND; collective FUNDRAISING is not a football budget; the $20.5M rev-share cap (rising to $21.3M) is shared across sports. We store each figure with its type and never mix types into one number.</div></div>
+    <div class="sec"><div class="sectitle">Sources</div>
+      <div class="secsub" style="padding:4px 2px">Every figure on the board links its source inline. The ensemble draws on: The NIL Standard team roster values; On3/Pete Nakos reporting; CBS Sports; 247Sports modeled collective estimates; and on-record statements from schools (Texas A&amp;M open-records disclosure, Ohio State, Texas Tech, Illinois, North Carolina). Audited per-school athlete-pay data (MFRS) arrives ~Jan 2027 and will upgrade this board.</div></div>
+    <div class="sec"><div class="sectitle">Language rules we hold ourselves to</div>
+      <div class="secsub" style="padding:4px 2px">Estimates are always labeled "est."; tiers, never point figures; "least efficient per estimated dollar" is an opinion drawn from linked facts — we never state spending judgments as fact, and disputed figures carry the program's pushback visibly.</div></div>
+    <div class="note"><b>NIL Economy methodology.</b> ${NIL_DISCLAIMER} ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+}
+// P5 — Roster Economy: portal production flow (value in vs out) + talent-vs-performance.
+async function gatedRosterEconomy(){
+  if(PLUS_GATED.roster_economy && !(await plusUpsell("Roster Economy",
+    "The portal flow: production value in vs out for every team (valued by on-field production, never stars) + the talent-vs-performance map with coaching over-expectation. Free during preview."))) return;
+  openRosterEconomy();
+}
+async function openRosterEconomy(teamId){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading roster economy…</div>`;
+  await ensureTeamMeta(); await ensureBoard();
+  teamId = teamId || favTeamId() || (board2026[0]&&board2026[0].team_id);
+  const t=teamMeta[teamId]||{school:"?"};
+  const [pe, tal]=await Promise.all([
+    api(`portal_economy?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`).catch(()=>[]),
+    api(`talent?select=team_id,talent&season=eq.${SEASON_RESULTS}`).catch(()=>[])]);
+  const p=pe[0];
+  let flow="";
+  if(p){
+    const iv=Number(p.in_value), ov=Number(p.out_value), mx=Math.max(iv,ov,1);
+    flow=`<div class="sec"><div class="sectitle">${esc(t.school)} — portal production flow <small>entering ${SEASON_SCHED}</small></div>
+      <div class="secsub">Width = prior-season on-field production value of the players moving (PPA + usage, position-weighted). Recruiting stars appear nowhere in this number.</div>
+      <div class="flowwrap">
+        <div class="flowbar"><div class="flowlbl">IN</div><i class="in" style="width:${iv/mx*100}%"></i><b>+${iv.toFixed(1)}</b></div>
+        <div class="flowbar"><div class="flowlbl">OUT</div><i class="out" style="width:${ov/mx*100}%"></i><b>-${ov.toFixed(1)}</b></div>
+        <div class="secsub" style="padding:4px 2px">Net: <b>${Number(p.net_value)>=0?"+":""}${Number(p.net_value).toFixed(1)}</b> production value</div></div>
+      ${(p.top_in||[]).length?`<div class="ha" style="padding:4px 2px">Biggest arrivals: ${(p.top_in||[]).map(x=>`${esc(x.player)} (${esc(x.pos)}, from ${esc(x.from)})`).join(" · ")}</div>`:""}
+      ${(p.top_out||[]).length?`<div class="ha" style="padding:2px 2px 6px">Biggest departures: ${(p.top_out||[]).map(x=>`${esc(x.player)} (${esc(x.pos)}, to ${esc(x.to)})`).join(" · ")}</div>`:""}</div>`;
+  }
+  // talent-vs-performance scatter: talent input (x) vs current rating (y); distance from
+  // the fit line = coaching over-expectation (the WOEC lane).
+  const tmap={}; tal.forEach(r=>tmap[r.team_id]=Number(r.talent));
+  const pts=board2026.map((b,i)=>({id:b.team_id, t:b.teams||{}, x:tmap[b.team_id], y:Number(b.overall), rank:i+1}))
+    .filter(pp=>pp.x!=null&&isFinite(pp.y));
+  const n=pts.length, mx2=pts.reduce((s,pp)=>s+pp.x,0)/n, my2=pts.reduce((s,pp)=>s+pp.y,0)/n;
+  const bc=pts.reduce((s,pp)=>s+(pp.x-mx2)*(pp.y-my2),0)/Math.max(1e-9,pts.reduce((s,pp)=>s+(pp.x-mx2)*(pp.x-mx2),0));
+  const a02=my2-bc*mx2;
+  pts.forEach(pp=>pp.resid=pp.y-(a02+bc*pp.x));
+  const W=360,H=300,PAD=26;
+  const xlo=Math.min(...pts.map(p2=>p2.x)), xhi=Math.max(...pts.map(p2=>p2.x));
+  const ylo2=Math.min(...pts.map(p2=>p2.y)), yhi2=Math.max(...pts.map(p2=>p2.y));
+  const SX=v=>PAD+(v-xlo)/Math.max(1e-9,xhi-xlo)*(W-2*PAD), SY=v=>H-PAD-(v-ylo2)/Math.max(1e-9,yhi2-ylo2)*(H-2*PAD);
+  let sc=`<svg class="quad" viewBox="0 0 ${W} ${H}">`;
+  sc+=`<line x1="${SX(xlo)}" y1="${SY(a02+bc*xlo)}" x2="${SX(xhi)}" y2="${SY(a02+bc*xhi)}" stroke="rgba(148,163,184,.5)" stroke-dasharray="4 3" stroke-width="1.5"/>`;
+  sc+=`<text x="${W-PAD}" y="${PAD-8}" fill="#5BD39A" font-size="9" font-weight="700" text-anchor="end">coaching over-expectation</text>`;
+  pts.forEach(pp=>{ const me=String(pp.id)===String(teamId);
+    sc+=`<circle cx="${SX(pp.x)}" cy="${SY(pp.y)}" r="${me?9:6}" fill="${hx(pp.t.color)}" opacity="${me?1:.65}" ${me?'stroke="var(--amber)" stroke-width="2.5"':""} data-rteam="${pp.id}" style="cursor:pointer"><title>${esc((pp.t.school||"?")+" — talent "+pp.x.toFixed(0)+", rating "+f3(pp.y)+" (#"+pp.rank+"); "+(pp.resid>=0?"+":"")+f3(pp.resid)+" vs the talent expectation")}</title></circle>`; });
+  sc+=`</svg>`;
+  app.innerHTML=`<div class="cmp">${backHeader("Roster Economy")}<div class="list" style="padding-top:6px">
+    <div class="navrow"><button class="navbtn" id="repick"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Another team</button>
+      <button class="navbtn" id="renil"><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> NIL Economy</button></div>
+    ${flow||`<div class="sec"><div class="secsub">No portal flow recorded for ${esc(t.school)} entering ${SEASON_SCHED}.</div></div>`}
+    <div class="sec"><div class="sectitle">Talent in vs performance out <small>${SEASON_RESULTS} talent · ${phaseLabel()} rating</small></div>
+      <div class="secsub">Roster talent across, Hashmark rating up. The dashed line is expectation from talent alone — distance above it is what the STAFF adds (the coaching over-expectation lane).</div>
+      ${sc}</div>
+    <div class="note"><b>Roster Economy — entering ${SEASON_SCHED}.</b> Portal values are prior-season production (PPA + usage share), position-weighted; never recruiting stars, never dollar figures. Talent is the ${SEASON_RESULTS} composite; the expectation line is a least-squares fit across FBS. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.getElementById("repick").onclick=()=>teamPicker(null, id=>openRosterEconomy(id));
+  document.getElementById("renil").onclick=()=>openNILEconomy();
+  document.querySelectorAll("[data-rteam]").forEach(el=>el.onclick=()=>openRosterEconomy(el.dataset.rteam));
+}
+// P2 — Crowd vs Model: pick'em crowd % vs model win % (in season); preseason shows the
+// model-vs-consensus divergence board instead (graceful empty-state). FREE.
+async function openUpsetRadar(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading crowd vs model…</div>`;
+  await ensureTeamMeta(); await ensureBoard();
+  let crowd=null;
+  try{
+    const slate=await api(`pickem_slate_games?select=game_id,home_team_id,away_team_id,week&season=eq.${SEASON_SCHED}&order=week.desc&limit=10`);
+    if(slate.length){
+      const picks=await api(`pickem_picks?select=game_id,picked_team_id&season=eq.${SEASON_SCHED}&week=eq.${slate[0].week}&limit=1000`).catch(()=>[]);
+      if(picks.length) crowd={slate, picks};
+    }
+  }catch(e){}
+  if(!crowd){
+    // preseason empty-state: the model board vs the multi-outlet preseason consensus
+    const ext=await api(`external_rankings?select=team_id,rank,source&season=eq.${SEASON_SCHED}&ranking_type=eq.preseason_poll`);
+    const agg={}; ext.forEach(r=>{ if(r.team_id==null) return; (agg[r.team_id]=agg[r.team_id]||[]).push(Number(r.rank)); });
+    const cons=Object.entries(agg).filter(([,v])=>v.length>=2)
+      .map(([tid,v])=>({tid, avg:v.reduce((s,x)=>s+x,0)/v.length, n:v.length}));
+    const rows=cons.map(c=>{ const mi=board2026.findIndex(b=>String(b.team_id)===String(c.tid));
+      return mi<0?null:{...c, model:mi+1, gap:(c.avg)-(mi+1)}; }).filter(Boolean)
+      .sort((a,b)=>Math.abs(b.gap)-Math.abs(a.gap)).slice(0,14);
+    app.innerHTML=`<div class="cmp">${backHeader("Crowd vs Model")}<div class="list" style="padding-top:6px">
+      <div class="secsub" style="padding:0 2px 8px"><b>The crowd board opens with Week 1</b> — every pick'em game plotted crowd-pick % vs model win %, plus a running season scoreboard. Until then: where the Model most disagrees with the ${SEASON_SCHED} preseason consensus (${cons.length} teams ranked by 2+ outlets).</div>
+      ${rows.map(r=>{ const t=teamMeta[r.tid]||{school:"?"};
+        return `<div class="nilrow" data-team="${r.tid}">${crestEl("glcr",t.school,hx(t.color))}
+        <div class="lknm">${esc(t.school)}<small>consensus #${Math.round(r.avg)} (${r.n} outlets) · Model #${r.model}</small></div>
+        <div class="lkv ${r.gap>0?"pos":"neg"}">${r.gap>0?`Model higher by ${Math.round(r.gap)}`:`Model lower by ${Math.round(-r.gap)}`}</div></div>`; }).join("")}
+      <div class="note"><b>Crowd vs Model — ${SEASON_SCHED} preseason.</b> Consensus = average rank across the attributed preseason outlets on the Rankings page. In season this becomes the pick'em crowd vs the model's win probabilities, with a running scoreboard once results land. Probabilities and ranks only — no betting framing. ${BRAND_LINE}</div></div></div>`;
+    document.querySelector(".back").onclick=load;
+    return;
+  }
+  // in-season crowd mode (populates from Week 1; per-game crowd % vs model win %)
+  const agg={}; crowd.picks.forEach(p=>{ const a=agg[p.game_id]=agg[p.game_id]||{}; a[p.picked_team_id]=(a[p.picked_team_id]||0)+1; });
+  let rows="";
+  for(const g of crowd.slate){
+    const a=agg[g.game_id]||{}; const tot=Object.values(a).reduce((s,x)=>s+x,0);
+    if(!tot) continue;
+    const hN=a[g.home_team_id]||0;
+    const crowdH=hN/tot;
+    const wpRow=await fetchWinProb(g.home_team_id, g.away_team_id).catch(()=>null);
+    const modelH=wpRow?pWinA(wpRow, g.home_team_id, g.away_team_id, "aHome"):null;
+    const th=teamMeta[g.home_team_id]||{}, ta=teamMeta[g.away_team_id]||{};
+    const div=modelH==null?0:Math.abs(crowdH-modelH);
+    rows+=`<div class="nilrow${div>0.25?" hot":""}">${crestEl("glcr",th.school||"?",hx(th.color))}
+      <div class="lknm">${esc(ta.school||"?")} @ ${esc(th.school||"?")}<small>crowd ${Math.round(crowdH*100)}% home · model ${modelH==null?"—":Math.round(modelH*100)+"%"}</small></div>
+      ${div>0.25?`<div class="lkv neg">crowd walking into a trap?</div>`:""}</div>`;
+  }
+  app.innerHTML=`<div class="cmp">${backHeader("Crowd vs Model")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Week ${crowd.slate[0].week}: the pick'em crowd vs the model, game by game.</div>${rows}
+    <div class="note"><b>Crowd vs Model — ${SEASON_SCHED}.</b> Crowd = share of pick'em entries on each side; model = matchup win probability. Divergences over 25 points are flagged. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+}
+// P3 — Player percentile cards: value grade + within-position percentile BARS (never
+// radar), team-colored, compare-two mode.
+async function playerCardData(aid){
+  const [idx, rk]=await Promise.all([
+    api(`player_index?select=athlete_id,player,team_id,position&athlete_id=eq.${aid}&limit=1`),
+    api(`player_rankings?select=*&season=eq.${SEASON_SCHED}&order=pos_rank.asc`)]);
+  const p=idx[0]; if(!p) return null;
+  const mine=rk.find(r=>r.player.toLowerCase()===p.player.toLowerCase());
+  if(!mine) return {p, bars:null};
+  const stats=await api(`player_stat_season?select=stat_key,value,rank&season=eq.${SEASON_RESULTS}&player=eq.${encodeURIComponent(p.player)}&team_id=eq.${p.team_id}`);
+  const pool=await api(`player_stat_season?select=stat_key,rank&season=eq.${SEASON_RESULTS}&stat_key=in.(${[...new Set(stats.map(s=>s.stat_key))].slice(0,8).join(",")})&order=rank.desc`);
+  const nBy={}; pool.forEach(r=>{ nBy[r.stat_key]=Math.max(nBy[r.stat_key]||0, r.rank||0); });
+  const bars=stats.slice(0,7).map(s=>({label:s.stat_key.replace(/_/g," "), value:s.value,
+    pct: nBy[s.stat_key]>1? Math.round(100*(nBy[s.stat_key]-s.rank)/(nBy[s.stat_key]-1)) : null}))
+    .filter(b=>b.pct!=null);
+  return {p, mine, bars};
+}
+function playerCardHTML(d){
+  if(!d) return "";
+  const t=teamMeta[d.p.team_id]||{school:"?"};
+  const col=hx(t.color);
+  let h=`<div class="sec"><div class="sectitle">${esc(d.p.player)} <small>${esc(d.p.position||"")} · ${esc(t.school)}</small></div>`;
+  if(d.mine){
+    h+=`<div class="drating"><div class="dbig">${Number(d.mine.rating).toFixed(1)}</div>
+      <div class="drk">#${d.mine.pos_rank} <small>${esc(d.mine.position)} · value in role</small></div>
+      <div class="dunits"><span>${Math.round(Number(d.mine.percentile))}th percentile</span><span>${esc(d.mine.tier)}</span></div></div>`;
+  } else {
+    h+=`<div class="secsub" style="padding:4px 2px">Not in the ${SEASON_SCHED} returning ranked pool (drafted, uncommitted, or below the snap threshold) — ${SEASON_RESULTS} stat percentiles below where available.</div>`;
+  }
+  (d.bars||[]).forEach(b=>{ h+=`<div class="pctrow"><div class="pctk">${esc(b.label)}</div>
+    <div class="pctbar"><i style="width:${b.pct}%;background:${col}"></i></div>
+    <div class="pctv">${b.pct}th</div></div>`; });
+  h+=`<div class="secsub" style="padding:4px 2px 0">${SEASON_RESULTS} season · percentiles within the ranked pool · value-in-role grade, not raw box-score volume.</div></div>`;
+  return h;
+}
+async function openPlayerCard(aid, bid){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading player card…</div>`;
+  await ensureTeamMeta();
+  const [da, db]=await Promise.all([playerCardData(aid), bid?playerCardData(bid):Promise.resolve(null)]);
+  if(!da){ app.innerHTML=backHeader("Player card")+`<div class="list"><div class="err">No card for this player.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  app.innerHTML=`<div class="cmp">${backHeader("Player card")}<div class="list" style="padding-top:6px">
+    ${playerCardHTML(da)}${db?playerCardHTML(db):""}
+    <div class="navrow"><button class="navbtn" id="pccmp"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg> ${db?"Change comparison":"Compare with another player"} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
+    <div class="note"><b>Player percentile card — ${SEASON_RESULTS} season.</b> Bars are within-position percentiles (deliberately not a radar chart); the headline number is the published value-in-role grade. OL and defense are served as production leaders elsewhere — public data can't grade them individually, and we say so. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.getElementById("pccmp").onclick=async()=>{
+    if(PLUS_GATED.player_compare && !(await plusUpsell("Compare two players",
+      "Any two graded players side by side — value grades and percentile bars. Free during preview."))) return;
+    const q=prompt("Type a player name to compare:");
+    if(!q) return;
+    const hits=await api(`player_index?select=athlete_id,player&name_lower=ilike.*${encodeURIComponent(q.toLowerCase())}*&limit=1`);
+    if(hits[0]) openPlayerCard(aid, hits[0].athlete_id);
+  };
+}
+// P1 — Matchup Lab unit-vs-unit heat grid (gated), injected under the free dial.
+async function injectMatchupGrid(a,b){
+  const anchor=app.querySelector(".note"); if(!anchor) return;
+  const d=document.createElement("div");
+  d.innerHTML=`<div class="sec"><div class="sectitle">Unit vs unit — the heat grid <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>
+    <div class="secsub">EPA/play, success and explosiveness — each offense against the other defense, by down and situation.</div>
+    <div class="navrow"><button class="navbtn primary" id="mgopen">Open the grid</button></div></div>`;
+  anchor.parentNode.insertBefore(d.firstChild, anchor);
+  document.getElementById("mgopen").onclick=async()=>{
+    if(PLUS_GATED.matchup_grid && !(await plusUpsell("The unit-vs-unit heat grid",
+      "Every unit matchup by down and situation — where the game actually tilts. Free during preview."))) return;
+    openMatchupGrid(a,b);
+  };
+}
+async function openMatchupGrid(a,b){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Building the grid…</div>`;
+  await ensureTeamMeta();
+  const S=SEASON_RESULTS;
+  const rows=await api(`team_splits?select=team_id,side,split_type,split_key,epa_per_play,success_rate,explosive_rate&season=eq.${S}&team_id=in.(${a},${b})`);
+  const get=(tid,side,key)=>rows.find(r=>String(r.team_id)===String(tid)&&r.side===side&&(r.split_key===key||(key==="overall"&&r.split_type==="overall")));
+  const COLS=[["overall","Overall"],["1st down","1st down"],["2nd down","2nd down"],["3rd down","3rd down"],["3rd & short","3rd & short"],["3rd & long","3rd & long"]];
+  const METS=[["epa_per_play","EPA/play",1],["success_rate","Success",100],["explosive_rate","Explosive",100]];
+  const ta=teamMeta[a]||{school:"A"}, tb=teamMeta[b]||{school:"B"};
+  const grid=(offId,defId,offT)=>{
+    let g=`<div class="sectitle" style="padding-top:8px">${esc(offT.school)} offense vs ${esc((offId===a?tb:ta).school)} defense</div>
+      <div class="mgrid"><div class="mgh"></div>${COLS.map(c=>`<div class="mgh">${c[1]}</div>`).join("")}`;
+    METS.forEach(([mk,ml,scale])=>{
+      g+=`<div class="mgh" style="text-align:left">${ml}</div>`;
+      COLS.forEach(([ck])=>{
+        const o=get(offId,"off",ck), dd=get(defId,"def",ck);
+        if(!o||!dd||o[mk]==null||dd[mk]==null){ g+=`<div class="mgc" style="background:var(--surface)">—</div>`; return; }
+        const ov=Number(o[mk]), dv=Number(dd[mk]);
+        const diff=ov-dv;
+        const hue=Math.max(0,Math.min(120, 60+diff*(mk==="epa_per_play"?240:400)));
+        g+=`<div class="mgc" style="background:hsl(${hue} 40% 22%)" data-tip="${esc(`${ml} (${ck}): offense ${scale===1?ov.toFixed(2):Math.round(ov*100)+"%"} vs defense allows ${scale===1?dv.toFixed(2):Math.round(dv*100)+"%"}`)}">${scale===1?diff.toFixed(2):(diff>0?"+":"")+Math.round(diff*100)}</div>`;
+      });
+    });
+    return g+`</div>`;
+  };
+  app.innerHTML=`<div class="cmp">${backHeader("Unit heat grid")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Green = the offense typically beats what this defense allows; red = the defense typically wins the down. ${S} season splits, garbage time filtered.</div>
+    <div class="sec">${grid(a,b,ta)}${grid(b,a,tb)}</div>
+    <div class="note"><b>Unit heat grid — ${S} season.</b> Each cell compares one offense's output to the opposing defense's typical concession in the same situation (EPA/play raw; success/explosive shown in points of rate). Data: official play-by-play splits. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=()=>openMatchup(a,b);
+}
+
 /* ---------------- omnibox ---------------- */
 const OMNI_TOOLS = [
   ["Simulator","target",()=>gatedSimulator()],["Scores & schedule","cal",()=>openScores()],
@@ -5039,6 +5405,9 @@ const OMNI_TOOLS = [
   ["Luck Ledger","dice",()=>openLuckLedger()],
   ["Schedule Gauntlet","cal",()=>openGauntlet()],
   ["Playoff odds over time","trend",()=>openOddsTimeline()],
+  ["NIL Economy","flame",()=>openNILEconomy()],
+  ["Crowd vs Model","vs",()=>openUpsetRadar()],
+  ["Roster Economy","swap",()=>gatedRosterEconomy()],
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
   ["Signature stats","flame",()=>openSignature()],
   ["Ask Hashmark","chat",()=>openAsk(null)],
@@ -5201,6 +5570,9 @@ async function openExplore(){
     <div class="xcard" data-x="luck"><svg class="ic"><use href="#i-dice"/></svg><h4>Luck Ledger</h4><p>Actual record vs deserved record, every team. Who banked wins?</p></div>
     <div class="xcard" data-x="gauntlet"><svg class="ic"><use href="#i-cal"/></svg><h4>Schedule Gauntlet</h4><p>12 game cells colored by win odds + the record distribution.</p></div>
     <div class="xcard" data-x="oddstime"><svg class="ic"><use href="#i-trend"/></svg><h4>Playoff odds over time</h4><p>Your team's Make-CFP odds, snapshot by snapshot.</p></div>
+    <div class="xcard" data-x="nil"><svg class="ic"><use href="#i-flame"/></svg><h4 style="color:var(--amber)">NIL Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Estimated spend tiers, attributed — and who beats their tier.</p></div>
+    <div class="xcard" data-x="crowd"><svg class="ic"><use href="#i-vs"/></svg><h4>Crowd vs Model</h4><p>Where the crowd and the model disagree. Free.</p></div>
+    <div class="xcard" data-x="rosterecon"><svg class="ic"><use href="#i-swap"/></svg><h4>Roster Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Portal production in vs out + talent-vs-performance.</p></div>
     <div class="xcard" data-x="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and more — named teams, tracked calls. One board free.</p></div>
     <div class="xcard" data-x="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>Leaderboards <span class="chip-plus">HASHMARK+</span></h4><p>Team & player stat leaders, every category.</p></div>
     <div class="xcard" data-x="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
@@ -5229,7 +5601,8 @@ async function openExplore(){
     notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature(),
     whatwins:()=>openWhatWins(), playerrank:()=>openPlayerRankings(),
     quadrant:()=>openQuadrant(), whyrating:()=>openWhyRating(), luck:()=>openLuckLedger(),
-    gauntlet:()=>openGauntlet(), oddstime:()=>openOddsTimeline()};
+    gauntlet:()=>openGauntlet(), oddstime:()=>openOddsTimeline(),
+    nil:()=>openNILEconomy(), crowd:()=>openUpsetRadar(), rosterecon:()=>gatedRosterEconomy()};
   document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
   document.getElementById("xask").onclick=openOmni;
   document.getElementById("foundgo").onclick=async()=>{

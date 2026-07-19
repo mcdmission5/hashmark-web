@@ -122,6 +122,23 @@ def check_vocab():
             rc = 1
     if not rc:
         print("vocab linter OK — no betting vocabulary in pick'em/assist strings (all app files)")
+    # NIL-copy review list (visuals-nil brief Part 2): spending judgments must stay
+    # opinion-from-facts — these words state them as fact and are banned in the NIL section.
+    NIL_REVIEW = ["wasted", "overpaid", " bust ", "waste of money"]
+    for rel in LINT_FILES:
+        p = os.path.join(ROOT, rel)
+        if not os.path.exists(p):
+            continue
+        html = open(p).read()
+        m = re.search(r"NIL ECONOMY \(Part 2\)[\s\S]*?/\* ---------------- omnibox", html)
+        if not m:
+            continue
+        hits = [w for w in NIL_REVIEW if w in m.group(0).lower()]
+        if hits:
+            print(f"NIL COPY LINT FAIL [{rel}]: judgment-as-fact language: {hits}")
+            rc = 1
+    if not rc:
+        print("NIL copy linter OK — no judgment-as-fact spending language")
     return rc
 
 
