@@ -2083,8 +2083,10 @@ const MATCHUP_STATS = ["points_per_game","opp_points_per_game","total_yards_pg",
   "third_down_pct","third_down_pct_allowed","turnover_margin","off_explosiveness","def_havoc"];
 let _statSeasonActive=null;
 async function activeStatSeason(){   // 2025 now; auto-switches to 2026 when those stats land
+  // Keyed to a CORE stat (points_per_game), not max(season): the 2026 preseason-SOS rows
+  // live in team_stat_season too and were flipping this to a season with no real stats.
   if(_statSeasonActive) return _statSeasonActive;
-  try{ const r=await api("team_stat_season?select=season&order=season.desc&limit=1");
+  try{ const r=await api("team_stat_season?select=season&stat_key=eq.points_per_game&order=season.desc&limit=1");
     _statSeasonActive=(r[0]&&r[0].season)||STAT_SEASON; }catch(e){ _statSeasonActive=STAT_SEASON; }
   return _statSeasonActive;
 }

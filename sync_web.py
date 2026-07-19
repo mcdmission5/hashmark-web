@@ -153,7 +153,7 @@ def check_nav_registry():
     import re
     p = os.path.join(ROOT, "hashmark-app.html")
     html = open(p).read()
-    declared = set(re.findall(r"^(?:async )?function (open[A-Z]\w*)\(", html, re.M))
+    declared = set(re.findall(r"(?:async\s+)?function\s+(open[A-Z]\w*)\s*\(", html))
     registered = set(re.findall(r'\["(open[A-Z]\w*)"', html))
     missing = sorted(declared - registered - NAV_ALLOWLIST)
     if missing:
