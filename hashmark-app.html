@@ -1529,8 +1529,14 @@ async function renderHome(){
       h += `<div class="hsec"><div class="hsectitle">Preseason 2026 <small>third-party</small></div><div class="premod">`;
       if(cons.length){ h+=`<div class="precol"><div class="prehd">Consensus All-Americans</div><div class="prelist">`+
         cons.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}">${esc(r.player)} <small>${esc(r.position||"")} · ${esc(t.school||r.school||"")}</small></div>`; }).join("")+`</div></div>`; }
-      if(poll.length){ h+=`<div class="precol"><div class="prehd">Preseason Top 25 <small>${[...new Set(poll.map(p=>p.source))].length} src</small></div><div class="prelist">`+
-        poll.slice(0,5).map(r=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}"><b>${r.rank}</b> ${esc(t.school||r.school||"")}</div>`; }).join("")+`</div></div>`; }
+      if(poll.length){
+        const nSrc=[...new Set(poll.map(p=>p.source))].length;
+        const agg={}; poll.forEach(r=>{ const k=r.team_id||r.school;
+          (agg[k]=agg[k]||{team_id:r.team_id, school:r.school, ranks:[]}).ranks.push(Number(r.rank)); });
+        const top5=Object.values(agg).map(x=>({...x, avg:x.ranks.reduce((a2,b2)=>a2+b2,0)/x.ranks.length, n:x.ranks.length}))
+          .sort((x,y)=>(y.n-x.n)||(x.avg-y.avg)).slice(0,5);
+        h+=`<div class="precol"><div class="prehd">Preseason consensus <small>${nSrc} outlets</small></div><div class="prelist">`+
+          top5.map((r,i)=>{ const t=teamMeta[r.team_id]||{}; return `<div data-team="${r.team_id||""}"><b>${i+1}</b> ${esc(t.school||r.school||"")} <small>avg #${r.avg.toFixed(1)}</small></div>`; }).join("")+`</div></div>`; }
       h += `</div><div class="morelink" data-go="preseason">All preseason honors <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
     }
     // AP Top 25 — official, now a labeled section lower down
@@ -4170,11 +4176,17 @@ function renderPreseason(rows){
           <div class="tnm">${esc(t?t.school:r.school)}<small> avg #${r.avg.toFixed(1)} · ${r.n}/${srcs.length} lists</small></div></div>`; });
     }
     srcs.forEach(sc=>{ const list=bySrc[sc].slice().sort((x,y)=>x.rank-y.rank);
-      h+=`<div class="sgtitle" style="margin-top:10px">${esc(sc)} <small>${link(sc+"'s 2026 preseason Top 25", list[0].source_url)}</small></div>`;
-      list.forEach(r=>{ const t=teamMeta[r.team_id];
+      // legal/rendering rule (owner, Jul 19): subjective outlet rankings render as a
+      // TOP-10 EXCERPT + outbound link — never any single outlet's full 25 verbatim.
+      // Official poll-result facts (AP/Coaches when they release) may render in full.
+      const official=/official/i.test(list[0].group_or_poll||"") || sc==="AP Top 25" || sc==="Coaches Poll";
+      const shown=official?list:list.slice(0,10);
+      h+=`<div class="sgtitle" style="margin-top:10px">${esc(sc)} <small>${official?"official poll":"top-10 excerpt"}</small></div>`;
+      shown.forEach(r=>{ const t=teamMeta[r.team_id];
         h+=`<div class="t25row"${teamTap(r)}><div class="trk">${r.rank}</div>
           ${crestEl("schedcr",(t?t.school:r.school),t?hx(t.color):"#384455")}
-          <div class="tnm">${esc(t?t.school:r.school)}</div></div>`; }); });
+          <div class="tnm">${esc(t?t.school:r.school)}</div></div>`; });
+      if(!official) h+=`<div class="morelink"><a class="srcpill" href="${esc(list[0].source_url||"#")}" target="_blank" rel="noopener">Full list at ${esc(sc)} <svg class="ic" aria-hidden="true"><use href="#i-up-r"/></svg></a></div>`; });
     h+=`<div class="secsub" style="padding-top:8px">The official <b>AP &amp; Coaches</b> preseason polls auto-appear here when released in August.</div>`;
   } else {
     h+=`<div class="secsub">The official AP &amp; Coaches preseason Top 25 release in August — they'll appear here automatically (CFBD).</div>`;
