@@ -3630,8 +3630,12 @@ async function openStats(tab){
     document.querySelector(".back").onclick=load; }
 }
 async function renderStats(){
+  // header follows the selected stat's season — a STAT_SEASON_OVERRIDE stat (e.g. the 2026
+  // preseason SOS) must never sit under a "2025 season" banner
+  const hdrSeason=(statTab==="explorer" && STAT_SEASON_OVERRIDE[exploreStat])
+    ? `${STAT_SEASON_OVERRIDE[exploreStat]} preseason` : `${STAT_SEASON} season`;
   let h=`<div class="cmp">`+backHeader("Stats")+`<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 10px">Official stats &amp; analytics · <b>2025 season</b> · all FBS teams · source CFBD.</div>
+    <div class="secsub" style="padding:0 2px 10px">Official stats &amp; analytics · <b>${hdrSeason}</b> · all FBS teams · source CFBD.</div>
     <div class="statnav">`;
   [["explorer","Stat explorer"],["leaders","Leaderboards"],["players","Player leaders"],["splits","Splits"],["conf","Conferences"]]
     .forEach(([k,l])=>h+=`<button data-stab="${k}" class="${statTab===k?"on":""}">${l}</button>`);
