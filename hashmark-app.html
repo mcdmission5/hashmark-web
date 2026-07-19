@@ -3207,6 +3207,7 @@ function renderSim(){
     <div class="navrow"><button class="navbtn primary" id="simpick"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg> Pick a team's games</button>
       <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button>
       ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Simulate ${SIM_MC_N.toLocaleString()}×</button>`:""}</div>
+    <div id="simteamchips" class="simchips" style="padding:2px 2px 4px"></div>
     <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · ${nLocked?`${nLocked} final${nLocked>1?"s":""} locked · `:""}the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:(nLocked?`${nLocked} final${nLocked>1?"s":""} locked to real results · no picks yet — the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game")}</div>`;
   // B2 (the Iowa fix): the PRIMARY field is PROBABILITY-ORDERED — ranked by Make-CFP
   // from the model's full-season Monte Carlo (playoff_odds, 4,000 simulated seasons,
@@ -3261,6 +3262,23 @@ function renderSim(){
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
+  // Batch 9 3f: chips for every team with picks (tap = its sheet; x = clear that team)
+  const chipHost=document.getElementById("simteamchips");
+  if(chipHost){
+    const withPicks=new Set();
+    Object.keys(sim.userPicks).forEach(gid=>{ if(String(gid).startsWith("ccg|")) return;
+      const g=sim.games.find(x=>String(x.id)===String(gid)); if(!g) return;
+      [String(g.home_team_id),String(g.away_team_id)].forEach(t=>{
+        const tg=sim.games.filter(x=>String(x.home_team_id)===t||String(x.away_team_id)===t);
+        if(tg.some(x=>sim.userPicks[x.id]!=null)) withPicks.add(t); }); });
+    const mine=[...withPicks].filter(t=>sim.games.some(g=>(String(g.home_team_id)===t||String(g.away_team_id)===t)&&sim.userPicks[g.id]!=null));
+    chipHost.innerHTML=mine.length?mine.map(t=>`<span class="simchip" data-teamchip="${t}">${esc((teamMeta[t]||{}).school||t)} <b data-chipx="${t}" style="cursor:pointer;padding-left:4px">x</b></span>`).join("")
+      +`<span class="simchip" id="addteam" style="border-style:dashed">+ add another team</span>`:"";
+    chipHost.querySelectorAll("[data-teamchip]").forEach(el=>el.onclick=e=>{
+      if(e.target.dataset.chipx){ sim.games.forEach(g=>{ if(String(g.home_team_id)===e.target.dataset.chipx||String(g.away_team_id)===e.target.dataset.chipx) delete sim.userPicks[g.id]; }); renderSim(); return; }
+      simTeamSheet(el.dataset.teamchip); });
+    const at=document.getElementById("addteam"); if(at) at.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
+  }
   const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={}; renderSim(); if(SHOW_PREDICTIONS) simAutoOdds(); };
   const run=document.getElementById("simrun"); if(run) run.onclick=async()=>{ if(await simRunGate()) simRunOdds(); };
   document.querySelectorAll("[data-ccg]").forEach(el=>el.onclick=()=>ccgSheet(el.dataset.ccg));
@@ -3392,15 +3410,52 @@ function simTeamSheet(teamId){
           <div><b>${Math.round(100*ty.po/N)}%</b><small>Make CFP</small></div>
           <div><b>${Math.round(100*ty.ct/N)}%</b><small>Conf title</small></div>
           <div><b>${Math.round(100*ty.wo/N)}%</b><small>Win out</small></div>
-          <div><b>${rec}</b><small>Most likely record</small></div></div>
-        ${ty.po?`<div class="rdbars" style="height:36px">${hist}</div><div class="ha" style="padding:1px 0 4px">Seed distribution when in the field (1-12)</div>`:""}
+          <div><b>${rec}</b><small>Most common record (sims)</small></div></div>
+        ${ty.po?(()=>{ let best=0,bs=null; Object.entries(ty.seeds).forEach(([sd,n2])=>{ if(n2>best){best=n2;bs=sd;} });
+          return `<div class="ha" style="padding:4px 0 1px"><b>If they make the Playoff, which seed?</b></div>
+          <div class="ha" style="padding:0 0 3px">Across ${N.toLocaleString()} simulated seasons where they make the field, how often each seed lands${bs?` — most often: <b>#${bs}</b>`:""}. Seeds 1-4 carry a first-round bye.</div>
+          <div class="rdbars" style="height:36px">${hist}</div>
+          <div class="ha" style="padding:1px 0 4px">seeds 1 to 12 · the left four carry the bye</div>`; })():""}
         ${frTop?`<div class="ha" style="padding:0 0 6px">Most likely first-round hosts/visitors: ${frTop}</div>`:""}`;
     }
-    return `<div class="stoddswrap">${inner}
-      <button class="navbtn primary" id="strun" style="width:100%;min-height:40px"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Run simulation — ${SIM_MC_N.toLocaleString()} seasons</button></div>`;
+    let levHtml="";
+    if(run&&run.lev&&String(run.levTeam)===String(teamId)&&run.sig===simPicksSig()){
+      // batch 9 3f: top-leverage games as plain sentences — "what needs to happen"
+      const items=Object.entries(run.lev).map(([gid,v])=>{
+        const g=sim.games.find(x=>String(x.id)===String(gid)); if(!g) return null;
+        const ph=v.h[0]>=25?v.h[1]/v.h[0]:null, pa=v.a[0]>=25?v.a[1]/v.a[0]:null;
+        if(ph==null||pa==null) return null;
+        const diff=ph-pa;
+        const rootFor=diff>=0?String(g.home_team_id):String(g.away_team_id);
+        const over=diff>=0?String(g.away_team_id):String(g.home_team_id);
+        return {gid, wk:g.week, rootFor, over, lift:Math.abs(diff)};
+      }).filter(Boolean).sort((x,y)=>y.lift-x.lift).slice(0,5);
+      if(items.length){
+        const nm3=id=>(teamMeta[id]||{}).school||"?";
+        levHtml=`<div class="ha" style="padding:6px 0 2px"><b>What needs to happen</b> — the games that move ${esc(t.school)}'s Playoff odds most:</div>`
+          +items.map(it=>`<div class="ha" style="padding:2px 0">Root for <b>${esc(nm3(it.rootFor))}</b> over ${esc(nm3(it.over))} (Wk ${it.wk}) — ${it.lift>=0.005?"+"+Math.round(it.lift*100)+" points":"under 1 point"} to their Playoff chances.</div>`).join("");
+      }
+    }
+    return `<div class="stoddswrap">${inner}${levHtml}
+      <button class="navbtn primary" id="strun" style="width:100%;min-height:40px"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Run simulation — ${SIM_MC_N.toLocaleString()} seasons</button>
+      <button class="navbtn" id="stlev" style="width:100%;min-height:36px;margin-top:6px"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg> What needs to happen for ${esc(t.school)}</button></div>`;
   };
   const draw=()=>{ const eff=simEffective(); let w=0,l=0;
     let html="";
+    // Batch 9 3e: this scenario's bracket path when the team is in the field
+    const sc=simCompute(eff);
+    const seedI=sc.field.indexOf(String(teamId));
+    if(seedI>=0){
+      const seed=seedI+1;
+      const nm2=id=>(teamMeta[id]||{}).school||"?";
+      let path;
+      if(seed<=4) path=`As the #${seed} seed: first-round BYE; meets the ${seed<=2?"lowest":"winner's"} first-round survivor in the quarterfinal.`;
+      else{ const oppSeed=17-seed; const opp=sc.field[oppSeed-1];
+        const host=seed<=8;
+        const qf=sc.field[(seed===5||seed===12)?3:(seed===6||seed===11)?2:(seed===7||seed===10)?1:0];
+        path=`As the #${seed} seed: ${host?"hosts":"at"} #${oppSeed} ${esc(nm2(opp))}; the winner meets #${sc.field.indexOf(qf)+1} ${esc(nm2(qf))} in the quarterfinal.`; }
+      html+=`<div class="ha" style="padding:2px 0 8px;color:var(--amber)">${path}</div>`;
+    }
     // B1: FCS games render with the real opponent name, count in the record, and are
     // not pickable (they resolve at the historical base rate; a chalk win)
     const fcsList=(sim.fcsBy&&sim.fcsBy[teamId])||[];
@@ -3427,7 +3482,7 @@ function simTeamSheet(teamId){
         <div class="ha">Wk ${g.week} · ${g.done!=null?(g.done?"Final W":"Final L"):`counts at ${Math.round(g.p*100)} of 100 (FBS-over-FCS rate)`}</div></div></div>
       <div class="stlock">${g.done!=null?(g.done?"W":"L"):"W"}</div></div>`; });
     document.getElementById("stsheet").innerHTML=
-      `<div class="strec">Projected: <b>${w}–${l}</b> <small>all games incl. FCS</small></div>`+teamOdds()+html;
+      `<div class="strec">Record: <b>${w}–${l}</b> <small>your scenario · all games incl. FCS</small></div>`+teamOdds()+html;
     document.querySelectorAll("#stsheet .stb").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gid]=b.dataset.pick; draw(); });
     const rb=document.getElementById("strun");
     if(rb) rb.onclick=async()=>{
@@ -3436,6 +3491,15 @@ function simTeamSheet(teamId){
       simMonteCarlo(SIM_MC_N,
         ()=>{ draw(); },
         (done,N)=>{ rb.textContent=`Simulating… ${done.toLocaleString()} / ${N.toLocaleString()}`; });
+    };
+    const lb=document.getElementById("stlev");
+    if(lb) lb.onclick=async()=>{
+      if(!(await simRunGate())) return;
+      lb.disabled=true;
+      simMonteCarlo(SIM_MC_N,
+        ()=>{ draw(); },
+        (done,N)=>{ lb.textContent=`Computing leverage… ${done.toLocaleString()} / ${N.toLocaleString()}`; },
+        teamId);
     };
   };
   draw();
@@ -3452,11 +3516,13 @@ function simTeamSheet(teamId){
 // (B1); user picks stay fixed. Tallies per team: CFP / conf title / win-out counts plus
 // full seed and win-count distributions (the per-team sheet needs them, B2).
 const SIM_MC_N = 1000;                  // engine and copy must agree — benchmarked Jul 2026
-function simMonteCarlo(N, onDone, onProgress){
+function simMonteCarlo(N, onDone, onProgress, focusTeam){
   const fbs=[...sim.fbs], tally={};
   fbs.forEach(id=>tally[id]={po:0,ct:0,wo:0,seeds:{},wins:{},fr:{}});
   const open=sim.games.filter(g=>!sim.userPicks[g.id] && !sim.locked[g.id]);
   const fixed=Object.assign({}, sim.userPicks, sim.locked);
+  const lev = focusTeam ? {} : null;   // batch 9 3f: per-game P(focus makes CFP | side wins)
+  if(lev) open.forEach(g=>lev[g.id]={h:[0,0], a:[0,0]});
   let s=0;
   const BATCH=40;
   function batch(){
@@ -3472,10 +3538,13 @@ function simMonteCarlo(N, onDone, onProgress){
       r.champions.forEach(id=>{ if(tally[id]) tally[id].ct++; });
       fbs.forEach(id=>{ const w=r.rec[id].w; tally[id].wins[w]=(tally[id].wins[w]||0)+1;
         if(r.rec[id].l===0 && w>0) tally[id].wo++; });
+      if(lev){ const inF=r.field.includes(String(focusTeam));
+        open.forEach(g=>{ const side=String(picks[g.id])===String(g.home_team_id)?"h":"a";
+          lev[g.id][side][0]++; if(inF) lev[g.id][side][1]++; }); }
     }
     if(onProgress) onProgress(s, N);
     if(s<N) setTimeout(batch, 0);
-    else { sim.lastRun={tally, N, sig:simPicksSig(), at:Date.now()}; onDone(sim.lastRun); }
+    else { sim.lastRun={tally, N, sig:simPicksSig(), at:Date.now(), lev, levTeam:focusTeam||null}; onDone(sim.lastRun); }
   }
   batch();
 }
