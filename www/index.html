@@ -341,6 +341,26 @@
   .ccgstand .ssnm{flex:1;font-weight:600;font-size:13.5px}
   .ccgstand .ssnm small{display:block;color:var(--text3);font-weight:500;font-size:10.5px}
   .ccgstand .more{color:var(--text3);font-size:11px}
+  /* What actually wins games */
+  .wwhead{display:grid;grid-template-columns:1fr 84px 110px;gap:8px;padding:2px 2px 8px;
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
+  .wwhead div{cursor:help}
+  .wwrow{display:grid;grid-template-columns:1fr 84px 110px;gap:8px;align-items:center;
+    padding:10px 2px;border-top:1px solid var(--line);min-height:44px;cursor:help}
+  .wwrow .wwk{font-weight:600;font-size:13.5px}
+  .wwrow .wwk small{display:block;font-weight:500;font-size:10.5px;color:var(--text3)}
+  .wwrow .wwv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:14px}
+  .wwrow .wwv small{display:block;font-weight:500;font-size:9.5px;color:var(--text3)}
+  /* team-page accordions (teampage brief #1) */
+  .acc{border:1px solid var(--line);border-radius:13px;margin:8px 0;background:linear-gradient(165deg,#151f36,#101828);overflow:hidden}
+  .acchdr{width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;background:none;border:0;cursor:pointer;
+    color:var(--text);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:14px;letter-spacing:.03em;text-align:left;min-height:44px}
+  .acchdr small{font-family:"Barlow",sans-serif;font-weight:500;font-size:10.5px;color:var(--text3);letter-spacing:0;margin-left:auto}
+  .acchdr .accchev{flex:none;width:12px;height:12px;color:var(--text3);transition:transform .15s}
+  .acchdr[aria-expanded="true"] .accchev{transform:rotate(180deg)}
+  .accbody{padding:0 4px 6px}
+  .accbody .sec{border:0;background:none;margin-top:0}
+  .accbody > .sec > .sectitle{display:none}
   /* On-Track Pace live panel */
   .pacehdr{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);
     font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12.5px;
@@ -915,7 +935,13 @@ const SHOW_HASHMARK_RATINGS = false;
 // Win probabilities are read from the precomputed `matchup_winprob` table (the underlying ratings
 // never reach the browser). This stays on while SHOW_HASHMARK_RATINGS is false.
 const SHOW_PREDICTIONS = true;
-let view = "2025";            // preview: land on the official 2025 AP Top 25 (ratings hidden)
+// Season rollover (teampage brief #5): the app's "current" season flips ~April 1 — no
+// more hardcoded years. Apr 2026-Mar 2027 -> 2026; Apr 2027 -> 2027.
+const SEASON_ROLLOVER_MONTH = 4;
+function currentSeason(){ const d=new Date();
+  return (d.getMonth()+1) >= SEASON_ROLLOVER_MONTH ? d.getFullYear() : d.getFullYear()-1; }
+const SEASON_SCHED = currentSeason(), SEASON_RESULTS = SEASON_SCHED - 1;
+let view = String(SEASON_SCHED);   // land on the CURRENT/upcoming season (brief #5)
 let boardMode = "overall";   // 2026 leaderboard: overall | offense | defense
 let confFilter = null;        // null = all FBS, else a conference name
 
@@ -993,7 +1019,7 @@ async function applySession(session){
   if(authUser){ await ensureProfile(); refreshPushSub(); } else { authProfile=null; }
   syncAccountUI();
   const uid = authUser ? authUser.id : null;
-  if(uid !== _authUid){ _authUid = uid; if(view==="2025" && app.querySelector(".hsec")) load(); }
+  if(uid !== _authUid){ _authUid = uid; if(app.querySelector(".hsec")) load(); }
 }
 // Profile reads/writes via direct REST with the SESSION's access token, so the user's JWT is
 // always on the request (avoids any from() token-attachment timing on reload). RLS still applies.
@@ -1126,12 +1152,11 @@ async function setFavoriteTeam(teamId){
     await authFetch("PATCH", `profiles?id=eq.${authUser.id}`, {favorite_team_id:Number(teamId), updated_at:new Date().toISOString()});
     authProfile = authProfile || {id:authUser.id};
     authProfile.favorite_team_id = Number(teamId);
-    if(view==="2025") load(); else syncAccountUI();
+    if(app.querySelector(".hsec")) load(); else syncAccountUI();
   }catch(e){}
 }
 
 // ---------- official games + records (FACTUAL — render in preview AND full mode) ----------
-const SEASON_RESULTS = 2025, SEASON_SCHED = 2026;
 const GAME_SEL = "id,season,week,season_type,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site,completed,network,start_time_tbd";
 // G2: "Sat Sep 5 · 7:30 PM ET · ESPN" — date always; time only when known (start_time_tbd ->
 // "Time TBD"); network chip only when present (never render null). Completed games: date only.
@@ -1199,16 +1224,16 @@ function recordCard(ts, ap){
     <div class="recline"><div class="recbig">${ts.wins}–${ts.losses}</div>
       <div class="recctx">${apTxt}<b>2025</b> · ${conf}</div></div>${stats}</div>`;
 }
-function scheduleSection(games, teamId){
+function scheduleSection(games, teamId, which="both", sosRank=null){
   const sort = a => a.slice().sort((x,y)=>(stOrder(x.season_type)-stOrder(y.season_type))||(x.week-y.week));
   const r25 = sort(games.filter(g=>g.season===SEASON_RESULTS));
   const r26 = sort(games.filter(g=>g.season===SEASON_SCHED));
   let h = "";
-  if(r25.length){ h+=`<div class="sec"><div class="sectitle">2025 results</div>
+  if(r25.length && which!=="sched"){ h+=`<div class="sec"><div class="sectitle">${SEASON_RESULTS} results</div>
     <div class="secsub">Final scores — official. Tap an opponent to open it.</div>`;
     r25.forEach(g=>h+=schedRow(g,teamId)); h+=`</div>`; }
-  if(r26.length){ h+=`<div class="sec"><div class="sectitle">2026 schedule</div>
-    <div class="secsub">Upcoming opponents — official schedule.</div>`;
+  if(r26.length && which!=="results"){ h+=`<div class="sec" id="tp-sched"><div class="sectitle">${SEASON_SCHED} schedule${sosRank?` · SoS #${sosRank}`:""}</div>
+    <div class="secsub">Upcoming opponents — official schedule, dates &amp; TV as they're set${sosRank?`. Schedule strength ranks #${sosRank} of 138 (preseason)`:""}.</div>`;
     r26.forEach(g=>h+=schedRow(g,teamId)); h+=`</div>`; }
   return h;
 }
@@ -1260,8 +1285,8 @@ async function drawScores(){
       <div class="wordmark">Hashmark<span class="dot">.</span></div>
       <div class="cmptag">Scores</div></div>
     <div class="venue"><div class="toggle">
-      <button data-ss="${SEASON_RESULTS}" class="${scoresSeason===SEASON_RESULTS?"on":""}">2025<small>Final scores</small></button>
-      <button data-ss="${SEASON_SCHED}" class="${scoresSeason===SEASON_SCHED?"on":""}">2026<small>Schedule</small></button>
+      <button data-ss="${SEASON_SCHED}" class="${scoresSeason===SEASON_SCHED?"on":""}">${SEASON_SCHED}<small>Schedule</small></button>
+      <button data-ss="${SEASON_RESULTS}" class="${scoresSeason===SEASON_RESULTS?"on":""}">${SEASON_RESULTS}<small>Final scores</small></button>
     </div></div>
     <div class="list" style="padding-top:4px">
     <div class="confbar">`;
@@ -1282,7 +1307,7 @@ async function drawScores(){
 }
 
 function header(){
-  const sub = view==="2025"
+  const sub = view===String(SEASON_RESULTS)
     ? "Deep <b>official</b> college-football stats &amp; analytics — every FBS team &amp; player, standings, splits, matchups &amp; a playoff simulator."
     : !SHOW_HASHMARK_RATINGS
       ? "Hashmark ratings are in <b>preview</b> — coming soon."
@@ -1296,8 +1321,8 @@ function header(){
     <div class="htop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
       <div id="acctslot" class="acctslot">${accountControl()}</div></div>
     <div class="toggle">
-      <button data-v="2025" class="${view==="2025"?"on":""}">2025<small>Final · AP</small></button>
-      <button data-v="2026" class="${view==="2026"?"on":""}">2026<small>${v26small}</small></button>
+      <button data-v="${SEASON_SCHED}" class="${view===String(SEASON_SCHED)?"on":""}">${SEASON_SCHED}<small>${v26small}</small></button>
+      <button data-v="${SEASON_RESULTS}" class="${view===String(SEASON_RESULTS)?"on":""}">${SEASON_RESULTS}<small>Final · AP</small></button>
     </div>
     <div class="subtitle">${sub}</div>
     <div class="fdline"></div></header>`;
@@ -1324,16 +1349,62 @@ function listTop(hint){
 }
 
 async function load(){
-  // 2026 toggle = the (hidden) Hashmark ratings preview; 2025 = the stats Home dashboard (default).
-  if(view==="2026"){
-    app.innerHTML = `<div class="loading">Loading 2026…</div>`;
+  // current-season tab (default) = real 2026 content: schedule, preseason SOS, signals,
+  // news, with an INLINE ratings-coming-soon element (brief #5 — never a blank page).
+  // prior-season tab = the historical stats dashboard.
+  if(view===String(SEASON_SCHED)){
+    app.innerHTML = `<div class="loading">Loading ${SEASON_SCHED}…</div>`;
     try{
-      if(!SHOW_HASHMARK_RATINGS) return renderComingSoon();   // preview: hide the 2026 board/leaderboards
+      if(!SHOW_HASHMARK_RATINGS) return render2026Home();
       await ensureUnits(); return renderLeaderboard();
     }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
     return;
   }
   return renderHome();
+}
+
+// The current-season home: everything real we have for the upcoming season + news.
+async function render2026Home(){
+  await ensureTeamMeta();
+  let h = header() + `<div class="list">
+    <div class="previewbar"><span class="pb-badge">COMING SOON</span><b>Hashmark ratings</b> land here once they're solid — everything below is live ${SEASON_SCHED} data.</div>
+    <div class="hsec" id="cs-anchor"><div class="hsectitle">${SEASON_SCHED} season <small>schedule · strength · signals</small></div></div>
+    <div class="xgrid" style="padding:0 2px">
+      <div class="xcard" data-cs="scores"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg><h4>${SEASON_SCHED} schedule</h4><p>Every game — dates, kickoff times &amp; TV as they're announced.</p></div>
+      <div class="xcard" data-cs="sos"><svg class="ic" aria-hidden="true"><use href="#i-ruler"/></svg><h4>Toughest schedules</h4><p>The ${SEASON_SCHED} preseason strength-of-schedule board.</p></div>
+      <div class="xcard" data-cs="pickem"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><h4>Pick'em</h4><p>Groups are open — first slate lands with Week 1.</p></div>
+      <div class="xcard" data-cs="signature"><svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg><h4>Signature stats</h4><p>The Collapse Index and the preseason watch-list.</p></div>
+    </div>
+    <div id="cs-teasers"></div>
+    <div class="hsec" id="cs-newshost"></div>
+    <div class="note"><b>${SEASON_SCHED} preseason.</b> Schedule, strength of schedule and preseason signals are live official-lane data; Hashmark's own ${SEASON_SCHED} ratings appear here when they go live. ${BRAND_LINE}</div></div>`;
+  app.innerHTML = h; wireToggle();
+  const GO={scores:openScores, sos:()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; openStandings(); },
+            pickem:openPickem, signature:openSignature};
+  document.querySelectorAll("[data-cs]").forEach(el=>el.onclick=()=>GO[el.dataset.cs]());
+  // preseason signal teasers (SOS #1 / collapse watch-list / checking our work)
+  try{
+    const host=document.getElementById("cs-teasers");
+    const [sos, sig, acc]=await Promise.all([
+      api(`standings?select=school,sos,sos_rank&season=eq.${SEASON_SCHED}&sos_rank=eq.1&limit=1`).catch(()=>[]),
+      api(`signature_stats?select=team_id,season,drivers&free=eq.true&stat_key=eq.collapse_index&limit=1`).catch(()=>[]),
+      api(`accuracy_summary?select=*&order=season.desc&limit=1`).catch(()=>[])]);
+    let t="";
+    if(acc.length&&acc[0].su_pct!=null) t+=`<div class="card card-hero-teal" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="acc">
+      <div class="eyebrow" style="color:var(--teal)">Checking our work</div>
+      <div style="font-size:12.5px;margin-top:3px">The Model called <b>${Math.round(Number(acc[0].su_pct))} of 100</b> winners straight-up in ${acc[0].season} — logged before kickoff.</div></div>`;
+    if(sos.length) t+=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="sos">
+      <div class="eyebrow" style="color:var(--teal)">Preseason strength of schedule · ${SEASON_SCHED}</div>
+      <div style="font-size:12.5px;margin-top:3px">Toughest ${SEASON_SCHED} slate: <b>${esc(sos[0].school)}</b> — difficulty ${Number(sos[0].sos).toFixed(1)}/100. See the full board <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
+    if(sig.length){ const tm=teamMeta[sig[0].team_id]||{};
+      t+=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="sig">
+      <div class="eyebrow" style="color:var(--amber)">Regression watch-list · ${sig[0].season}</div>
+      <div style="font-size:12.5px;margin-top:3px">The preseason top-10 team our factors flag hardest: <b>${esc(tm.school||"?")}</b></div></div>`; }
+    host.innerHTML=t;
+    const TGO={acc:openCheckingWork, sos:()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; openStandings(); }, sig:openSignature};
+    host.querySelectorAll("[data-cst]").forEach(el=>el.onclick=()=>TGO[el.dataset.cst]());
+  }catch(e){}
+  injectNews();   // brief #5: news lives on the current-season tab
 }
 
 // preview placeholder shown where the 2026 Hashmark board + leaderboards used to be
@@ -1349,7 +1420,7 @@ function renderComingSoon(){
       <div class="soonfoot"><b>2026 Preseason — Hashmark.</b> Independent analytics, in preview. Not affiliated with or endorsed by any school, conference, or the NCAA.</div>
     </div></div>`;
   wireToggle();
-  const b=document.getElementById("soonap"); if(b) b.onclick=()=>{ view="2025"; load(); };
+  const b=document.getElementById("soonap"); if(b) b.onclick=()=>{ view=String(SEASON_RESULTS); load(); };
 }
 
 function rowHTML(i, t, mainHTML, teamId){
@@ -1467,7 +1538,7 @@ async function renderHome(){
     h += `</div>`;
     // footer
     h += `<div class="note"><b>Hashmark — official college-football stats &amp; analytics.</b> Team &amp; player stats, game logs, standings, situational splits, matchups and a season simulator — all official (CFBD). <b>Hashmark's own power ratings are coming soon.</b> ${BRAND_LINE}</div></div>`;
-    app.innerHTML = h; wireHome(); injectNews();
+    app.innerHTML = h; wireHome();   // news moved to the current-season tab (brief #5)
     if(location.hash==="#pickem"){ history.replaceState(null,"",location.pathname); openPickem(); }
   }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
 }
@@ -2066,7 +2137,7 @@ async function injectNews(){
   try{
     const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=8`);
     if(!items.length) return;
-    const anchor = app.querySelector(".hsec");
+    const anchor = document.getElementById("cs-newshost") || app.querySelector(".hsec");
     if(!anchor) return;
     const div = document.createElement("div");
     div.className = "hsec";
@@ -2118,7 +2189,7 @@ async function openNewsArchive(teamId){
 }
 async function teamNewsHTML(teamId){
   try{
-    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=3`);
+    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=2`);
     if(items.length)
       return `<div class="sec"><div class="sectitle">Team news</div>`+items.map(newsRow).join("")
         +`<div class="navrow" style="padding-top:6px"><button class="navbtn" data-newsall="${teamId}">All team news <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
@@ -2802,7 +2873,7 @@ async function openDetail(teamId){
       const [team, ap, cat, stats, players, honors, gamelog, standing, splits] = await Promise.all([
         api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
         api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
-        ensureCatalog(),
+        ensureCatalog().then(c=>ensureBaselines().then(()=>c)),
         api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${PRIOR_SEASON},${STAT_SEASON})&team_id=eq.${teamId}`),
         api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
         api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`),
@@ -2834,9 +2905,8 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     const d=document.createElement("div"); d.innerHTML=html;
     // signature-and-gating §2: news lives HIGH on the team page — right under the
     // identity/record block, above the deep stat sections (overrides design-doc order)
-    const anchor=[...app.querySelectorAll("*")].find(e=>e.children.length===0
-      && /stat profile/i.test(e.textContent||""));
-    const host = anchor ? anchor.closest("div") : app.querySelector(".note");
+    const host = document.getElementById("tp-sched") || document.getElementById("tp-accordions")
+      || app.querySelector(".note");
     if(host) host.parentNode.insertBefore(d.firstChild, host);
   }catch(_e){} }, 0);
   // Ask Hashmark entry (P2-E5, now LIVE): injected only when the edge function answers
@@ -2874,6 +2944,12 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   const profile = (e.cat && e.stats) ? statProfile(e.cat, e.stats, t.school) : "";
   const leaders = teamLeaders(e.players || []);
   const honors  = e.honors ? teamHonors(e.honors) : "";
+  // teampage brief #1: hero stays visible; news (injected) then the 2026 schedule sit on
+  // top; everything deeper collapses into accessible accordions (all closed by default).
+  const acc=(id,title,sub,inner)=> inner?`<div class="acc">
+      <button class="acchdr" aria-expanded="false" aria-controls="accb-${id}" data-acc="${id}">
+        <span>${title}</span><small>${sub||""}</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+      <div class="accbody" id="accb-${id}" hidden>${inner}</div></div>`:"";
   let h = `<div class="detail">
     <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
@@ -2883,12 +2959,15 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div>
     ${head}
     ${standLine}
-    ${profile}
-    ${teamSplitsSection(e.splits||[])}
-    ${leaders}
-    ${gameLogSection(e.gamelog||[], teamId)}
-    ${scheduleSection(games||[], teamId)}
-    ${honors}
+    ${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)}
+    <div id="tp-accordions">
+    ${acc("profile", `${SEASON_RESULTS} stat profile`, "ranks + percentiles", profile)}
+    ${acc("splits", "Situational splits", "3rd down, red zone, by quarter", teamSplitsSection(e.splits||[], t.school))}
+    ${acc("leaders", "Returning leaders", "who's back, who left", leaders)}
+    ${acc("gamelog", "Game log", "every box line", gameLogSection(e.gamelog||[], teamId))}
+    ${acc("results", `${SEASON_RESULTS} results`, "final scores", scheduleSection(games||[], teamId, "results"))}
+    ${acc("honors", "Preseason honors", "third-party, attributed", honors)}
+    </div>
     <div class="sec" style="padding-top:6px">
       <div class="soon" style="padding:22px 20px 6px">
         <div class="soonbadge">COMING SOON</div>
@@ -2947,8 +3026,9 @@ const SPLIT_GROUPS = [
   ["By outcome", "result", ["In wins","In losses"]],
   ["Competition", "vs", ["vs Ranked (AP)"]],
 ];
-function teamSplitsSection(splits){
+function teamSplitsSection(splits, school){
   if(!splits.length) return "";
+  school=school||"This team";
   const by={}; splits.forEach(s=>{ by[`${s.side}|${s.split_type}|${s.split_key}`]=s; });
   const cell=(s)=> s ? `<b>${(s.epa_per_play>0?"+":"")+Number(s.epa_per_play).toFixed(2)}</b><small>${(Number(s.success_rate)*100).toFixed(0)}% SR</small>` : "—";
   let h=`<div class="sec"><div class="sectitle">Situational splits</div>
@@ -2959,9 +3039,18 @@ function teamSplitsSection(splits){
     if(!present.length) return;
     h+=`<div class="splitgrp">${label}</div>`;
     present.forEach(k=>{
-      h+=`<div class="splitrow"><div class="slk">${esc(k)}</div>
-        <div class="slv off">${cell(by[`off|${stype}|${k}`])}</div>
-        <div class="slv def">${cell(by[`def|${stype}|${k}`])}</div></div>`;
+      const so=by[`off|${stype}|${k}`], sd=by[`def|${stype}|${k}`];
+      const bs=_baselines&&_baselines.split_sr[`off|${stype}|${k}`];
+      let tip=`${label} — ${k}. `;
+      if(so) tip+=`On a typical ${k} play, ${school}'s offense ${Number(so.epa_per_play)>=0?"gains":"loses"} about `+
+        `${Math.abs(Number(so.epa_per_play)).toFixed(2)} expected points and stays on schedule `+
+        `${Math.round(Number(so.success_rate)*100)}% of the time`+
+        (bs!=null?` — the national average is about ${Math.round(bs*100)}%`:"")+`. `;
+      if(sd) tip+=`Its defense allows ${Number(sd.epa_per_play).toFixed(2)} EPA/play there `+
+        `(${Math.round(Number(sd.success_rate)*100)}% success allowed — lower is better).`;
+      h+=`<div class="splitrow"><div class="slk" data-tip="${esc(tip)}">${esc(k)}</div>
+        <div class="slv off">${cell(so)}</div>
+        <div class="slv def">${cell(sd)}</div></div>`;
     });
   });
   return h+`</div>`;
@@ -3389,6 +3478,28 @@ function openPicker(slot){
 //  NONE of this is a Hashmark rating/projection (those stay behind SHOW_HASHMARK_RATINGS).
 // ===================================================================================
 const STAT_SEASON = 2025, PRIOR_SEASON = 2024;
+// example-tooltip baselines (teampage brief #2): league averages per stat + split
+let _baselines=null;
+async function ensureBaselines(){
+  if(_baselines) return _baselines;
+  _baselines={stat:{},split_epa:{},split_sr:{}};
+  try{ (await api(`stat_baselines?select=kind,key,base&season=eq.${STAT_SEASON}`))
+    .forEach(r=>{ if(_baselines[r.kind]) _baselines[r.kind][r.key]=Number(r.base); }); }catch(e){}
+  return _baselines;
+}
+// concrete, example-style copy: what THIS number means on a typical play
+function statExample(d, school, v, base){
+  const val=fmtStat(v,d.format), b=base!=null?fmtStat(base,d.format):null;
+  const key=d.stat_key||"";
+  if(/ppa|epa|explosiveness/i.test(key) && base!=null){
+    const diff=Number(v)-Number(base); const off=!/^def|allowed/.test(key);
+    return `On a typical play, ${school}'s ${off?"offense gains":"defense allows"} about `+
+      `${Math.abs(diff).toFixed(2)} ${diff>0?"more":"fewer"} expected points than the average team `+
+      `(${school}: ${val}; national average ${b}).`;
+  }
+  if(d.format==="pct" && b!=null) return `${school} sits at ${val} — the national average is about ${b}.`;
+  return b!=null ? `${school}: ${val}; national average about ${b}.` : `${school}: ${val}.`;
+}
 let statTab = "explorer", exploreStat = "points_per_game", exploreConf = null;
 let _catalog = null; const _statCache = {};
 const normName = s => String(s||"").toLowerCase().replace(/\b(jr|sr|iii|ii|iv)\b/g,"").replace(/[^a-z]/g,"");
@@ -3583,7 +3694,8 @@ function statProfile(cat, statsRows, school){
     h+=`<div class="statgrp"><div class="sgtitle">${grp}${sideTag}</div>`;
     defs.forEach(d=>{
       const r=cur[d.stat_key], pct=Number(r.percentile), bkt=rankBucket(pct), val=fmtStat(r.value,d.format);
-      const tip=`${esc(d.display_name)} — ${esc(d.description)} ${esc(school)}: ${val}, #${r.rank} nationally (${ordinal(Math.round(pct))} percentile, 2025).`;
+      const baseV=_baselines&&_baselines.stat[d.stat_key];
+      const tip=`${esc(d.display_name)} — ${esc(d.description)} ${esc(statExample(d, school, r.value, baseV))} #${r.rank} nationally (${ordinal(Math.round(pct))} percentile, ${STAT_SEASON}).`;
       const pr=prior[d.stat_key];
       let dlt=`<div class="dlt"></div>`;
       if(pr){ const dv=Number(pr.rank)-Number(r.rank);
@@ -4009,9 +4121,83 @@ document.body.addEventListener("click", e=>{
   const box=e.target.closest("[data-box]");
   if(box && box.dataset.box && box.dataset.box!=="undefined"){ openBox(box.dataset.box, box.dataset.bteam); return; }
   const nb=e.target.closest("[data-newsall]"); if(nb){ gatedNewsArchive(nb.dataset.newsall); return; }
+  const ah=e.target.closest("[data-acc]");
+  if(ah){ const body=document.getElementById("accb-"+ah.dataset.acc);
+    const open=ah.getAttribute("aria-expanded")==="true";
+    ah.setAttribute("aria-expanded", String(!open));
+    if(body) body.hidden=open; return; }
   const row=e.target.closest("[data-team]");
   if(row && row.dataset.team && row.dataset.team!=="undefined") openDetail(row.dataset.team);
 });
+
+// ---- in-app history stack (teampage brief #3): the browser Back button retraces the
+// actual view path one step at a time, only leaving the app at the stack bottom. Each
+// open* navigation pushes a state; popstate re-renders that view and restores scroll.
+let _navRestoring=false;
+const NAV_ROUTES={
+  home:  p=>{ if(p&&p.view) view=p.view; load(); },
+  team:  p=>openDetail(p.id),
+  player:p=>openPlayer(p.id),
+  scores:()=>openScores(),
+  stats: p=>openStats(p.tab),
+  standings:()=>openStandings(),
+  sim:   ()=>openSimulator(),
+  pickem:()=>openPickem(),
+  method:()=>openMethodology(),
+  checking:()=>openCheckingWork(),
+  accuracy:()=>openAccuracy(),
+  signature:()=>openSignature(),
+  preseason:()=>openPreseason(),
+  matchup:()=>openMatchup(),
+  explore:()=>openExplore(),
+  whatwins:()=>openWhatWins(),
+  newsarchive:p=>openNewsArchive(p&&p.team),
+  standingsboard:()=>openStandings(),
+};
+function navPush(v,p){
+  if(_navRestoring) return;
+  try{
+    const cur=history.state;
+    if(cur&&cur.hm) history.replaceState({...cur, scroll:window.scrollY}, "");
+    history.pushState({hm:1, v, p:p||{}}, "");
+  }catch(e){}
+}
+window.addEventListener("popstate", e=>{
+  const st=e.state;
+  if(!st||!st.hm) return;              // beyond our bottom -> the browser leaves normally
+  _navRestoring=true;
+  try{ const f=NAV_ROUTES[st.v]; if(f) f(st.p||{}); }catch(_e){}
+  setTimeout(()=>{ _navRestoring=false; if(st.scroll!=null) window.scrollTo(0, st.scroll); }, 120);
+});
+try{ history.replaceState({hm:1, v:"home", p:{}}, ""); }catch(e){}
+// wrap every navigation entry point (plain-script function declarations live on window).
+// DEFERRED with setTimeout(0): openWhatWins/openSignature/... are declared in a LATER
+// script block — all blocks evaluate synchronously before timers fire, so this wraps
+// everything regardless of which block declared it.
+setTimeout(()=>{
+[["openDetail","team",id=>({id})],
+ ["openPlayer","player",id=>({id})],
+ ["openScores","scores"],["openStats","stats",tab=>({tab})],
+ ["openStandings","standings"],["openSimulator","sim"],["openPickem","pickem"],
+ ["openMethodology","method"],["openCheckingWork","checking"],["openAccuracy","accuracy"],
+ ["openSignature","signature"],["openPreseason","preseason"],["openMatchup","matchup"],
+ ["openExplore","explore"],["openWhatWins","whatwins"],
+ ["openNewsArchive","newsarchive",team=>({team})],
+].forEach(([name,v,mapper])=>{
+  const f=window[name];
+  if(typeof f!=="function") return;
+  window[name]=function(...args){ navPush(v, mapper?mapper(...args):{}); return f.apply(this,args); };
+});
+}, 0);
+// the season toggle is a navigation too — home states carry the active view
+const _wireToggle=wireToggle;
+wireToggle=function(){
+  _wireToggle();
+  document.querySelectorAll(".toggle button[data-v]").forEach(b=>{
+    const prev=b.onclick;
+    b.onclick=()=>{ if(b.dataset.v!==view){ navPush("home",{view:b.dataset.v}); } if(prev) prev(); };
+  });
+};
 
 initAuth();
 load();
@@ -4134,6 +4320,7 @@ const OMNI_TOOLS = [
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
   ["Signature stats","flame",()=>openSignature()],
   ["Ask Hashmark","chat",()=>openAsk(null)],
+  ["What actually wins games","target",()=>openWhatWins()],
   ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
 ];
 function openOmni(){ const o=document.getElementById("omni"); o.classList.add("show");
@@ -4167,6 +4354,61 @@ async function omniRun(q){
 }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeOmni(); });
 
+/* -------- "What actually wins games" (teampage brief #4 — FREE, credibility lane) -------- */
+async function openWhatWins(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading…</div>`;
+  let rows=[]; try{ rows=await api(`what_wins?select=*`); }catch(e){}
+  const by={}; rows.forEach(r=>{ by[r.factor]=r; });
+  const META={
+    efficiency:["Efficiency (success rate)","the share of plays that stay on schedule",
+      "Example: on a typical drive, the more-efficient team keeps itself ahead of the chains. Efficiency is the closest thing to repeatable skill in one number — it carries year to year."],
+    explosiveness:["Explosiveness (big plays)","value per successful play — breakaway gains",
+      "Example: hit two 50-yard plays and you'll probably win TODAY — but big plays are semi-random, and this barely repeats next season."],
+    finishing:["Finishing drives","points per trip inside the opponent's 40",
+      "Example: turning three red-zone trips into 21 instead of 9 decides games — and red-zone execution partly repeats."],
+    turnovers:["Turnover margin","takeaways minus giveaways",
+      "Example: win the turnover battle +2 and you usually win the game — but turnover margin is mostly luck across seasons; teams that live on it regress."],
+    field_pos:["Field position","average starting point of each drive",
+      "Example: starting drives at your 35 instead of your 25 is a real edge in the game — one that barely persists season to season."],
+    one_score:["One-score record","wins minus losses in games decided by 8 or fewer",
+      "Example: a 5-0 record in one-score games looks clutch — but close-game records show almost NO carryover. It is a warning sign, not a strength."]};
+  const stabLbl=r=> r==null?"—": r>=0.45?"HIGH":r>=0.2?"MEDIUM":"LOW";
+  const stabCls=r=> r==null?"":r>=0.45?"r-1":r>=0.2?"r-3":"r-5";
+  const order=["efficiency","explosiveness","finishing","turnovers","field_pos","one_score"];
+  let h=`<div class="cmp">${backHeader("What actually wins games")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Two different questions about every factor: does winning it win you <b>this game</b> —
+    and does it <b>repeat next year</b>? Computed on our own 2014-${SEASON_RESULTS} play-by-play (${(by.efficiency||{}).n_games?Number(by.efficiency.n_games).toLocaleString():"12,000+"} games,
+    garbage time removed). Tap any factor for a plain-English example.</div>
+    <div class="sec"><div class="wwhead"><div></div><div data-tip="Of all games where a team won this factor battle, the share it actually won — computed on our 2014-${SEASON_RESULTS} play-by-play.">Wins the game</div><div data-tip="Year-over-year correlation of the team-season value: does this number repeat, or reset? High = skill you can count on next season; low = luck that fades.">Repeats next year</div></div>`;
+  order.forEach(f=>{ const r=by[f], m=META[f]; if(!m) return;
+    const win=r&&r.win_pct!=null?Math.round(Number(r.win_pct))+"%":"—";
+    const st=r&&r.stability!=null?Number(r.stability):null;
+    h+=`<div class="wwrow" data-tip="${esc(m[0]+" — "+m[1]+". "+m[2])}">
+      <div class="wwk">${m[0]}<small>${m[1]}</small></div>
+      <div class="wwv">${win}</div>
+      <div class="wwv ${stabCls(st)}">${stabLbl(st)}<small>${st!=null?("r = "+st.toFixed(2)):""}</small></div></div>`; });
+  h+=`</div>
+    <div class="sec"><div class="sectitle">The point</div><div class="secsub">
+      Explosiveness and turnovers win the day they show up — then largely reset. Efficiency is the thing that
+      carries. That's exactly how the Hashmark Model is built: it <b>weights the repeatable factors</b> (success
+      rate, efficiency, finishing) and <b>fades the lucky ones</b> (turnover margin, close-game records).
+      See it applied on the <span data-go="checking" style="color:var(--amber);font-weight:600">Checking Our Work</span> page,
+      the regression watch-list in <span data-go="signature" style="color:var(--amber);font-weight:600">Signature Stats</span>,
+      and the full <span data-go="method" style="color:var(--amber);font-weight:600">Methodology</span>.</div></div>
+    <div class="note"><b>Method.</b> Single-game win% = of all 2014-${SEASON_RESULTS} games where a team won that factor battle
+      (garbage time excluded for efficiency/explosiveness), the share it won. "Repeats next year" = correlation of a
+      team's season value with its own next season. The factor framework follows the public Five Factors literature; every
+      number is computed from our own play-by-play, so a couple differ from the published benchmarks — most notably
+      explosiveness: the famous figure uses value-per-successful-play, which does not replicate on modern
+      expected-points data (it rewards desperation deep balls), so we measure the share of explosive plays instead —
+      a cleaner battle that still shows the same story: helps today, barely repeats. Season-labeled, gambling-free. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  const WGO={checking:openCheckingWork, signature:openSignature, method:openMethodology};
+  document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=WGO[el.dataset.go]; if(f) f(); });
+}
+
 /* ---------------- Explore hub ---------------- */
 async function openExplore(){
   window.scrollTo(0,0);
@@ -4185,6 +4427,7 @@ async function openExplore(){
     <div class="xcard" data-x="movers"><svg class="ic"><use href="#i-trend"/></svg><h4>Weekly Movers</h4><p>Who rose, who fell — updated Sundays.</p></div>
     <div class="xcard" data-x="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 and season boards.</p></div>
     <div class="xcard" data-x="accuracy"><svg class="ic"><use href="#i-check"/></svg><h4 style="color:var(--amber)">Checking Our Work</h4><p>Every call logged before kickoff. Misses stay up.</p></div>
+    <div class="xcard" data-x="whatwins"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--teal)">What actually wins games</h4><p>Five factors: what wins now vs what repeats next year.</p></div>
     <div class="xcard" data-x="method"><svg class="ic"><use href="#i-info"/></svg><h4>Methodology</h4><p>How the numbers get made.</p></div>
     <div class="xcard dashed" id="xask"><svg class="ic" style="color:var(--text3)"><use href="#i-chat"/></svg><h4>AI Analyst Chat</h4><p>Coming to this search box. Ask anything, get sourced answers.</p></div>
     <div class="xcard" data-x="notify"><svg class="ic"><use href="#i-bell"/></svg><h4>Notifications</h4><p>Picks reminders and results.</p></div>
@@ -4201,7 +4444,8 @@ async function openExplore(){
   document.getElementById("xsearch").onclick=openOmni;
   const GO={stats:()=>openStats(),matchup:()=>openMatchup(),standings:()=>openStandings(),
     movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),
-    notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature()};
+    notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature(),
+    whatwins:()=>openWhatWins()};
   document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
   document.getElementById("xask").onclick=openOmni;
   document.getElementById("foundgo").onclick=async()=>{
