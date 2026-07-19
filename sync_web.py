@@ -20,7 +20,7 @@ PWA_HEAD = '''<title>Hashmark — College Football Stats & Analytics</title>
 <meta name="description" content="Hashmark — deep, official college-football stats &amp; analytics for every FBS team and across the sport: team stat profiles with national ranks, league-wide leaderboards, player leaders, and preseason rankings. Independent and gambling-free." />
 <!-- PWA: installable as a full-screen app on iOS/Android. Relative paths so it works under the GitHub Pages project subpath. -->
 <link rel="manifest" href="manifest.webmanifest" />
-<meta name="theme-color" content="#0B0F14" />
+<meta name="theme-color" content="#0b1120" />
 <link rel="icon" href="icons/icon-192.png" />
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -133,9 +133,8 @@ EMOJI_RANGES = [(0x1F000, 0x1FAFF), (0x2190, 0x21FF), (0x2300, 0x23FF), (0x2460,
                 (0xFE0F, 0xFE0F), (0x200D, 0x200D)]
 
 
-# v1 is grandfathered (still the deployed app, replaced at cutover). At cutover: set
-# EMOJI_ENFORCE_ALL = True so EVERY file hard-fails — this line is on the cutover checklist.
-EMOJI_ENFORCE_ALL = False
+# CUTOVER DONE (Jul 18 2026): v2 is the app — every file hard-fails on any emoji codepoint.
+EMOJI_ENFORCE_ALL = True
 EMOJI_HARD_FILES = {"index-v2.html"}
 
 
