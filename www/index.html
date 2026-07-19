@@ -2839,6 +2839,19 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     const host = anchor ? anchor.closest("div") : app.querySelector(".note");
     if(host) host.parentNode.insertBefore(d.firstChild, host);
   }catch(_e){} }, 0);
+  // Ask Hashmark entry (P2-E5, now LIVE): injected only when the edge function answers
+  // the probe — the section simply never appears while the feature is dark.
+  setTimeout(async()=>{ try{
+    if(!t || !(await askProbe())) return;
+    const anchor=app.querySelector(".note"); if(!anchor) return;
+    const d=document.createElement("div");
+    d.innerHTML=`<div class="sec"><div class="sectitle">Ask Hashmark</div>
+      <div class="secsub">Ask anything about ${esc(t.school)} — answers come only from Hashmark's
+      public stats, season-labeled and source-cited. No betting talk, ever. 3 free questions a month.</div>
+      <div class="navrow"><button class="navbtn primary" id="askopen"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Ask about ${esc(t.school)}</button></div></div>`;
+    anchor.parentNode.insertBefore(d.firstChild, anchor);
+    const b=document.getElementById("askopen"); if(b) b.onclick=()=>openAsk(teamId);
+  }catch(_e){} }, 0);
   if(!t){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
     <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=load; return; }
@@ -4120,6 +4133,7 @@ const OMNI_TOOLS = [
   ["Leaderboards & stats","chart",()=>openStats()],["Rankings","trophy",()=>openPreseason()],
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
   ["Signature stats","flame",()=>openSignature()],
+  ["Ask Hashmark","chat",()=>openAsk(null)],
   ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
 ];
 function openOmni(){ const o=document.getElementById("omni"); o.classList.add("show");
