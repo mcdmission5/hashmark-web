@@ -2405,6 +2405,13 @@ async function askProbe(){
   }catch(_e){ askEnabled = false; }
   return askEnabled;
 }
+async function askGate(){
+  // Batch 9 #2: Ask Hashmark is a Hashmark+ feature (the 3-free-a-month allowance is
+  // retired in the UI; ASK_FREE_PER_MONTH stays dormant server-side).
+  if(PLUS_GATED.ask_plus && !(await plusUpsell("Ask Hashmark",
+    "Unlimited questions, answered only from Hashmark's public stats — a Hashmark+ feature. Free while we're in preview."))) return false;
+  return true;
+}
 async function openAsk(teamId){
   if(!(await askProbe())){ return; }
   if(!authUser){ openAuthModal(); return; }
@@ -2473,7 +2480,7 @@ async function injectNews(){
     const show=()=>{ const it=items[i%items.length];
       line.style.opacity=0;
       setTimeout(()=>{ if(!document.getElementById("nsline")) return;
-        line.textContent=decodeEnt(it.headline); line.style.opacity=1; },250); };
+        line.innerHTML=`<b>${esc(decodeEnt(it.headline))}</b><small style="color:var(--text3);font-weight:600;text-transform:uppercase;font-size:9.5px"> · ${esc(it.source||"")}</small>`; line.style.opacity=1; },250); };
     show();
     clearInterval(_stripT);
     _stripT=setInterval(()=>{ if(!document.getElementById("nsline")){ clearInterval(_stripT); return; }
@@ -3496,10 +3503,10 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     const d=document.createElement("div");
     d.innerHTML=`<div class="sec"><div class="sectitle">Ask Hashmark</div>
       <div class="secsub">Ask anything about ${esc(t.school)} — answers come only from Hashmark's
-      public stats, season-labeled and source-cited. No betting talk, ever. 3 free questions a month.</div>
-      <div class="navrow"><button class="navbtn primary" id="askopen"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Ask about ${esc(t.school)}</button></div></div>`;
+      public stats, season-labeled and source-cited. No betting talk, ever.</div>
+      <div class="navrow"><button class="navbtn primary" id="askopen"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg> Ask about ${esc(t.school)} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
     anchor.parentNode.insertBefore(d.firstChild, anchor);
-    const b=document.getElementById("askopen"); if(b) b.onclick=()=>openAsk(teamId);
+    const b=document.getElementById("askopen"); if(b) b.onclick=async()=>{ if(await askGate()) openAsk(teamId); };
   }catch(_e){} }, 0);
   if(!t){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
@@ -4939,7 +4946,8 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   sim_results:true,           // batch 5 #2: interact free; ALL results-of-changes reveals gated
   model_views:true,           // batch 5 #3 owner pivot: hub previews free, full metric views gated
   ratings_boards:true,        // batch 5 #3 owner pivot: home boards tease top 2 confs / top 3 teams
-  ask_unlimited:true,         // free tier: 3 questions/month (edge fn enforces)
+  ask_unlimited:true,         // legacy copy key (batch 9: UI now gates via ask_plus)
+  ask_plus:true,              // batch 9 #2: Ask Hashmark is Hashmark+ (edge free-quota dormant)
   signature_full:true,        // Collapse Index teaser free; full boards Hashmark+
   grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true,
   news_full:true,              // N1: home/team pages tease 3-4 free; full feed + archive gated
@@ -5925,7 +5933,7 @@ const OMNI_TOOLS = [
   ["Roster Economy","swap",()=>gatedRosterEconomy()],
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
   ["Signature stats","flame",()=>openSignature()],
-  ["Ask Hashmark","chat",()=>openAsk(null)],
+  ["Ask Hashmark (Hashmark+)","chat",async()=>{ if(await askGate()) openAsk(null); }],
   ["What actually wins games","target",()=>hubGate(openWhatWins)],
   ["Player rankings","person",()=>openPlayerRankings()],
   ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
