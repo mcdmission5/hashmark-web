@@ -3265,13 +3265,11 @@ function renderSim(){
   // Batch 9 3f: chips for every team with picks (tap = its sheet; x = clear that team)
   const chipHost=document.getElementById("simteamchips");
   if(chipHost){
+    // a chip = a team the user picked TO WIN somewhere (opponents of a pick are not "picked teams")
     const withPicks=new Set();
-    Object.keys(sim.userPicks).forEach(gid=>{ if(String(gid).startsWith("ccg|")) return;
-      const g=sim.games.find(x=>String(x.id)===String(gid)); if(!g) return;
-      [String(g.home_team_id),String(g.away_team_id)].forEach(t=>{
-        const tg=sim.games.filter(x=>String(x.home_team_id)===t||String(x.away_team_id)===t);
-        if(tg.some(x=>sim.userPicks[x.id]!=null)) withPicks.add(t); }); });
-    const mine=[...withPicks].filter(t=>sim.games.some(g=>(String(g.home_team_id)===t||String(g.away_team_id)===t)&&sim.userPicks[g.id]!=null));
+    Object.entries(sim.userPicks).forEach(([gid,w])=>{ if(String(gid).startsWith("ccg|")) return;
+      if(sim.fbs.has(String(w))) withPicks.add(String(w)); });
+    const mine=[...withPicks];
     chipHost.innerHTML=mine.length?mine.map(t=>`<span class="simchip" data-teamchip="${t}">${esc((teamMeta[t]||{}).school||t)} <b data-chipx="${t}" style="cursor:pointer;padding-left:4px">x</b></span>`).join("")
       +`<span class="simchip" id="addteam" style="border-style:dashed">+ add another team</span>`:"";
     chipHost.querySelectorAll("[data-teamchip]").forEach(el=>el.onclick=e=>{
