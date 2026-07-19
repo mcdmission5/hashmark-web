@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v22";   // v22: CUTOVER — the Primetime redesign (v2) is the app
+const VERSION = "hashmark-v23";   // v23: On-Track Pace live panel (team pace free, player board gated)
 const SHELL = [
   "./",
   "./index.html",

@@ -331,6 +331,23 @@
   .ccgstand .ssnm{flex:1;font-weight:600;font-size:13.5px}
   .ccgstand .ssnm small{display:block;color:var(--text3);font-weight:500;font-size:10.5px}
   .ccgstand .more{color:var(--text3);font-size:11px}
+  /* On-Track Pace live panel */
+  .pacehdr{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);
+    font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12.5px;
+    letter-spacing:.07em;text-transform:uppercase;color:var(--teal)}
+  .pacehdr small{display:block;font-family:"Barlow",sans-serif;font-weight:500;font-size:10.5px;
+    letter-spacing:0;text-transform:none;color:var(--text3)}
+  .pacegrid{display:grid;grid-template-columns:1fr auto 1fr;gap:2px 10px;margin-top:6px;font-size:12.5px}
+  .pacegrid .pgh{font-weight:700;font-size:11.5px;color:var(--text2)}
+  .pacegrid .pgk{color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;align-self:center}
+  .pacegrid .pgv{font-family:"IBM Plex Mono",monospace}
+  .pacegrid .pgv b{color:var(--text)}
+  .pacegrid .pgv small,.pacepl small{color:var(--text3)}
+  .pnow{display:block;font-size:9.5px;color:var(--text3)}
+  .pacepl{display:flex;align-items:center;gap:8px;padding:7px 2px;border-top:1px solid var(--line);font-size:12.5px}
+  .pacepl .ppn{font-weight:600;flex:none}
+  .pacepl .ppt{color:var(--text3);font-size:10.5px;flex:none}
+  .pacepl .ppv{margin-left:auto;text-align:right;font-family:"IBM Plex Mono",monospace;font-size:11.5px}
   .navrow .navbtn{flex:1 1 28%}
   .navbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 8px;
     border-radius:13px;border:1px solid var(--line);background:var(--surface);color:var(--text);
@@ -4012,7 +4029,8 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   ask_unlimited:true,         // free tier: 3 questions/month (edge fn enforces)
   signature_full:true,        // Collapse Index teaser free; full boards Hashmark+
   grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true,
-  news_full:true };            // N1: home/team pages tease 3-4 free; full feed + archive gated
+  news_full:true,              // N1: home/team pages tease 3-4 free; full feed + archive gated
+  pace_player_box:true };      // on-track-pace: team pace free; full player pace board gated
 const SIM_RUNS_KEY = "hm_sim_runs";
 function plusUpsell(title, body){
   const el=document.createElement("div");
@@ -4311,15 +4329,29 @@ async function liveTick(){
   let host=document.getElementById("livewrap");
   if(!live.length){ if(host) host.remove(); return; }
   if(!host){ host=document.createElement("div"); host.id="livewrap";
-    const hero=document.getElementById("v2hero"); app.insertBefore(host, hero?hero:app.firstElementChild); }
+    const hero=document.getElementById("v2hero");
+    const anchor=(hero&&hero.parentNode===app)?hero:app.firstElementChild;   // hero may be nested
+    app.insertBefore(host, anchor); }
   await ensureTeamMeta();
   let ginfo={};
-  try{ const ids=live.map(r=>r.game_id).join(",");
+  const ids=live.map(r=>r.game_id).join(",");
+  try{
     (await api(`games?select=id,home_team_id,away_team_id&id=in.(${ids})`)).forEach(g=>ginfo[g.id]=g);
   }catch(e){}
+  // On-Track Pace: newest tick per game (rows of one poll share a transaction timestamp)
+  const paceByGame={};
+  try{
+    const pr=await api(`live_stat_pace?select=game_id,team,side,subject_type,subject,stat,so_far,projected,band,fetched_at&game_id=in.(${ids})&fetched_at=gt.${new Date(Date.now()-12*60*1000).toISOString()}&order=fetched_at.desc&limit=600`);
+    pr.forEach(r=>{ const g=paceByGame[r.game_id]=paceByGame[r.game_id]||{ts:r.fetched_at,rows:[]};
+      if(r.fetched_at===g.ts) g.rows.push(r); });
+  }catch(e){}
+  window._paceP=window._paceP||{};
   let h=`<div class="sect-h"><span class="chip-live">LIVE</span></div>`;
   for(const r of live){
     const g=ginfo[r.game_id]||{}; const ht=teamMeta[g.home_team_id]||{}, at=teamMeta[g.away_team_id]||{};
+    const pc=paceByGame[r.game_id];
+    const pcName=side=>{ const row=pc&&pc.rows.find(x=>x.side===side); return row?row.team:null; };
+    ht.school=ht.school||pcName("home"); at.school=at.school||pcName("away");
     const wp=r.home_wp; const isOT=r.segment==="overtime";
     let pre=null;
     if(g.home_team_id&&g.away_team_id){ try{
@@ -4340,10 +4372,48 @@ async function liveTick(){
         <div class="plabel"><span>${esc(ht.school||"Home")} wins <b>${n} of 100</b> from here</span>
         ${pre!=null?`<span>pregame: ${Math.round(pre*100)}</span>`:""}</div>`;
     }
+    // ---- On-Track Pace panel (team pace FREE; full player pace board HASHMARK+) ----
+    if(pc){
+      const T={};
+      pc.rows.filter(x=>x.subject_type==="team").forEach(x=>{
+        (T[x.side]=T[x.side]||{}) [x.stat]={s:+x.so_far,p:+x.projected,b:x.band==null?null:+x.band}; });
+      const cell=o=>o?`<b>${Math.round(o.p)}</b><small>${o.b!=null?` ±${Math.round(o.b)}`:""}</small><small class="pnow">now ${Math.round(o.s)}</small>`:"—";
+      const PLBL=[["points","Points"],["total_yards","Total yds"],["rush_yards","Rush yds"],["pass_yards","Pass yds"]];
+      if(T.home&&T.away){
+        h+=`<div class="pacehdr">On track to finish <small>live — updates every drive · projection with a calibrated range</small></div>
+          <div class="pacegrid"><div class="pgh">${esc(at.school||"Away")}</div><div></div><div class="pgh" style="text-align:right">${esc(ht.school||"Home")}</div>`;
+        PLBL.forEach(([k,lbl])=>{ h+=`<div class="pgv">${cell(T.away[k])}</div><div class="pgk">${lbl}</div><div class="pgv" style="text-align:right">${cell(T.home[k])}</div>`; });
+        h+=`</div>`;
+        const players=pc.rows.filter(x=>x.subject_type!=="team");
+        if(players.length){
+          window._paceP[r.game_id]=players;
+          h+=`<div class="navrow" style="padding-top:6px;margin:0"><button class="navbtn" data-paceplayers="${r.game_id}">Player pace board <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
+            <div id="pacep-${r.game_id}" style="display:none"></div>`;
+        }
+      }
+    }
     h+=`</div>`;
   }
   h+=`<div class="note" style="margin:2px">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div>`;
   host.innerHTML=h;
+  host.querySelectorAll("[data-paceplayers]").forEach(b=>b.onclick=()=>gatedPacePlayers(b.dataset.paceplayers));
+}
+async function gatedPacePlayers(gid){
+  const el=document.getElementById(`pacep-${gid}`);
+  if(!el) return;
+  if(el.style.display==="block"){ el.style.display="none"; return; }
+  if(PLUS_GATED.pace_player_box && !el.dataset.unlocked){
+    if(!(await plusUpsell("Full player pace board",
+      "Every key contributor's live projection — what the QB, lead back and top targets are on track to finish with, updating every drive. Free during preview."))) return;
+    el.dataset.unlocked="1";
+  }
+  const rows=(window._paceP||{})[gid]||[];
+  const lbl={qb_yards:"passing yards",rb_yards:"rushing yards"};
+  el.innerHTML=rows.map(x=>`<div class="pacepl"><span class="ppn">${esc(x.subject||"")}</span>
+    <span class="ppt">${esc(x.team)}</span>
+    <span class="ppv">on track for <b>${Math.round(+x.projected)}</b>${x.band!=null?` <small>±${Math.round(+x.band)}</small>`:""} ${lbl[x.stat]||esc(x.stat)} <small class="pnow">now ${Math.round(+x.so_far)}</small></span></div>`).join("")
+    ||`<div class="secsub">No qualifying player volume yet this game.</div>`;
+  el.style.display="block";
 }
 
 /* ---------------- Model receipts on finals rows ---------------- */
