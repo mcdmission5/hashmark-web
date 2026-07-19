@@ -619,6 +619,44 @@
     border:1px dashed rgba(232,182,87,.5);border-radius:9px;padding:7px 10px;margin:4px 0 8px}
   .stoddswrap{border:1px solid var(--line);border-radius:11px;background:var(--surface);
     padding:10px;margin:0 0 10px}
+  /* visuals core (V1-V5) */
+  .wfall,.quad{width:100%;height:auto;display:block;background:var(--surface);
+    border:1px solid var(--line);border-radius:11px;margin:6px 0}
+  .newsstrip{display:flex;align-items:center;gap:8px;background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:7px 12px;margin:2px 2px 8px;min-height:38px}
+  .nsline{flex:1;min-width:0;font-size:12px;color:var(--text);text-decoration:none;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nsgo{display:inline-flex;align-items:center;gap:2px;background:none;border:0;color:var(--amber);
+    font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;flex:none}
+  .nsx{background:none;border:0;color:var(--text3);cursor:pointer;flex:none;padding:2px}
+  .chip-new{display:inline-block;background:var(--amber);color:#10130c;border-radius:999px;
+    font-size:9px;font-weight:800;padding:2px 7px;margin-left:6px;vertical-align:2px}
+  .luckrow{display:grid;grid-template-columns:30px minmax(0,1.1fr) minmax(60px,1fr) auto;gap:8px;
+    align-items:center;padding:7px 10px;background:var(--surface);border:1px solid var(--line);
+    border-radius:11px;margin-bottom:5px;cursor:pointer}
+  .luckrow.me{border-color:var(--amber)}
+  .lknm{font-weight:600;font-size:12.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lknm small{display:block;color:var(--text2);font-weight:500;font-size:9.5px}
+  .lktrack svg{width:100%;height:14px;display:block}
+  .lkv{font-size:10.5px;font-weight:800;color:var(--text2);text-align:right;white-space:nowrap}
+  .lkv.pos{color:#5BD39A} .lkv.neg{color:#E5705C}
+  .gauntlet{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:5px;padding:2px 0}
+  .gcell{border:1px solid var(--line);border-radius:9px;padding:6px 4px;text-align:center;cursor:pointer}
+  .gcell.hard{border-color:#E5705C;border-width:2px}
+  .gwk{font-size:8px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+  .gmono{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:15px}
+  .gp{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:700}
+  .gdt{font-size:8px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rdist{padding:8px 0 2px} .rdbars{display:flex;align-items:flex-end;gap:3px;height:46px}
+  .rdcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px}
+  .rdcol i{display:block;width:100%;background:var(--amber);border-radius:3px 3px 0 0;opacity:.85}
+  .rdcol small{font-size:7.5px;color:var(--text3);font-family:"IBM Plex Mono",monospace}
+  .wallrow{display:grid;grid-template-columns:24px 24px minmax(70px,.8fr) 2fr;gap:7px;align-items:center;
+    padding:4px 8px;background:var(--surface);border:1px solid var(--line);border-radius:9px;
+    margin-bottom:4px;cursor:pointer}
+  .wallrk{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text3);text-align:right}
+  .wallnm{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wallcells{display:flex;gap:2px} .wallcells i{flex:1;height:14px;border-radius:3px}
   .stodds{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;padding:2px 0 8px}
   .stodds b{display:block;font-family:"IBM Plex Mono",monospace;font-size:15px}
   .stodds small{display:block;color:var(--text2);font-size:9px;font-weight:700;
@@ -1442,6 +1480,9 @@ async function injectSeasonExtras(){
       api(`signature_stats?select=team_id,season,drivers&free=eq.true&stat_key=eq.collapse_index&limit=1`).catch(()=>[]),
       api(`accuracy_summary?select=*&order=season.desc&limit=1`).catch(()=>[])]);
     let t="";
+    t+=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="quad">
+      <div class="eyebrow" style="color:var(--amber)">Power Quadrant · free</div>
+      <div style="font-size:12.5px;margin-top:3px">All 138 teams on one offense-vs-defense map — find the complete teams (and yours) at a glance <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
     if(acc.length&&acc[0].su_pct!=null) t+=`<div class="card card-hero-teal" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="acc">
       <div class="eyebrow" style="color:var(--teal)">Checking our work</div>
       <div style="font-size:12.5px;margin-top:3px">The Model called <b>${Math.round(Number(acc[0].su_pct))} of 100</b> winners straight-up in ${acc[0].season} — logged before kickoff.</div></div>`;
@@ -1453,7 +1494,7 @@ async function injectSeasonExtras(){
       <div class="eyebrow" style="color:var(--amber)">Regression watch-list · ${sig[0].season}</div>
       <div style="font-size:12.5px;margin-top:3px">The preseason top-10 team our factors flag hardest: <b>${esc(tm.school||"?")}</b></div></div>`; }
     host.innerHTML=t;
-    const TGO={acc:openCheckingWork, sos:()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; openStandings(); }, sig:openSignature};
+    const TGO={acc:openCheckingWork, sos:()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; openStandings(); }, sig:openSignature, quad:()=>openQuadrant()};
     host.querySelectorAll("[data-cst]").forEach(el=>el.onclick=()=>TGO[el.dataset.cst]());
   }catch(e){}
   injectNews();   // brief #5: news lives on the current-season tab
@@ -1805,8 +1846,10 @@ async function injectYourTeam(){
     <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--amber-tint);color:var(--amber)">HASHMARK #${rk}</span>`:""}</div>
       <div class="favsub">${st?`${st.wins}–${st.losses} ${SEASON_RESULTS} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}`:esc(t.conference||"")}${pre?` · ${SEASON_SCHED} SoS #${pre.sos_rank||"—"}`:""}</div>
       ${v?`<div class="favsub">Next: ${v.home?"vs":"at"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""}</div>`:""}
-      ${news?`<div class="favsub favnews">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""}</div>`:""}</div>
+      ${news?`<div class="favsub favnews" id="ytnews" role="link" title="Team news">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""} <svg class="ic" style="width:11px;height:11px"><use href="#i-chev-r"/></svg></div>`:""}</div>
     <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
+  const yn=document.getElementById("ytnews");   // Part 0.2: headline tap opens TEAM news
+  if(yn) yn.onclick=e=>{ e.stopPropagation(); window._scrollNews=true; openDetail(+fav); };
 }
 
 function renderLeaderboard(){
@@ -1828,7 +1871,8 @@ function renderLeaderboard(){
   const confRankOf = {}; RANKABLE.forEach((c,i)=>confRankOf[c.conf]=i+1);
   const cmax = Math.max(0.0001, ...RANKABLE.map(c=>Math.abs(c.avg)));
 
-  let h = header() + listTop() + `<div id="ytm"></div>`;
+  // Part 0 (news prominence): rotating strip up top, Latest directly under your-team
+  let h = header() + listTop() + `<div id="newsstrip"></div><div id="ytm"></div><div class="hsec" id="cs-newshost"></div>`;
   // board-type nav
   h += `<div class="bnav">`;
   ["overall","offense","defense"].forEach(k=>{
@@ -1873,10 +1917,11 @@ function renderLeaderboard(){
     h += rowHTML(rk-1, r.t, main, r.team_id);
   });
   h += `</div><div class="note"><b>${SEASON_SCHED} Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings — a validated blend of finishing (points per drive), success rate and efficiency, with each unit's coordinator track record folded in where the staff changed. Conference strength is the simple average of a league's member teams. Free to browse. Early-offseason data is thin, so it leans on ${SEASON_RESULTS} results and will sharpen through the summer. ${BRAND_LINE}</div>`;
-  h += `<div id="cs-teasers"></div><div class="hsec" id="cs-newshost"></div>`;
+  h += `<div id="cs-teasers"></div>`;
   app.innerHTML = h; wireToggle();
   injectSeasonExtras();   // preseason signal teasers + news under the live board (brief #5 kept)
   injectYourTeam();
+  injectNewsStrip();
 }
 
 function wireToggle(){
@@ -2227,17 +2272,48 @@ async function injectNews(){
   try{
     const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=8`);
     if(!items.length) return;
-    const anchor = document.getElementById("cs-newshost") || app.querySelector(".hsec");
-    if(!anchor) return;
-    const div = document.createElement("div");
-    div.className = "hsec";
+    const host = document.getElementById("cs-newshost");
+    let div;
+    if(host){ div = host; }                        // Part 0.1: Latest sits under your-team
+    else{ const anchor = app.querySelector(".hsec"); if(!anchor) return;
+      div = document.createElement("div"); div.className = "hsec";
+      anchor.parentNode.insertBefore(div, anchor.nextSibling); }
     div.innerHTML = `<div class="hsectitle">Latest <small>around college football</small></div>`
       + items.slice(0,4).map(newsRow).join("")   // N1: short free tease; the full feed is gated
       + `<div class="navrow" style="padding:6px 2px 0"><button class="navbtn" id="newsall"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> View all news <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
       <div class="secsub" style="padding:4px 2px 0">Headlines link to the original source.</div>`;
-    anchor.parentNode.insertBefore(div, anchor.nextSibling);
     const na=div.querySelector("#newsall");
     if(na) na.onclick=gatedNewsArchive;
+  }catch(_e){}
+}
+// Part 0.3: compact rotating headline strip at the top of Home — one headline, no autoplay
+// jank (opacity fade only), dismissible for the day.
+let _stripT=null;
+async function injectNewsStrip(){
+  try{
+    const host=document.getElementById("newsstrip");
+    if(!host) return;
+    if(localStorage.getItem("hm_strip_hide")===new Date().toISOString().slice(0,10)){ host.remove(); return; }
+    const items=await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=5`);
+    if(!items.length) return;
+    let i=0;
+    host.innerHTML=`<div class="newsstrip"><svg class="ic" style="flex:none;color:var(--amber)"><use href="#i-flame"/></svg>
+      <a class="nsline" id="nsline" target="_blank" rel="noopener noreferrer"></a>
+      <button class="nsgo" id="nsgo">News <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+      <button class="nsx" id="nsx" aria-label="Hide headlines today"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>`;
+    const line=document.getElementById("nsline");
+    const show=()=>{ const it=items[i%items.length];
+      line.style.opacity=0;
+      setTimeout(()=>{ if(!document.getElementById("nsline")) return;
+        line.textContent=decodeEnt(it.headline); line.href=it.url; line.style.opacity=1; },250); };
+    line.style.transition="opacity .25s"; show();
+    clearInterval(_stripT);
+    _stripT=setInterval(()=>{ if(!document.getElementById("nsline")){ clearInterval(_stripT); return; }
+      i++; show(); }, 7000);
+    document.getElementById("nsgo").onclick=()=>gatedNewsArchive();
+    document.getElementById("nsx").onclick=()=>{ clearInterval(_stripT);
+      localStorage.setItem("hm_strip_hide", new Date().toISOString().slice(0,10));
+      host.remove(); };
   }catch(_e){}
 }
 async function gatedNewsArchive(teamId){
@@ -2279,9 +2355,14 @@ async function openNewsArchive(teamId){
 }
 async function teamNewsHTML(teamId){
   try{
-    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=2`);
+    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=8`);
+    // Part 0.4: "N new" chip since last visit (localStorage last-seen per team)
+    const seenKey=`hm_news_seen_${teamId}`;
+    const seen=localStorage.getItem(seenKey);
+    const nNew=seen? items.filter(it=>it.published_at>seen).length : 0;
+    if(items.length) localStorage.setItem(seenKey, items[0].published_at);
     if(items.length)
-      return `<div class="sec"><div class="sectitle">Team news</div>`+items.map(newsRow).join("")
+      return `<div class="sec"><div class="sectitle">Team news${nNew?` <span class="chip-new">${nNew} new</span>`:""}</div>`+items.slice(0,2).map(newsRow).join("")
         +`<div class="navrow" style="padding-top:6px"><button class="navbtn" data-newsall="${teamId}">All team news <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
     const t = teamMeta && teamMeta[teamId];
     return `<div class="sec"><div class="sectitle">Team news</div>
@@ -3157,6 +3238,7 @@ function hmSection(hm, t){
       <div class="drk">#${hm.rank||"—"} <small>of 138</small></div>
       <div class="dunits"><span data-tip="${esc('Offense unit rating — '+CMETA.off_eff.tip)}">OFF ${hm.off!=null?Number(hm.off).toFixed(2):"—"}</span>
         <span data-tip="${esc('Defense unit rating — '+CMETA.def_eff.tip)}">DEF ${hm.def!=null?Number(hm.def).toFixed(2):"—"}</span></div></div>
+    ${waterfallSVG(hm.comps||[], Number(hm.overall), t)}
     ${rowsH?`<div class="secsub" style="padding:6px 2px 2px">What's driving it (tap a factor):</div>${rowsH}`:""}
     </div>`;
 }
@@ -3171,7 +3253,11 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     const host = document.getElementById("tp-sched") || document.getElementById("tp-accordions")
       || app.querySelector(".note");
     if(host) host.parentNode.insertBefore(d.firstChild, host);
+    if(window._scrollNews){ window._scrollNews=false;   // Part 0.2: favorite-module headline tap
+      const sec=[...app.querySelectorAll(".sectitle")].find(x=>x.textContent.startsWith("Team news"));
+      if(sec) sec.scrollIntoView({behavior:"smooth", block:"start"}); }
   }catch(_e){} }, 0);
+  setTimeout(()=>{ try{ injectTeamViz(teamId); }catch(_e){} }, 0);   // V4/V5 team-page embeds
   // Ask Hashmark entry (P2-E5, now LIVE): injected only when the edge function answers
   // the probe — the section simply never appears while the feature is dark.
   setTimeout(async()=>{ try{
@@ -4465,6 +4551,11 @@ const NAV_ROUTES={
   playerrank:()=>openPlayerRankings(),
   newsarchive:p=>openNewsArchive(p&&p.team),
   standingsboard:()=>openStandings(),
+  quadrant:()=>openQuadrant(),
+  whyrating:p=>openWhyRating(p&&p.id),
+  luck:()=>openLuckLedger(),
+  gauntlet:p=>openGauntlet(p&&p.id),
+  oddstime:p=>openOddsTimeline(p&&p.id),
 };
 function navPush(v,p){
   if(_navRestoring) return;
@@ -4495,6 +4586,9 @@ setTimeout(()=>{
  ["openSignature","signature"],["openPreseason","preseason"],["openMatchup","matchup"],
  ["openExplore","explore"],["openWhatWins","whatwins"],["openPlayerRankings","playerrank"],
  ["openNewsArchive","newsarchive",team=>({team})],
+ ["openQuadrant","quadrant"],["openWhyRating","whyrating",id=>({id})],
+ ["openLuckLedger","luck"],["openGauntlet","gauntlet",id=>({id})],
+ ["openOddsTimeline","oddstime",id=>({id})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -4551,7 +4645,9 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   signature_full:true,        // Collapse Index teaser free; full boards Hashmark+
   grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true,
   news_full:true,              // N1: home/team pages tease 3-4 free; full feed + archive gated
-  pace_player_box:true };      // on-track-pace: team pace free; full player pace board gated
+  pace_player_box:true,        // on-track-pace: team pace free; full player pace board gated
+  luck_games:true,             // V3: ledger board free; per-game deserved-win dots gated
+  gauntlet_wall:true };        // V4: per-team gauntlet free; the all-138 wall gated
 const SIM_RUNS_KEY = "hm_sim_runs";
 function plusUpsell(title, body){
   const el=document.createElement("div");
@@ -4620,11 +4716,329 @@ const TABS = { home:()=>load(), games:()=>openScores(), picks:()=>openPickem(),
                myteam:()=>tabMyTeam(), explore:()=>openExplore() };
 document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.onclick=()=>{ setTab(b.dataset.tab); TABS[b.dataset.tab](); });
 
+/* ================================================================================
+   VISUALS CORE (visuals-nil-news brief, Part 1) — lightweight inline SVG, team
+   colors everywhere, my-team defaults, takeaway titles, whole-number percentages,
+   season labels on every figure. No radar charts; no betting framing.
+   ================================================================================ */
+// V2 — Factor Waterfall: FBS-average baseline to final rating, one signed step per
+// additive factor. The comps sum exactly to the overall (registry guarantee).
+function waterfallSVG(comps, overall, t){
+  const parts=CORDER.map(k=>{ const c=(comps||[]).find(x=>x.component===k);
+    return c?{k, v:Number(c.value)}:null; }).filter(Boolean);
+  if(!parts.length) return "";
+  const W=340, RH=22, H=(parts.length+1)*RH+34;
+  let cum=0; const pts=[{cum0:0}];
+  const bounds=[0];
+  parts.forEach(p=>{ bounds.push(cum, cum+p.v); cum+=p.v; });
+  bounds.push(overall);
+  const lo=Math.min(...bounds), hi=Math.max(...bounds);
+  const span=Math.max(0.02, hi-lo);
+  const PL=78, PR=W-42;                       // label column left, value gutter right
+  const X=v=>PL+(v-lo)/span*(PR-PL);
+  const col=hx((t&&t.color)||"#E8B657");
+  const vlab=(a,b,y,txt,bold)=> (b+34<=W)
+    ? `<text x="${b+4}" y="${y}" fill="var(--text${bold?"":"3"})" font-size="8.5"${bold?' font-weight="700"':""}>${txt}</text>`
+    : `<text x="${a-4}" y="${y}" fill="var(--text${bold?"":"3"})" font-size="8.5" text-anchor="end"${bold?' font-weight="700"':""}>${txt}</text>`;
+  let s=`<svg class="wfall" viewBox="0 0 ${W} ${H}" role="img" aria-label="Factor waterfall">`;
+  s+=`<line x1="${X(0)}" y1="6" x2="${X(0)}" y2="${H-24}" stroke="rgba(148,163,184,.35)" stroke-dasharray="3 3"/>`;
+  s+=`<text x="${Math.max(46,X(0))}" y="${H-14}" fill="var(--text3)" font-size="8.5" text-anchor="middle">FBS average</text>`;
+  cum=0;
+  parts.forEach((p,i)=>{ const y=8+i*RH;
+    const a=X(Math.min(cum,cum+p.v)), b=X(Math.max(cum,cum+p.v));
+    s+=`<text x="${PL-8}" y="${y+10}" fill="var(--text2)" font-size="9" text-anchor="end">${CMETA[p.k].name}</text>`;
+    s+=`<rect x="${a}" y="${y+2}" width="${Math.max(2,b-a)}" height="11" rx="2.5" fill="${p.v>=0?"#5BD39A":"#E5705C"}" opacity=".9"><title>${esc(CMETA[p.k].name+" "+f3(p.v)+" — "+CMETA[p.k].tip)}</title></rect>`;
+    s+=vlab(a,b,y+11,f3(p.v),false);
+    cum+=p.v;
+    if(i<parts.length-1) s+=`<line x1="${X(cum)}" y1="${y+13}" x2="${X(cum)}" y2="${y+RH+2}" stroke="rgba(148,163,184,.4)"/>`;
+  });
+  const fy=8+parts.length*RH;
+  const fa=X(Math.min(0,overall)), fb=X(Math.max(0,overall));
+  s+=`<text x="${PL-8}" y="${fy+10}" fill="var(--text)" font-size="9" font-weight="700" text-anchor="end">Rating</text>`;
+  s+=`<rect x="${fa}" y="${fy+2}" width="${Math.max(2,fb-fa)}" height="11" rx="2.5" fill="${col}" stroke="var(--amber)" stroke-width="1"/>`;
+  s+=vlab(fa,fb,fy+11,f3(overall),true);
+  return s+`</svg><div class="secsub" style="padding:0 2px 4px">From FBS average to the final rating — every factor's exact contribution (${phaseLabel()}).</div>`;
+}
+async function openWhyRating(teamId){
+  await ensureTeamMeta(); await ensureBoard();
+  teamId = teamId || favTeamId() || (board2026[0]&&board2026[0].team_id);
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading breakdown…</div>`;
+  const t=teamMeta[teamId]||{school:"?"};
+  const comps=await api(`rating_components?select=component,value&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`);
+  const b=board2026.find(x=>String(x.team_id)===String(teamId))||{};
+  const rank=board2026.findIndex(x=>String(x.team_id)===String(teamId))+1;
+  app.innerHTML=`<div class="cmp">${backHeader("Why this rating")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">The anti-black-box view: <b>${esc(t.school)}</b>'s rating is the exact sum of the factors below — the transparency other rankings don't show.</div>
+    <div class="navrow"><button class="navbtn" id="wrpick"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Another team</button></div>
+    <div class="sec"><div class="sectitle">${esc(t.school)} — #${rank} <small>${f3(Number(b.overall||0))} · ${phaseLabel()}</small></div>
+    ${waterfallSVG(comps, Number(b.overall||0), t)}</div>
+    <div class="note"><b>${phaseTitle()} — Hashmark.</b> Each bar is one additive factor of the published rating; green adds, red subtracts, and the amber bar is the final number. Factor definitions are in Methodology. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.getElementById("wrpick").onclick=()=>teamPicker(null, id=>openWhyRating(id));
+}
+// V1 — Power Quadrant: every FBS team on one offense-vs-defense map.
+let _quadAxis="rating";
+async function openQuadrant(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the map…</div>`;
+  await ensureTeamMeta(); await ensureBoard();
+  let statRows=[];
+  if(_quadAxis!=="rating"){
+    statRows=await api(`team_stat_season?select=team_id,stat_key,value&season=eq.${SEASON_RESULTS}&stat_key=in.(off_ppa,def_ppa,off_success_rate,def_success_rate)`);
+  }
+  const sv={}; statRows.forEach(r=>{ (sv[r.team_id]=sv[r.team_id]||{})[r.stat_key]=Number(r.value); });
+  const fav=favTeamId();
+  const axes=_quadAxis==="rating"
+    ? {x:b=>Number(b.off), y:b=>Number(b.def), xl:"Offense rating", yl:"Defense rating", vint:phaseLabel()}
+    : _quadAxis==="epa"
+      ? {x:b=>(sv[b.team_id]||{}).off_ppa, y:b=>{ const v=(sv[b.team_id]||{}).def_ppa; return v==null?null:-v; }, xl:"Off EPA/play", yl:"Def EPA/play (inverted — up is better)", vint:`${SEASON_RESULTS} season`}
+      : {x:b=>(sv[b.team_id]||{}).off_success_rate, y:b=>{ const v=(sv[b.team_id]||{}).def_success_rate; return v==null?null:-v; }, xl:"Off success rate", yl:"Def success rate allowed (inverted)", vint:`${SEASON_RESULTS} season`};
+  const pts=board2026.map(b=>({b, x:axes.x(b), y:axes.y(b), t:b.teams||teamMeta[b.team_id]||{}}))
+    .filter(p=>p.x!=null&&p.y!=null&&isFinite(p.x)&&isFinite(p.y));
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const xlo=Math.min(...xs), xhi=Math.max(...xs), ylo=Math.min(...ys), yhi=Math.max(...ys);
+  const xmid=(_quadAxis==="rating")?0:(xlo+xhi)/2, ymid=(_quadAxis==="rating")?0:(ylo+yhi)/2;
+  const W=360, H=360, PAD=16;
+  const X=v=>PAD+(v-xlo)/Math.max(1e-9,xhi-xlo)*(W-2*PAD);
+  const Y=v=>H-PAD-(v-ylo)/Math.max(1e-9,yhi-ylo)*(H-2*PAD);
+  let s=`<svg class="quad" viewBox="0 0 ${W} ${H}" role="img" aria-label="Power quadrant">`;
+  s+=`<line x1="${X(xmid)}" y1="${PAD}" x2="${X(xmid)}" y2="${H-PAD}" stroke="rgba(148,163,184,.25)"/>`;
+  s+=`<line x1="${PAD}" y1="${Y(ymid)}" x2="${W-PAD}" y2="${Y(ymid)}" stroke="rgba(148,163,184,.25)"/>`;
+  const QL=[["Complete teams",W-PAD-4,PAD+10,"end"],["Defense-first",PAD+4,PAD+10,"start"],
+            ["Shootout offenses",W-PAD-4,H-PAD-6,"end"],["Rebuilding",PAD+4,H-PAD-6,"start"]];
+  QL.forEach(([txt,x,y,anc])=>s+=`<text x="${x}" y="${y}" fill="var(--text3)" font-size="9" font-weight="700" text-anchor="${anc}" opacity=".8">${txt}</text>`);
+  const dim=p=>confFilter&&(p.t.conference||"Independent")!==confFilter;
+  pts.forEach(p=>{ if(String(p.b.team_id)===String(fav)) return;
+    s+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="7" fill="${hx(p.t.color)}" opacity="${dim(p)?.12:.85}" data-qt="${p.b.team_id}" style="cursor:pointer"></circle>
+    <text x="${X(p.x)}" y="${Y(p.y)+2.6}" fill="${textOn(p.t.color)}" font-size="5.4" font-weight="800" text-anchor="middle" opacity="${dim(p)?.12:1}" pointer-events="none">${esc(monogram(p.t.school||""))}</text>`; });
+  const fp=pts.find(p=>String(p.b.team_id)===String(fav));
+  if(fp) s+=`<circle cx="${X(fp.x)}" cy="${Y(fp.y)}" r="10" fill="${hx(fp.t.color)}" stroke="var(--amber)" stroke-width="2.5" data-qt="${fp.b.team_id}" style="cursor:pointer"></circle>
+    <text x="${X(fp.x)}" y="${Y(fp.y)+3}" fill="${textOn(fp.t.color)}" font-size="7" font-weight="800" text-anchor="middle" pointer-events="none">${esc(monogram(fp.t.school||""))}</text>`;
+  s+=`</svg>`;
+  const confs=[...new Set(board2026.map(b=>(b.teams||{}).conference).filter(Boolean))].sort();
+  let h=`<div class="cmp">${backHeader("Power Quadrant")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">All 138 teams on one map — <b>${axes.xl}</b> across, <b>${axes.yl}</b> up. Top-right = complete teams. ${fav?"Your team wears the amber ring.":""} Tap any dot.</div>
+    <div class="bnav">${["rating","epa","success"].map(k=>`<button data-qax="${k}" class="${_quadAxis===k?"on":""}">${k==="rating"?"Rating":k==="epa"?"EPA/play":"Success rate"}</button>`).join("")}</div>
+    <div class="confbar"><button class="confpill ${confFilter?"":"on"}" data-qconf="">All FBS</button>${confs.map(c=>`<button class="confpill ${confFilter===c?"on":""}" data-qconf="${esc(c)}">${esc(shortConf(c))}</button>`).join("")}</div>
+    <div class="sec">${s}<div class="secsub" style="padding:2px 2px 0">${axes.vint} · Hashmark</div><div id="quadcard"></div></div>
+    <div class="note"><b>Power Quadrant — ${axes.vint}.</b> Rating axes are the opponent-adjusted Hashmark unit ratings; EPA and success-rate axes are official ${SEASON_RESULTS} play-by-play stats. Defensive axes point up when the defense is better. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-qax]").forEach(el=>el.onclick=()=>{ _quadAxis=el.dataset.qax; openQuadrant(); });
+  document.querySelectorAll("[data-qconf]").forEach(el=>el.onclick=()=>{ confFilter=el.dataset.qconf||null; openQuadrant(); });
+  document.querySelectorAll("[data-qt]").forEach(el=>el.onclick=()=>{
+    const id=el.dataset.qt, b=board2026.find(x=>String(x.team_id)===String(id)), tm=(b||{}).teams||{};
+    const rk=board2026.findIndex(x=>String(x.team_id)===String(id))+1;
+    document.getElementById("quadcard").innerHTML=`<div class="favcard" data-team="${id}" style="margin-top:8px">${crestEl("favcr",tm.school||"?",hx(tm.color))}
+      <div class="favmeta"><div class="favnm">${esc(tm.school||"?")} <span class="favtag">#${rk}</span></div>
+      <div class="favsub">Rating ${f3(Number(b.overall))} · OFF ${f3(Number(b.off))} · DEF ${f3(Number(b.def))} · ${phaseLabel()}</div></div>
+      <div class="favgo">Team page <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
+  });
+}
+// V3 — Luck Ledger: actual vs deserved record, whole board. FREE; per-game dots PLUS.
+async function openLuckLedger(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the ledger…</div>`;
+  await ensureTeamMeta();
+  const rows=await api(`luck_ledger?select=*&season=eq.${SEASON_RESULTS}&order=luck_wins.desc`);
+  if(!rows.length){ app.innerHTML=backHeader("Luck Ledger")+`<div class="list"><div class="err">No ledger yet.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  const fav=favTeamId();
+  const maxG=Math.max(...rows.map(r=>r.games));
+  const line=r=>{ const t=teamMeta[r.team_id]||{school:"?"};
+    const aw=Number(r.wins), dw=Number(r.deserved_wins), lk=Number(r.luck_wins);
+    const px=v=>8+(v/maxG)*84;   // percent-ish track
+    const lab=lk>=0.5?`+${lk.toFixed(1)} banked wins`:lk<=-0.5?`${lk.toFixed(1)} wins short`:"about even";
+    return `<div class="luckrow${String(r.team_id)===String(fav)?" me":""}" data-luck="${r.team_id}">
+      ${crestEl("glcr",t.school,hx(t.color))}
+      <div class="lknm">${esc(t.school)}<small>${aw}–${r.losses} actual · deserved ${dw.toFixed(1)}</small></div>
+      <div class="lktrack"><svg viewBox="0 0 100 12" preserveAspectRatio="none">
+        <line x1="${px(Math.min(aw,dw))}" y1="6" x2="${px(Math.max(aw,dw))}" y2="6" stroke="rgba(148,163,184,.5)" stroke-width="1.5"/>
+        <circle cx="${px(dw)}" cy="6" r="3" fill="#94A3B8"/>
+        <circle cx="${px(aw)}" cy="6" r="3.6" fill="${hx(t.color)}"/></svg></div>
+      <div class="lkv ${lk>=0.5?"pos":lk<=-0.5?"neg":""}">${lab}</div></div>`; };
+  app.innerHTML=`<div class="cmp">${backHeader("Luck Ledger")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px"><b>Actual record vs deserved record</b> — the deserved number sums each game's win expectancy from the efficiency battle (garbage time removed). Colored dot = actual wins; gray dot = deserved. Sorted luckiest first. <b>${SEASON_RESULTS} season</b>${SEASON_PHASE.started?"":" — 2026 fills in as games are played"}.</div>
+    ${rows.map(line).join("")}
+    <div class="note"><b>Luck Ledger — ${SEASON_RESULTS} season.</b> Win expectancy comes from each game's opponent-adjusted efficiency margin, fit on 2015-2024 results. "Banked" wins are results ahead of the underlying play; every call in the Luck Audit is logged and scored. Tap a team for its game-by-game dots (Hashmark+). ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll("[data-luck]").forEach(el=>el.onclick=()=>gatedLuckGames(el.dataset.luck));
+}
+async function gatedLuckGames(teamId){
+  if(PLUS_GATED.luck_games && !(await plusUpsell("Game-by-game luck dots",
+    "Every game's deserved-win expectancy vs what actually happened — see exactly where the record ran ahead of (or behind) the play. Free during preview."))) return;
+  await ensureTeamMeta();
+  const t=teamMeta[teamId]||{school:"?"};
+  const gs=await api(`luck_ledger_games?select=*&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}&order=week.asc`);
+  const ov=document.createElement("div"); ov.className="pickov";
+  ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+    <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — luck, game by game</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="picklist">${gs.map(g=>{ const o=teamMeta[g.opp_id]||{school:"opp"};
+      const we=Math.round(Number(g.win_exp)*100);
+      return `<div class="stgame"><div class="stopp">${crestEl("glcr",o.school,hx(o.color))}
+        <div><div class="on">Wk ${g.week} · ${esc(o.school)}</div>
+        <div class="ha">deserved: won ${we} of 100 times on the play</div></div></div>
+        <div class="glres ${g.won?"w":"l"}">${g.won?"W":"L"}</div></div>`; }).join("")}
+      <div class="secsub" style="padding:8px 2px">${SEASON_RESULTS} season · win expectancy from the game's efficiency margin.</div></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+}
+// V4 — Schedule Gauntlet: 12 cells colored by win prob + the record distribution.
+async function gauntletData(teamId){
+  const games=await api(`games?select=id,week,season_type,home_team_id,away_team_id,neutral_site,start_date,start_time_tbd,network,home_points,away_points,completed&season=eq.${SEASON_SCHED}&or=(home_team_id.eq.${teamId},away_team_id.eq.${teamId})&order=week.asc`);
+  const pairs=[...new Set(games.map(g=>{ const lo=Math.min(g.home_team_id,g.away_team_id), hi=Math.max(g.home_team_id,g.away_team_id); return `and(team_a.eq.${lo},team_b.eq.${hi})`; }))];
+  let wp=[];
+  if(pairs.length) try{ wp=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&or=(${pairs.join(",")})`); }catch(e){}
+  const wpm=new Map(); wp.forEach(r=>wpm.set(r.team_a+"-"+r.team_b,r));
+  return {games, wpm};
+}
+function gauntletP(teamId, g, wpm){
+  const lo=Math.min(+g.home_team_id,+g.away_team_id), hi=Math.max(+g.home_team_id,+g.away_team_id);
+  const row=wpm.get(lo+"-"+hi); if(!row) return null;
+  const home=+g.home_team_id===+teamId;
+  let pHome;
+  if(g.neutral_site){ const pLo=Number(row.win_prob_a); pHome=(+g.home_team_id===lo)?pLo:1-pLo; }
+  else if(+g.home_team_id===lo) pHome=Number(row.win_prob_a_home);
+  else pHome=1-Number(row.win_prob_a_away);
+  return home?pHome:1-pHome;
+}
+function gauntletHTML(teamId, games, wpm, compact){
+  const cells=games.map(g=>{ const home=+g.home_team_id===+teamId;
+    const opp=home?g.away_team_id:g.home_team_id, o=teamMeta[opp]||{school:"TBD"};
+    const done=g.completed&&g.home_points!=null;
+    const won=done&&((home?g.home_points>g.away_points:g.away_points>g.home_points));
+    const p=gauntletP(teamId,g,wpm);
+    const hue=p==null?null:Math.round(p*120);   // 0=red, 120=green
+    const bg=done?(won?"#274d3a":"#4d2a27"):(p==null?"var(--surface)":`hsl(${hue} 45% 22%)`);
+    const big=p!=null&&p<0.40&&!done;
+    const dt=g.start_date?new Date(g.start_date).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"";
+    return `<div class="gcell${big?" hard":""}" style="background:${bg}" data-team="${opp}"
+      data-tip="${esc((home?"vs ":"at ")+o.school+(p!=null?` — the model wins this ${Math.round(p*100)} of 100 times`:" — no line yet")+(done?` (final)`:""))}">
+      <div class="gwk">Wk ${g.week}</div>
+      <div class="gmono" style="color:${hx(o.color)}">${esc(monogram(o.school))}</div>
+      <div class="gp">${done?(won?"W":"L"):(p==null?"—":Math.round(p*100)+"%")}</div>
+      ${compact?"":`<div class="gdt">${esc(dt)}${g.network?` · ${esc(g.network)}`:""}</div>`}</div>`; }).join("");
+  // record distribution: Poisson-binomial over remaining win probs + locked results
+  const probs=games.map(g=>{ const done=g.completed&&g.home_points!=null;
+    if(done){ const home=+g.home_team_id===+teamId; return (home?g.home_points>g.away_points:g.away_points>g.home_points)?1:0; }
+    const p=gauntletP(teamId,g,wpm); return p==null?0.5:p; });
+  let dist=[1];
+  probs.forEach(p=>{ const nd=new Array(dist.length+1).fill(0);
+    for(let k=0;k<dist.length;k++){ nd[k]+=dist[k]*(1-p); nd[k+1]+=dist[k]*p; } dist=nd; });
+  const dmax=Math.max(...dist);
+  const bars=dist.map((d,w)=>`<div class="rdcol" data-tip="${esc(`${w}-${games.length-w}: ${Math.round(d*100)} of 100 seasons`)}">
+    <i style="height:${Math.max(2,d/dmax*34)}px"></i><small>${w}</small></div>`).join("");
+  return `<div class="gauntlet">${cells}</div>
+    <div class="rdist"><div class="rdbars">${bars}</div>
+    <div class="secsub" style="padding:2px 2px 0">Projected-record distribution — how often each win total lands (${SEASON_SCHED}, model win probabilities). Most likely: <b>${dist.indexOf(dmax)}–${games.length-dist.indexOf(dmax)}</b>.</div></div>`;
+}
+async function injectTeamViz(teamId){
+  const host=document.getElementById("tp-accordions");
+  if(!host || !SHOW_HASHMARK_RATINGS || !SHOW_PREDICTIONS) return;
+  const {games, wpm}=await gauntletData(teamId);
+  if(!games.length || !wpm.size) return;
+  const d=document.createElement("div");
+  d.innerHTML=`<div class="sec"><div class="sectitle">The gauntlet <small>${SEASON_SCHED} · win odds per game</small></div>
+    <div class="secsub">Greener = safer, redder = tougher. Tap a cell for the number; heavy outlines mark the coin-flip-or-worse games.</div>
+    ${gauntletHTML(teamId, games, wpm)}
+    <div class="navrow" style="padding-top:6px"><button class="navbtn" id="tpodds"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg> Playoff odds over time</button></div></div>`;
+  host.parentNode.insertBefore(d.firstChild, host);
+  const b=document.getElementById("tpodds"); if(b) b.onclick=()=>openOddsTimeline(teamId);
+}
+async function openGauntlet(teamId){
+  await ensureTeamMeta(); await ensureBoard();
+  teamId = teamId || favTeamId() || (board2026[0]&&board2026[0].team_id);
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the gauntlet…</div>`;
+  const t=teamMeta[teamId]||{school:"?"};
+  const {games, wpm}=await gauntletData(teamId);
+  app.innerHTML=`<div class="cmp">${backHeader("Schedule Gauntlet")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px"><b>${esc(t.school)}</b>'s ${SEASON_SCHED} slate, one cell per game, colored by the model's win odds.</div>
+    <div class="navrow"><button class="navbtn" id="gpick"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Another team</button>
+      <button class="navbtn" id="gwall"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> All-138 wall <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
+    <div class="sec">${gauntletHTML(teamId, games, wpm)}</div>
+    <div class="note"><b>Schedule Gauntlet — ${SEASON_SCHED}.</b> Cell color is the model's win probability for that game (venue-aware); the bar chart is the implied record distribution. Probabilities only — no betting lines. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.getElementById("gpick").onclick=()=>teamPicker(null, id=>openGauntlet(id));
+  document.getElementById("gwall").onclick=()=>gatedGauntletWall();
+}
+async function gatedGauntletWall(){
+  if(PLUS_GATED.gauntlet_wall && !(await plusUpsell("The all-138 gauntlet wall",
+    "Every FBS schedule as one wall of win-probability strips — scan the whole sport's paths at a glance. Free during preview."))) return;
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Building the wall (all 138 schedules)…</div>`;
+  await ensureTeamMeta(); await ensureBoard();
+  const [games, wp]=await Promise.all([
+    api(`games?select=id,week,home_team_id,away_team_id,neutral_site,home_points,away_points,completed&season=eq.${SEASON_SCHED}&order=week.asc`),
+    fetchAllWinprob()]);
+  const wpm=new Map(); wp.forEach(r=>wpm.set(r.team_a+"-"+r.team_b,r));
+  const byTeam={};
+  board2026.forEach(b=>byTeam[b.team_id]=[]);
+  games.forEach(g=>{ if(byTeam[g.home_team_id]) byTeam[g.home_team_id].push(g);
+    if(byTeam[g.away_team_id]) byTeam[g.away_team_id].push(g); });
+  let h=`<div class="cmp">${backHeader("Gauntlet wall")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">All 138 schedules, ranked by Hashmark rating. Greener = easier path.</div>`;
+  board2026.forEach((b,i)=>{ const t=b.teams||teamMeta[b.team_id]||{};
+    const cells=(byTeam[b.team_id]||[]).map(g=>{ const p=gauntletP(b.team_id,g,wpm);
+      return `<i style="background:${p==null?"var(--surface)":`hsl(${Math.round(p*120)} 45% 26%)`}"></i>`; }).join("");
+    h+=`<div class="wallrow" data-team="${b.team_id}"><div class="wallrk">${i+1}</div>
+      ${crestEl("glcr",t.school||"?",hx(t.color))}
+      <div class="wallnm">${esc(t.school||"?")}</div><div class="wallcells">${cells}</div></div>`; });
+  h+=`<div class="note"><b>Gauntlet wall — ${SEASON_SCHED}.</b> One strip per team, one cell per game, colored by the model's win probability. Tap a row for the full gauntlet. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  document.querySelectorAll(".wallrow").forEach(el=>el.onclick=()=>openGauntlet(el.dataset.team));
+}
+// V5 — Playoff odds over time (weekly MC snapshots) + AP rank layer.
+async function openOddsTimeline(teamId){
+  await ensureTeamMeta(); await ensureBoard();
+  teamId = teamId || favTeamId() || (board2026[0]&&board2026[0].team_id);
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading odds history…</div>`;
+  const t=teamMeta[teamId]||{school:"?"};
+  const [arch, ap]=await Promise.all([
+    api(`playoff_forecast_archive?select=asof,make_cfp,exp_wins&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}&order=asof.asc`),
+    api(`poll_rankings_history?select=week,rank&season=eq.${SEASON_SCHED}&poll=eq.AP%20Top%2025&team_id=eq.${teamId}&order=week.asc`).catch(()=>[])]);
+  let chart="";
+  if(arch.length){
+    const W=340, H=150, PAD=24;
+    const X=i=>PAD+(arch.length===1?((W-2*PAD)/2):i/(arch.length-1)*(W-2*PAD));
+    const Y=p=>H-18-(p)*(H-38);
+    const col=hx(t.color);
+    let path=arch.map((r,i)=>`${i?"L":"M"}${X(i)},${Y(Number(r.make_cfp))}`).join(" ");
+    chart=`<svg class="quad" viewBox="0 0 ${W} ${H}" role="img" aria-label="Playoff odds over time">
+      ${[0,.25,.5,.75,1].map(p=>`<line x1="${PAD}" y1="${Y(p)}" x2="${W-PAD}" y2="${Y(p)}" stroke="rgba(148,163,184,.12)"/><text x="${PAD-4}" y="${Y(p)+3}" fill="var(--text3)" font-size="7.5" text-anchor="end">${Math.round(p*100)}</text>`).join("")}
+      <path d="${path}" fill="none" stroke="${col}" stroke-width="2.5"/>
+      ${arch.map((r,i)=>`<circle cx="${X(i)}" cy="${Y(Number(r.make_cfp))}" r="3.4" fill="${col}"><title>${esc(new Date(r.asof).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})+": makes the CFP "+Math.round(Number(r.make_cfp)*100)+" of 100 times · expected wins "+Number(r.exp_wins).toFixed(1))}</title></circle>`).join("")}
+      ${arch.map((r,i)=>`<text x="${X(i)}" y="${H-4}" fill="var(--text3)" font-size="7.5" text-anchor="middle">${new Date(r.asof).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}</text>`).join("")}
+    </svg>`;
+  }
+  const last=arch[arch.length-1];
+  let bump="";
+  if(ap.length>=2){
+    const W=340,H=110,PAD=24;
+    const X=i=>PAD+i/(ap.length-1)*(W-2*PAD);
+    const Y=r=>16+(r-1)/25*(H-34);
+    bump=`<div class="sectitle" style="padding-top:10px">AP poll journey <small>${SEASON_SCHED}</small></div>
+      <svg class="quad" viewBox="0 0 ${W} ${H}"><path d="${ap.map((r,i)=>`${i?"L":"M"}${X(i)},${Y(r.rank)}`).join(" ")}" fill="none" stroke="var(--teal)" stroke-width="2"/>
+      ${ap.map((r,i)=>`<circle cx="${X(i)}" cy="${Y(r.rank)}" r="3" fill="var(--teal)"><title>Week ${r.week}: AP #${r.rank}</title></circle>`).join("")}
+      ${ap.map((r,i)=>i%2?"":`<text x="${X(i)}" y="${H-2}" fill="var(--text3)" font-size="7.5" text-anchor="middle">Wk ${r.week}</text>`).join("")}</svg>`;
+  } else {
+    bump=`<div class="secsub" style="padding:6px 2px 0">The AP-rank layer joins this chart when the ${SEASON_SCHED} poll starts publishing (weekly snapshots are already wired).</div>`;
+  }
+  app.innerHTML=`<div class="cmp">${backHeader("Playoff odds over time")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px"><b>${esc(t.school)}</b> — the Monte-Carlo Make-CFP odds at every weekly snapshot${last?`, currently <b>${Math.round(Number(last.make_cfp)*100)} of 100</b>`:""}. Updated weekly in season; snapshots began Jul 2026.</div>
+    <div class="navrow"><button class="navbtn" id="otpick"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Another team</button></div>
+    <div class="sec">${chart||`<div class="secsub">No snapshots for this team yet.</div>`}${bump}</div>
+    <div class="note"><b>Playoff odds over time — ${SEASON_SCHED}.</b> Each dot is one archived run of the full-season Monte-Carlo (thousands of simulated seasons; probabilities only, capped 1-99). Game-by-game annotations join in season. ${BRAND_LINE}</div></div></div>`;
+  document.querySelector(".back").onclick=load;
+  document.getElementById("otpick").onclick=()=>teamPicker(null, id=>openOddsTimeline(id));
+}
+
 /* ---------------- omnibox ---------------- */
 const OMNI_TOOLS = [
   ["Simulator","target",()=>gatedSimulator()],["Scores & schedule","cal",()=>openScores()],
   ["Standings & SoS","list",()=>openStandings()],["Matchup Lab","vs",()=>openMatchup()],
   ["Leaderboards & stats","chart",()=>openStats()],["Rankings","trophy",()=>openPreseason()],
+  ["Power Quadrant","target",()=>openQuadrant()],
+  ["Why this rating","ruler",()=>openWhyRating()],
+  ["Luck Ledger","dice",()=>openLuckLedger()],
+  ["Schedule Gauntlet","cal",()=>openGauntlet()],
+  ["Playoff odds over time","trend",()=>openOddsTimeline()],
   ["Weekly movers","trend",()=>openMovers()],["Pick'em","check",()=>openPickem()],
   ["Signature stats","flame",()=>openSignature()],
   ["Ask Hashmark","chat",()=>openAsk(null)],
@@ -4782,6 +5196,11 @@ async function openExplore(){
     <h2 style="margin:4px 0 2px;font-size:20px">Playoff Simulator</h2>
     <p style="margin:0;color:var(--text2);font-size:12px">Pick winners, watch title chances rebuild — 1,000 Monte-Carlo seasons of your bracket.</p></div>
   <div class="xgrid" style="padding:0 2px">
+    <div class="xcard" data-x="quadrant"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--amber)">Power Quadrant</h4><p>All 138 teams on one offense-vs-defense map. Free.</p></div>
+    <div class="xcard" data-x="whyrating"><svg class="ic"><use href="#i-ruler"/></svg><h4 style="color:var(--amber)">Why this rating</h4><p>Any team's rating, factor by factor — the anti-black-box view.</p></div>
+    <div class="xcard" data-x="luck"><svg class="ic"><use href="#i-dice"/></svg><h4>Luck Ledger</h4><p>Actual record vs deserved record, every team. Who banked wins?</p></div>
+    <div class="xcard" data-x="gauntlet"><svg class="ic"><use href="#i-cal"/></svg><h4>Schedule Gauntlet</h4><p>12 game cells colored by win odds + the record distribution.</p></div>
+    <div class="xcard" data-x="oddstime"><svg class="ic"><use href="#i-trend"/></svg><h4>Playoff odds over time</h4><p>Your team's Make-CFP odds, snapshot by snapshot.</p></div>
     <div class="xcard" data-x="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and more — named teams, tracked calls. One board free.</p></div>
     <div class="xcard" data-x="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>Leaderboards <span class="chip-plus">HASHMARK+</span></h4><p>Team & player stat leaders, every category.</p></div>
     <div class="xcard" data-x="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
@@ -4808,7 +5227,9 @@ async function openExplore(){
   const GO={stats:()=>openStats(),matchup:()=>openMatchup(),standings:()=>openStandings(),
     movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),
     notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature(),
-    whatwins:()=>openWhatWins(), playerrank:()=>openPlayerRankings()};
+    whatwins:()=>openWhatWins(), playerrank:()=>openPlayerRankings(),
+    quadrant:()=>openQuadrant(), whyrating:()=>openWhyRating(), luck:()=>openLuckLedger(),
+    gauntlet:()=>openGauntlet(), oddstime:()=>openOddsTimeline()};
   document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
   document.getElementById("xask").onclick=openOmni;
   document.getElementById("foundgo").onclick=async()=>{
