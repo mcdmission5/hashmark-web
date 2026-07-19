@@ -142,6 +142,31 @@ def check_vocab():
     return rc
 
 
+# UX batch 4 #2: every full-screen view function (open*) MUST be registered in the
+# nav-stack wrap list, or the Back button silently regresses to Home. Overlays/sheets
+# that never replace the app root are allowlisted. New views fail the build until wired.
+NAV_ALLOWLIST = {"openOmni", "openAsk", "openNotifyPrefs", "openAccountMenu",
+                 "openAuthModal", "openPicker"}
+
+
+def check_nav_registry():
+    import re
+    p = os.path.join(ROOT, "hashmark-app.html")
+    html = open(p).read()
+    declared = set(re.findall(r"^(?:async )?function (open[A-Z]\w*)\(", html, re.M))
+    registered = set(re.findall(r'\["(open[A-Z]\w*)"', html))
+    missing = sorted(declared - registered - NAV_ALLOWLIST)
+    if missing:
+        print(f"NAV REGISTRY LINT FAIL: view function(s) not in the nav-stack wrap list "
+              f"(Back button will regress to Home): {missing} — register in the "
+              f"setTimeout wrap list + NAV_ROUTES, or allowlist in sync_web.py if it is "
+              f"a genuine overlay.")
+        return 1
+    print(f"nav registry OK — all {len(declared - NAV_ALLOWLIST)} open* views push history "
+          f"({len(NAV_ALLOWLIST)} overlays allowlisted)")
+    return 0
+
+
 # Emoji/pictograph blocks — HARD RULE (redesign brief): no emoji anywhere in the app;
 # icons are the monoline SVG set. Arrows/dingbats/geometric glyphs count (they render as
 # emoji on mobile); typographic punctuation (dashes, quotes, middots) stays legal.
@@ -194,7 +219,7 @@ def check():
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
     rc = check_engine()
-    return rc or check_vocab() or check_emoji()
+    return rc or check_vocab() or check_emoji() or check_nav_registry()
 
 
 def main():

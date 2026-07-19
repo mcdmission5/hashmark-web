@@ -658,6 +658,11 @@
   .wallnm{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .wallcells{display:flex;gap:2px} .wallcells i{flex:1;height:14px;border-radius:3px}
   /* NIL economy + premium depth */
+  .hubrow{display:flex;align-items:center;gap:11px;padding:11px 12px;background:var(--surface);
+    border:1px solid var(--line);border-radius:12px;margin-bottom:6px;cursor:pointer}
+  .hubmeta{flex:1;min-width:0} .hubmeta b{font-size:13.5px}
+  .hubmeta small{display:block;color:var(--text2);font-size:11px;padding:1px 0}
+  .hubprev{font-size:10.5px;color:var(--amber);font-family:"IBM Plex Mono",monospace;padding-top:2px}
   .nilrow{display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--surface);
     border:1px solid var(--line);border-radius:11px;margin-bottom:5px;cursor:pointer}
   .nilrow.hot{border-color:#E8B657}
@@ -1309,7 +1314,7 @@ function crestEl(cls, name, color){
 }
 function schedRow(g, teamId){
   const v = gameView(g, teamId);
-  const ha = v.neutral?"Neutral":(v.home?"vs":"at");
+  const ha = v.neutral?"Neutral":(v.home?"vs":"@");
   const res = v.done ? `<div class="schedres ${v.won?"w":"l"}">${v.won?"W":"L"}</div>`
                      : `<div class="schedres wk">${v.bowl?"PS":("W"+v.week)}</div>`;
   const score = v.done ? `<div class="schedsc"><b>${v.ms}</b>–${v.os}</div>`
@@ -1361,7 +1366,7 @@ function scGameRow(g){
   return `<div class="scgame">
     ${when||meta?`<div class="gm"><span>${esc(when)}</span><span>${meta}</span></div>`:""}
     ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
-    ${done?"":`<div class="scvs">${g.neutral_site?"vs":"at"}</div>`}
+    ${done?"":`<div class="scvs">${g.neutral_site?"vs":"@"}</div>`}
     ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}
     ${boxLink}</div>`;
 }
@@ -1508,9 +1513,6 @@ async function injectSeasonExtras(){
       api(`signature_stats?select=team_id,season,drivers&free=eq.true&stat_key=eq.collapse_index&limit=1`).catch(()=>[]),
       api(`accuracy_summary?select=*&order=season.desc&limit=1`).catch(()=>[])]);
     let t="";
-    t+=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="quad">
-      <div class="eyebrow" style="color:var(--amber)">Power Quadrant · free</div>
-      <div style="font-size:12.5px;margin-top:3px">All 138 teams on one offense-vs-defense map — find the complete teams (and yours) at a glance <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
     if(acc.length&&acc[0].su_pct!=null) t+=`<div class="card card-hero-teal" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="acc">
       <div class="eyebrow" style="color:var(--teal)">Checking our work</div>
       <div style="font-size:12.5px;margin-top:3px">The Model called <b>${Math.round(Number(acc[0].su_pct))} of 100</b> winners straight-up in ${acc[0].season} — logged before kickoff.</div></div>`;
@@ -1873,7 +1875,7 @@ async function injectYourTeam(){
   host.innerHTML=`<div class="favcard big" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
     <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--amber-tint);color:var(--amber)">HASHMARK #${rk}</span>`:""}</div>
       <div class="favsub">${st?`${st.wins}–${st.losses} ${SEASON_RESULTS} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}`:esc(t.conference||"")}${pre?` · ${SEASON_SCHED} SoS #${pre.sos_rank||"—"}`:""}</div>
-      ${v?`<div class="favsub">Next: ${v.home?"vs":"at"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""}</div>`:""}
+      ${v?`<div class="favsub">Next: ${v.home?"vs":"@"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""}</div>`:""}
       ${news?`<div class="favsub favnews" id="ytnews" role="link" title="Team news">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""} <svg class="ic" style="width:11px;height:11px"><use href="#i-chev-r"/></svg></div>`:""}</div>
     <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
   const yn=document.getElementById("ytnews");   // Part 0.2: headline tap opens TEAM news
@@ -1899,8 +1901,8 @@ function renderLeaderboard(){
   const confRankOf = {}; RANKABLE.forEach((c,i)=>confRankOf[c.conf]=i+1);
   const cmax = Math.max(0.0001, ...RANKABLE.map(c=>Math.abs(c.avg)));
 
-  // Part 0 (news prominence): rotating strip up top, Latest directly under your-team
-  let h = header() + listTop() + `<div id="newsstrip"></div><div id="ytm"></div><div class="hsec" id="cs-newshost"></div>`;
+  // UX batch 4 #7 home order: your-team, Latest (2 + rotating bar), feature tiles, board
+  let h = header() + listTop() + `<div id="ytm"></div><div class="hsec" id="cs-newshost"></div><div id="home-tiles"></div>`;
   // board-type nav
   h += `<div class="bnav">`;
   ["overall","offense","defense"].forEach(k=>{
@@ -1949,7 +1951,24 @@ function renderLeaderboard(){
   app.innerHTML = h; wireToggle();
   injectSeasonExtras();   // preseason signal teasers + news under the live board (brief #5 kept)
   injectYourTeam();
-  injectNewsStrip();
+  injectHomeTiles();
+}
+// UX batch 4 #7: the Explore feature tiles surfaced on home, right under the news block
+// (with the consolidated Hashmark Model tile up front).
+function injectHomeTiles(){
+  const host=document.getElementById("home-tiles");
+  if(!host) return;
+  host.innerHTML=`<div class="xgrid" style="padding:2px 2px 8px">
+    <div class="xcard" data-ht="modelhub"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--amber)">Hashmark Model</h4><p>Quadrant, Luck Ledger, Gauntlet, playoff odds and more — one hub.</p></div>
+    <div class="xcard" data-ht="sim"><svg class="ic"><use href="#i-trophy"/></svg><h4>Playoff Simulator</h4><p>Pick winners, watch the bracket rebuild.</p></div>
+    <div class="xcard" data-ht="standings"><svg class="ic"><use href="#i-list"/></svg><h4>Standings + SoS</h4><p>Every conference, schedule strength.</p></div>
+    <div class="xcard" data-ht="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
+    <div class="xcard" data-ht="nil"><svg class="ic"><use href="#i-flame"/></svg><h4>NIL Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Estimated spend tiers, attributed.</p></div>
+    <div class="xcard" data-ht="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 + preseason consensus.</p></div>
+  </div>`;
+  const GO={modelhub:()=>openModelHub(), sim:()=>gatedSimulator(), standings:()=>openStandings(),
+    matchup:()=>openMatchup(), nil:()=>openNILEconomy(), rankings:()=>openPreseason()};
+  host.querySelectorAll("[data-ht]").forEach(el=>el.onclick=()=>GO[el.dataset.ht]());
 }
 
 function wireToggle(){
@@ -2116,14 +2135,18 @@ function pWinA(row,a,b,venue){   // P(team a wins) for the chosen venue
 async function fetchH2H(a,b){
   return api(`games_history?select=season,start_date,home_team_id,away_team_id,home_team,away_team,home_points,away_points,neutral_site&or=(and(home_team_id.eq.${a},away_team_id.eq.${b}),and(home_team_id.eq.${b},away_team_id.eq.${a}))&order=start_date.desc`);
 }
+// UX batch 4 #3: the Matchup Lab is the OFFICIAL-STATS comparison for now — the model
+// layer (win-prob dial, model lean, unit heat grid) is HIDDEN, not deleted, behind this
+// single flag for easy re-enable.
+const MATCHUP_SHOW_MODEL = false;
 async function drawMatchup(){
   const a=matchup.a, b=matchup.b, S=await activeStatSeason();
   const [statsRows, wp, hh] = await Promise.all([
     api(`team_stat_season?select=team_id,stat_key,value,rank,percentile&season=eq.${S}&team_id=in.(${a},${b})&stat_key=in.(${MATCHUP_STATS.join(",")})`),
-    SHOW_PREDICTIONS?fetchWinProb(a,b):Promise.resolve(null),
+    (SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?fetchWinProb(a,b):Promise.resolve(null),
     fetchH2H(a,b) ]);
   renderMatchup(statsRows, wp, hh, S);
-  setTimeout(()=>{ try{ injectMatchupGrid(a,b); }catch(_e){} }, 0);   // P1 heat-grid seam
+  if(MATCHUP_SHOW_MODEL) setTimeout(()=>{ try{ injectMatchupGrid(a,b); }catch(_e){} }, 0);   // P1 heat-grid seam
 }
 function mPickCard(slot){
   const id=matchup[slot], t=teamMeta[id]||{school:"?"}, c=hx(t.color);
@@ -2139,7 +2162,7 @@ function renderMatchup(statsRows, wp, hh, S){
       <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Matchup</div></div>
     <div class="pickrow">${mPickCard("a")}<div class="pickvs">VS</div>${mPickCard("b")}</div>`;
   // win probability (ONLY thing from the model; never a rating or margin)
-  if(SHOW_PREDICTIONS && wp){
+  if(SHOW_PREDICTIONS && MATCHUP_SHOW_MODEL && wp){
     const pA=pWinA(wp,a,b,matchup.venue), paPct=Math.round(pA*100), pbPct=100-paPct;
     const favA=pA>=0.5, fav=favA?tA:tB, favPct=Math.max(paPct,pbPct);
     const venues=[["aHome",`${esc(tA.school)} home`],["neutral","Neutral"],["bHome",`${esc(tB.school)} home`]];
@@ -2181,7 +2204,7 @@ function renderMatchup(statsRows, wp, hh, S){
         <div class="h2hw">${esc(winner)} W</div></div>`; });
   } else { h+=`<div class="secsub">No meetings since 2015.</div>`; }
   h+=`</div><div class="navrow" style="padding:4px 2px"><button class="navbtn" id="mshare"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Share matchup card</button></div>`;
-  h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${SHOW_PREDICTIONS?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
+  h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${(SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   document.querySelectorAll("[data-mpick]").forEach(el=>el.onclick=()=>{ const slot=el.dataset.mpick;
@@ -2196,7 +2219,7 @@ function renderMatchup(statsRows, wp, hh, S){
       if(ra&&rb&&ra.rank&&rb.rank) edges.push([d.short_label, ra.rank, rb.rank, Math.abs(ra.rank-rb.rank)]);
     });
     edges.sort((x,y)=>y[3]-x[3]);
-    const paPct=(SHOW_PREDICTIONS&&wp)?Math.round(pWinA(wp,a,b,matchup.venue)*100):null;
+    const paPct=(SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL&&wp)?Math.round(pWinA(wp,a,b,matchup.venue)*100):null;
     shareMatchupCard(a, b, paPct, edges.slice(0,3));
   };
 }
@@ -2297,52 +2320,39 @@ function newsRow(n){
       style="color:var(--text);text-decoration:none">${esc(decodeEnt(n.headline))}</a></div>
     <div class="bvb"><small>${esc(n.source)}</small></div></div>`;
 }
+// UX batch 4 #7: Latest = 2 free stories; below them the rotating fire bar cycles the
+// 10 most recent headlines with the yellow HASHMARK+ chip — tapping it hits the news
+// paywall (opens the full feed for subscribers / free during preview).
+let _stripT=null;
 async function injectNews(){
   try{
-    const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=8`);
+    const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=10`);
     if(!items.length) return;
     const host = document.getElementById("cs-newshost");
     let div;
-    if(host){ div = host; }                        // Part 0.1: Latest sits under your-team
+    if(host){ div = host; }                        // Latest sits under your-team
     else{ const anchor = app.querySelector(".hsec"); if(!anchor) return;
       div = document.createElement("div"); div.className = "hsec";
       anchor.parentNode.insertBefore(div, anchor.nextSibling); }
     div.innerHTML = `<div class="hsectitle">Latest <small>around college football</small></div>`
-      + items.slice(0,4).map(newsRow).join("")   // N1: short free tease; the full feed is gated
-      + `<div class="navrow" style="padding:6px 2px 0"><button class="navbtn" id="newsall"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> View all news <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
+      + items.slice(0,2).map(newsRow).join("")   // 2 free; the rest ride the gated bar
+      + `<div class="newsstrip" id="nsbar" role="button" tabindex="0" aria-label="More headlines — Hashmark Plus">
+          <svg class="ic" style="flex:none;color:var(--amber)"><use href="#i-flame"/></svg>
+          <span class="nsline" id="nsline"></span>
+          <span class="chip-plus" style="display:inline-flex;flex:none">HASHMARK+</span></div>
       <div class="secsub" style="padding:4px 2px 0">Headlines link to the original source.</div>`;
-    const na=div.querySelector("#newsall");
-    if(na) na.onclick=gatedNewsArchive;
-  }catch(_e){}
-}
-// Part 0.3: compact rotating headline strip at the top of Home — one headline, no autoplay
-// jank (opacity fade only), dismissible for the day.
-let _stripT=null;
-async function injectNewsStrip(){
-  try{
-    const host=document.getElementById("newsstrip");
-    if(!host) return;
-    if(localStorage.getItem("hm_strip_hide")===new Date().toISOString().slice(0,10)){ host.remove(); return; }
-    const items=await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=5`);
-    if(!items.length) return;
-    let i=0;
-    host.innerHTML=`<div class="newsstrip"><svg class="ic" style="flex:none;color:var(--amber)"><use href="#i-flame"/></svg>
-      <a class="nsline" id="nsline" target="_blank" rel="noopener noreferrer"></a>
-      <button class="nsgo" id="nsgo">News <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
-      <button class="nsx" id="nsx" aria-label="Hide headlines today"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>`;
+    let i=2;
     const line=document.getElementById("nsline");
+    line.style.transition="opacity .25s";
     const show=()=>{ const it=items[i%items.length];
       line.style.opacity=0;
       setTimeout(()=>{ if(!document.getElementById("nsline")) return;
-        line.textContent=decodeEnt(it.headline); line.href=it.url; line.style.opacity=1; },250); };
-    line.style.transition="opacity .25s"; show();
+        line.textContent=decodeEnt(it.headline); line.style.opacity=1; },250); };
+    show();
     clearInterval(_stripT);
     _stripT=setInterval(()=>{ if(!document.getElementById("nsline")){ clearInterval(_stripT); return; }
       i++; show(); }, 7000);
-    document.getElementById("nsgo").onclick=()=>gatedNewsArchive();
-    document.getElementById("nsx").onclick=()=>{ clearInterval(_stripT);
-      localStorage.setItem("hm_strip_hide", new Date().toISOString().slice(0,10));
-      host.remove(); };
+    document.getElementById("nsbar").onclick=()=>gatedNewsArchive();
   }catch(_e){}
 }
 async function gatedNewsArchive(teamId){
@@ -3287,9 +3297,12 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     const d=document.createElement("div"); d.innerHTML=html;
     // signature-and-gating §2: news lives HIGH on the team page — right under the
     // identity/record block, above the deep stat sections (overrides design-doc order)
+    // UX batch 4 #4: news lands directly under the stats card (its own host slot)
+    const slot = document.getElementById("tp-newshost");
     const host = document.getElementById("tp-sched") || document.getElementById("tp-accordions")
       || app.querySelector(".note");
-    if(host) host.parentNode.insertBefore(d.firstChild, host);
+    if(slot) slot.appendChild(d.firstChild);
+    else if(host) host.parentNode.insertBefore(d.firstChild, host);
     if(window._scrollNews){ window._scrollNews=false;   // Part 0.2: favorite-module headline tap
       const sec=[...app.querySelectorAll(".sectitle")].find(x=>x.textContent.startsWith("Team news"));
       if(sec) sec.scrollIntoView({behavior:"smooth", block:"start"}); }
@@ -3345,14 +3358,14 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div>
     ${head}
     ${standLine}
-    ${hmSection(e.hm, t)}
+    <div id="tp-newshost"></div>
     ${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)}
+    ${hmSection(e.hm, t)}
     <div id="tp-accordions">
     ${acc("profile", `${SEASON_RESULTS} stat profile`, "ranks + percentiles", profile)}
     ${acc("splits", "Situational splits", "3rd down, red zone, by quarter", teamSplitsSection(e.splits||[], t.school))}
     ${acc("leaders", "Returning leaders", "who's back, who left", leaders)}
     ${acc("gamelog", "Game log", "every box line", gameLogSection(e.gamelog||[], teamId))}
-    ${acc("results", `${SEASON_RESULTS} results`, "final scores", scheduleSection(games||[], teamId, "results"))}
     ${acc("honors", "Preseason honors", "third-party, attributed", honors)}
     </div>
     ${e.hm?"":`<div class="sec" style="padding-top:6px">
@@ -3388,7 +3401,7 @@ function gameLogSection(rows, teamId){
     bySeason[s].slice().sort((a,b)=>(stOrder(a.season_type)-stOrder(b.season_type))||(a.week-b.week))
       .forEach(g=>{
         const opp=teamMeta[g.opponent_id]||{school:g.opponent_name||"TBD"}, c=oppColor(g.opponent_id);
-        const ha=g.home_away==="home"?"vs":"at";
+        const ha=g.home_away==="home"?"vs":"@";
         const res=g.result?`<div class="glres ${g.result==='W'?'w':'l'}">${g.result}</div>`:`<div class="glres wk">—</div>`;
         const sc=(g.points!=null&&g.opp_points!=null)?`<b>${g.points}</b>–${g.opp_points}`:"—";
         h+=`<div class="glrow" data-box="${g.game_id}" data-bteam="${teamId}">
@@ -4069,7 +4082,7 @@ function renderPlayer(aid, idx, seasons, games, grades){
     h+=`<div class="sec"><div class="sectitle">2025 game log</div>
       <div class="secsub">Per-game stat lines. Tap a game for the full box score. Source: CFBD.</div>`;
     list.forEach(([gid,g])=>{
-      const opp=teamMeta[g.opp]||{school:"opp"}, ha=g.ha==="home"?"vs":"at";
+      const opp=teamMeta[g.opp]||{school:"opp"}, ha=g.ha==="home"?"vs":"@";
       let bits=[];
       CAT_ORDER.forEach(cat=>{ const st=g.cats[cat]; if(!st) return;
         const parts=(GLOG_SHOW[cat]||[]).map(([k,lb])=>st[k]!=null?`${st[k]} ${lb}`:null).filter(Boolean);
@@ -4605,6 +4618,15 @@ const NAV_ROUTES={
   crowdmodel:()=>openUpsetRadar(),
   rosterecon:p=>openRosterEconomy(p&&p.id),
   playercard:p=>openPlayerCard(p&&p.a, p&&p.b),
+  compare:p=>openCompare(p&&p.a, p&&p.b),
+  movers:()=>openMovers(),
+  box:p=>openBox(p&&p.id, p&&p.team),
+  pickemboard:()=>openPickemBoard(),
+  matchupgrid:p=>openMatchupGrid(p&&p.a, p&&p.b),
+  nilmethod:()=>openNILMethodology(),
+  gauntletwall:()=>openGauntletWall(),
+  nileff:()=>openNILEfficiency(),
+  modelhub:()=>openModelHub(),
 };
 function navPush(v,p){
   if(_navRestoring) return;
@@ -4640,6 +4662,12 @@ setTimeout(()=>{
  ["openOddsTimeline","oddstime",id=>({id})],
  ["openNILEconomy","nileconomy"],["openUpsetRadar","crowdmodel"],
  ["openRosterEconomy","rosterecon",id=>({id})],["openPlayerCard","playercard",(a,b2)=>({a,b:b2})],
+ // UX batch 4 #2: the views that were missing history states (Back regressed to Home)
+ ["openCompare","compare",(a,b2)=>({a,b:b2})],["openMovers","movers"],
+ ["openBox","box",(id,team)=>({id,team})],["openPickemBoard","pickemboard"],
+ ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
+ ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
+ ["openModelHub","modelhub"],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -4965,7 +4993,7 @@ function gauntletHTML(teamId, games, wpm, compact){
     const big=p!=null&&p<0.40&&!done;
     const dt=g.start_date?new Date(g.start_date).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"";
     return `<div class="gcell${big?" hard":""}" style="background:${bg}" data-team="${opp}"
-      data-tip="${esc((home?"vs ":"at ")+o.school+(p!=null?` — the model wins this ${Math.round(p*100)} of 100 times`:" — no line yet")+(done?` (final)`:""))}">
+      data-tip="${esc((home?"vs ":"@ ")+o.school+(p!=null?` — the model wins this ${Math.round(p*100)} of 100 times`:" — no line yet")+(done?` (final)`:""))}">
       <div class="gwk">Wk ${g.week}</div>
       <div class="gmono" style="color:${hx(o.color)}">${esc(monogram(o.school))}</div>
       <div class="gp">${done?(won?"W":"L"):(p==null?"—":Math.round(p*100)+"%")}</div>
@@ -5016,6 +5044,9 @@ async function openGauntlet(teamId){
 async function gatedGauntletWall(){
   if(PLUS_GATED.gauntlet_wall && !(await plusUpsell("The all-138 gauntlet wall",
     "Every FBS schedule as one wall of win-probability strips — scan the whole sport's paths at a glance. Free during preview."))) return;
+  openGauntletWall();
+}
+async function openGauntletWall(){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Building the wall (all 138 schedules)…</div>`;
   await ensureTeamMeta(); await ensureBoard();
   const [games, wp]=await Promise.all([
@@ -5138,6 +5169,9 @@ async function openNILEconomy(){
 async function gatedNILEfficiency(){
   if(PLUS_GATED.nil_efficiency && !(await plusUpsell("Performance vs estimated resources",
     "Every tiered team plotted: Hashmark rating vs estimated spend tier — who beats their tier, and who doesn't. Free during preview."))) return;
+  openNILEfficiency();
+}
+async function openNILEfficiency(){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the efficiency view…</div>`;
   await ensureTeamMeta(); await ensureBoard();
   const tiers=await api(`nil_tiers?select=*&season=eq.${SEASON_SCHED}`);
@@ -5395,8 +5429,62 @@ async function openMatchupGrid(a,b){
   document.querySelector(".back").onclick=()=>openMatchup(a,b);
 }
 
+/* ---------------- Hashmark Model hub (UX batch 4 #1) ---------------- */
+// One front door for every model-derived visual: each row = name + one-line preview +
+// a representative live stat (not just a label). Non-model tools stay on Explore.
+async function openModelHub(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the Model hub…</div>`;
+  await ensureTeamMeta(); await ensureBoard();
+  const fav=favTeamId();
+  const [luck, arch, pr, sig, pe]=await Promise.all([
+    api(`luck_ledger?select=team_id,wins,losses,luck_wins&season=eq.${SEASON_RESULTS}&order=luck_wins.desc&limit=1`).catch(()=>[]),
+    api(`playoff_forecast_archive?select=team_id,make_cfp&season=eq.${SEASON_SCHED}&order=asof.desc,make_cfp.desc&limit=1`).catch(()=>[]),
+    api(`player_rankings?select=player,team,position,rating&season=eq.${SEASON_SCHED}&position=eq.QB&pos_rank=eq.1&limit=1`).catch(()=>[]),
+    api(`signature_stats?select=team_id&free=eq.true&stat_key=eq.collapse_index&limit=1`).catch(()=>[]),
+    api(`portal_economy?select=team_id,net_value&season=eq.${SEASON_SCHED}&order=net_value.desc&limit=1`).catch(()=>[]) ]);
+  const nm=id=>(teamMeta[id]||{}).school||"?";
+  const top=board2026[0]||{};
+  const favT=fav&&teamMeta[fav]?teamMeta[fav].school:null;
+  const rows=[
+    ["quad","target","Power Quadrant","All 138 teams on one offense-vs-defense map — find the complete teams.",
+      `#1 ${esc((top.teams||{}).school||"?")} · OFF ${f3(Number(top.off||0))} / DEF ${f3(Number(top.def||0))}`, ()=>openQuadrant(), false],
+    ["why","ruler","Why this rating","Any team's rating, factor by factor — the anti-black-box waterfall.",
+      `${esc((top.teams||{}).school||"?")} sums to ${f3(Number(top.overall||0))} — see every piece`, ()=>openWhyRating(), false],
+    ["luck","dice","Luck Ledger","Actual record vs deserved record, every team — who banked wins.",
+      luck[0]?`Luckiest ${SEASON_RESULTS}: ${esc(nm(luck[0].team_id))} ${luck[0].wins}-${luck[0].losses} (+${Number(luck[0].luck_wins).toFixed(1)} banked)`:"", ()=>openLuckLedger(), false],
+    ["gaunt","cal","Schedule Gauntlet","12 cells colored by win odds + the projected-record distribution.",
+      favT?`${esc(favT)}'s ${SEASON_SCHED} path, game by game`:"Any team's path, game by game", ()=>openGauntlet(), false],
+    ["odds","trend","Playoff odds over time","Make-CFP odds at every weekly Monte-Carlo snapshot.",
+      arch[0]?`Current top: ${esc(nm(arch[0].team_id))} makes it ${Math.round(Number(arch[0].make_cfp)*100)} of 100 times`:"", ()=>openOddsTimeline(), false],
+    ["crowd","vs","Crowd vs Model","Where the crowd and the model disagree — trap-game radar in season.",
+      `Preseason mode: model vs the multi-outlet consensus`, ()=>openUpsetRadar(), false],
+    ["sig","flame","Signature Stats","The Collapse Index and friends — named teams, every call logged and scored.",
+      sig[0]?`Current top regression flag: ${esc(nm(sig[0].team_id))}`:"", ()=>openSignature(), true],
+    ["prank","person","Player rankings","Returning players ranked within position by Hashmark grade.",
+      pr[0]?`QB1: ${esc(pr[0].player)} (${esc(pr[0].team)}) — ${Number(pr[0].rating).toFixed(1)}`:"", ()=>openPlayerRankings(), false],
+    ["rost","swap","Roster Economy","Portal production in vs out + talent-vs-performance with the coaching lane.",
+      pe[0]?`Biggest net portal gain: ${esc(nm(pe[0].team_id))} +${Number(pe[0].net_value).toFixed(1)}`:"", ()=>gatedRosterEconomy(), true],
+    ["ww","target","What actually wins games","Five factors: what wins now vs what carries to next season.",
+      `Explosive-play rate wins 62 of 100 games`, ()=>openWhatWins(), false],
+  ];
+  let h=`<div class="cmp">${backHeader("Hashmark Model")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Everything built on the Hashmark model, in one place — each with a live taste. Ratings are ${phaseLabel()}; luck and player data are ${SEASON_RESULTS} season.</div>`;
+  rows.forEach(([key,ic,name,desc,preview,_go,plus])=>{
+    h+=`<div class="hubrow" data-hub="${key}"><svg class="ic" style="color:var(--amber);flex:none"><use href="#i-${ic}"/></svg>
+      <div class="hubmeta"><b>${name}${plus?` <span class="chip-plus" style="display:inline-flex">HASHMARK+</span>`:""}</b>
+      <small>${desc}</small>${preview?`<div class="hubprev">${preview}</div>`:""}</div>
+      <svg class="ic" style="color:var(--text3);flex:none"><use href="#i-chev-r"/></svg></div>`;
+  });
+  h+=`<div class="note"><b>Hashmark Model hub.</b> Every view here derives from the published Hashmark ratings and model probabilities — free to browse except where marked. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=load;
+  const GO=Object.fromEntries(rows.map(r=>[r[0], r[5]]));
+  document.querySelectorAll("[data-hub]").forEach(el=>el.onclick=()=>GO[el.dataset.hub]());
+}
+
 /* ---------------- omnibox ---------------- */
 const OMNI_TOOLS = [
+  ["Hashmark Model (all model views)","target",()=>openModelHub()],
   ["Simulator","target",()=>gatedSimulator()],["Scores & schedule","cal",()=>openScores()],
   ["Standings & SoS","list",()=>openStandings()],["Matchup Lab","vs",()=>openMatchup()],
   ["Leaderboards & stats","chart",()=>openStats()],["Rankings","trophy",()=>openPreseason()],
@@ -5565,23 +5653,14 @@ async function openExplore(){
     <h2 style="margin:4px 0 2px;font-size:20px">Playoff Simulator</h2>
     <p style="margin:0;color:var(--text2);font-size:12px">Pick winners, watch title chances rebuild — 1,000 Monte-Carlo seasons of your bracket.</p></div>
   <div class="xgrid" style="padding:0 2px">
-    <div class="xcard" data-x="quadrant"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--amber)">Power Quadrant</h4><p>All 138 teams on one offense-vs-defense map. Free.</p></div>
-    <div class="xcard" data-x="whyrating"><svg class="ic"><use href="#i-ruler"/></svg><h4 style="color:var(--amber)">Why this rating</h4><p>Any team's rating, factor by factor — the anti-black-box view.</p></div>
-    <div class="xcard" data-x="luck"><svg class="ic"><use href="#i-dice"/></svg><h4>Luck Ledger</h4><p>Actual record vs deserved record, every team. Who banked wins?</p></div>
-    <div class="xcard" data-x="gauntlet"><svg class="ic"><use href="#i-cal"/></svg><h4>Schedule Gauntlet</h4><p>12 game cells colored by win odds + the record distribution.</p></div>
-    <div class="xcard" data-x="oddstime"><svg class="ic"><use href="#i-trend"/></svg><h4>Playoff odds over time</h4><p>Your team's Make-CFP odds, snapshot by snapshot.</p></div>
+    <div class="xcard" data-x="modelhub" style="grid-column:1/-1"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--amber)">Hashmark Model</h4><p>The Power Quadrant, Luck Ledger, Schedule Gauntlet, playoff odds, player rankings and every other model view — one hub, live previews inside.</p></div>
     <div class="xcard" data-x="nil"><svg class="ic"><use href="#i-flame"/></svg><h4 style="color:var(--amber)">NIL Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Estimated spend tiers, attributed — and who beats their tier.</p></div>
-    <div class="xcard" data-x="crowd"><svg class="ic"><use href="#i-vs"/></svg><h4>Crowd vs Model</h4><p>Where the crowd and the model disagree. Free.</p></div>
-    <div class="xcard" data-x="rosterecon"><svg class="ic"><use href="#i-swap"/></svg><h4>Roster Economy <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>Portal production in vs out + talent-vs-performance.</p></div>
-    <div class="xcard" data-x="signature"><svg class="ic"><use href="#i-flame"/></svg><h4>Signature Stats <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>The Collapse Index and more — named teams, tracked calls. One board free.</p></div>
     <div class="xcard" data-x="stats"><svg class="ic"><use href="#i-chart"/></svg><h4>Leaderboards <span class="chip-plus">HASHMARK+</span></h4><p>Team & player stat leaders, every category.</p></div>
-    <div class="xcard" data-x="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head.</p></div>
+    <div class="xcard" data-x="matchup"><svg class="ic"><use href="#i-vs"/></svg><h4>Matchup Lab</h4><p>Any two teams, head to head — official stats.</p></div>
     <div class="xcard" data-x="standings"><svg class="ic"><use href="#i-list"/></svg><h4>Standings + SoS</h4><p>Every conference, schedule strength.</p></div>
     <div class="xcard" data-x="movers"><svg class="ic"><use href="#i-trend"/></svg><h4>Weekly Movers</h4><p>Who rose, who fell — updated Sundays.</p></div>
     <div class="xcard" data-x="rankings"><svg class="ic"><use href="#i-trophy"/></svg><h4>Rankings</h4><p>AP Top 25 and season boards.</p></div>
     <div class="xcard" data-x="accuracy"><svg class="ic"><use href="#i-check"/></svg><h4 style="color:var(--amber)">Checking Our Work</h4><p>Every call logged before kickoff. Misses stay up.</p></div>
-    <div class="xcard" data-x="playerrank"><svg class="ic"><use href="#i-person"/></svg><h4 style="color:var(--amber)">Player rankings</h4><p>Returning players ranked within every position by Hashmark grade.</p></div>
-    <div class="xcard" data-x="whatwins"><svg class="ic"><use href="#i-target"/></svg><h4 style="color:var(--teal)">What actually wins games</h4><p>Five factors: what wins now vs what repeats next year.</p></div>
     <div class="xcard" data-x="method"><svg class="ic"><use href="#i-info"/></svg><h4>Methodology</h4><p>How the numbers get made.</p></div>
     <div class="xcard dashed" id="xask"><svg class="ic" style="color:var(--text3)"><use href="#i-chat"/></svg><h4>AI Analyst Chat</h4><p>Coming to this search box. Ask anything, get sourced answers.</p></div>
     <div class="xcard" data-x="notify"><svg class="ic"><use href="#i-bell"/></svg><h4>Notifications</h4><p>Picks reminders and results.</p></div>
@@ -5600,9 +5679,8 @@ async function openExplore(){
     movers:()=>openMovers(),rankings:()=>openPreseason(),method:()=>openMethodology(),
     notify:()=>openNotifyPrefs(),accuracy:()=>openCheckingWork(),signature:()=>openSignature(),
     whatwins:()=>openWhatWins(), playerrank:()=>openPlayerRankings(),
-    quadrant:()=>openQuadrant(), whyrating:()=>openWhyRating(), luck:()=>openLuckLedger(),
-    gauntlet:()=>openGauntlet(), oddstime:()=>openOddsTimeline(),
-    nil:()=>openNILEconomy(), crowd:()=>openUpsetRadar(), rosterecon:()=>gatedRosterEconomy()};
+    modelhub:()=>openModelHub(),
+    nil:()=>openNILEconomy()};
   document.querySelectorAll("[data-x]").forEach(el=>el.onclick=()=>GO[el.dataset.x]());
   document.getElementById("xask").onclick=openOmni;
   document.getElementById("foundgo").onclick=async()=>{
