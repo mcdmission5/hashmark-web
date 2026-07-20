@@ -3784,6 +3784,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
       if(sec) sec.scrollIntoView({behavior:"smooth", block:"start"}); }
   }catch(_e){} }, 0);
   setTimeout(()=>{ try{ injectTeamViz(teamId); }catch(_e){} }, 0);   // V4/V5 team-page embeds
+  setTimeout(()=>{ try{ injectTeamIntel(teamId); }catch(_e){} }, 0);   // batch 11 Part C
   // Ask Hashmark entry (P2-E5, now LIVE): injected only when the edge function answers
   // the probe — the section simply never appears while the feature is dark.
   setTimeout(async()=>{ try{
@@ -3854,6 +3855,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     ${acc("honors", "Preseason honors", "third-party, attributed", honors)}
     </div>
     ${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)}
+    <div id="tp-intel"></div>
     ${hmSection(e.hm, t)}
     ${swap26?`<div class="sectitle" style="padding:10px 2px 4px">${STAT_SEASON===SEASON_SCHED?SEASON_SCHED-1:STAT_SEASON} — final season</div>
     <div>
@@ -5286,6 +5288,7 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   matchup_grid:true,           // P1: dial + top-line free; the unit heat grid gated
   player_compare:true,         // P3: cards free; compare-two gated
   roster_economy:true,
+  injury_detail:true,         // batch 11 C2: counts free, player rows + sources gated
   matchup_full:true,          // batch 7 #4: first 2 matchup stats free, rest gated
   whatwins_full:true };       // batch 7 #5 owner pivot: headline free, full board gated       // P5: gated with the NIL lane (conference teaser free)
 const SIM_RUNS_KEY = "hm_sim_runs";   // legacy counter (batch 5 removed the 1-free-run)
@@ -5596,6 +5599,100 @@ function gauntletHTML(teamId, games, wpm, compact){
   return `<div class="gauntlet">${cells}</div>
     <div class="rdist"><div class="rdbars">${bars}</div>
     <div class="secsub" style="padding:2px 2px 0">Projected: <b>${probs.reduce((a,b)=>a+b,0).toFixed(1)} wins</b> (${SEASON_SCHED}, model win probabilities). The single most common record, ${dist.indexOf(dmax)}-${games.length-dist.indexOf(dmax)}, lands in ${Math.round(dmax*100)} of 100 seasons — every other total splits the rest.</div></div>`;
+}
+
+// ================= Batch 11 PART C: team-page intelligence sections =================
+// Four collapsible sections (recruiting / availability / portal / coaching), injected
+// async so a missing pipeline degrades to an honest empty state. Placement: after the
+// schedule, before the ratings section (hero > news > accordions > schedule > THESE > ratings).
+const _accIntel=(id,title,sub,inner)=> inner?`<div class="acc">
+  <button class="acchdr" aria-expanded="false" aria-controls="accb-${id}" data-acc="${id}">
+    <span>${title}</span><small>${sub||""}</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+  <div class="accbody" id="accb-${id}" hidden>${inner}</div></div>`:"";
+async function injectTeamIntel(teamId){
+  const host=document.getElementById("tp-intel");
+  if(!host) return;
+  const t=teamMeta[teamId]||{school:"?"};
+  const J=(q)=>api(q).catch(()=>[]);
+  const [cls, commits, portal, pe, staff, avail, news]=await Promise.all([
+    J(`recruiting_class?select=*&team_id=eq.${teamId}&order=class_year.asc`),
+    J(`recruiting_commits?select=*&team_id=eq.${teamId}&order=class_year.asc,rating.desc.nullslast`),
+    J(`portal_moves?select=*&cycle_year=eq.${SEASON_SCHED}&or=(origin_id.eq.${teamId},dest_id.eq.${teamId})&order=transfer_date.desc.nullslast`),
+    J(`portal_economy?select=top_in,top_out&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`),
+    J(`coaching_staff?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}&order=role.asc`),
+    J(`availability_report?select=fetch_ts,source,player,position,status&team_id=eq.${teamId}&order=fetch_ts.desc&limit=40`),
+    J(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=40`)]);
+  // ---- C1 recruiting (FREE) ----
+  let rec="";
+  [SEASON_SCHED, SEASON_SCHED+1].forEach(yr=>{
+    const c=cls.find(x=>Number(x.class_year)===yr);
+    const list=commits.filter(x=>Number(x.class_year)===yr);
+    if(!c && !list.length) return;
+    rec+=`<div class="glseason">Class of ${yr}${c?` — ${c.n_commits||list.length} commits · avg ${Number(c.avg_stars||0).toFixed(1)} stars${c.rank?` · class #${c.rank}`:""}`:""}</div>`;
+    list.slice(0,25).forEach(p=>{ rec+=`<div class="stgame"><div class="stopp"><div>
+      <div class="on">${esc(p.player)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}</small></div>
+      <div class="ha">${p.rating?`rating ${Number(p.rating).toFixed(4)}`:""}${p.national_rank?` · natl #${p.national_rank}`:""}${p.commit_date?` · ${new Date(p.commit_date).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`:""}</div></div></div></div>`; });
+  });
+  const intelRx=/visit|official visit|decommit|target|finalist|top schools|crystal ball|commit/i;
+  const recNews=news.filter(n=>intelRx.test(n.headline)).slice(0,4);
+  if(recNews.length) rec+=`<div class="ha" style="padding:8px 2px 2px"><b>Recruiting intel — from cited sources.</b> Headlines link out; we report cited facts, never predictions of our own.</div>`+recNews.map(newsRow).join("");
+  if(!rec) rec=`<div class="secsub" style="padding:6px 2px">No ${SEASON_SCHED}/${SEASON_SCHED+1} commits on file yet — the class builds through the year.</div>`;
+  // ---- C2 injuries / availability (counts free, detail Hashmark+) ----
+  const BUCKET=st=>{ st=(st||"").toLowerCase();
+    if(/out|season/.test(st)) return "out"; if(/doubt/.test(st)) return "doubtful";
+    if(/quest|game.?time/.test(st)) return "questionable"; return "probable"; };
+  let inj="";
+  const nextG=(window._tpNextGame&&window._tpNextGame[teamId])||null;
+  if(avail.length){
+    const counts={out:0,doubtful:0,questionable:0,probable:0};
+    avail.forEach(r=>counts[BUCKET(r.status)]++);
+    inj+=`<div class="secsub" style="padding:4px 2px">${nextG?`For ${nextG}: `:""}<b>${counts.out} out · ${counts.doubtful} doubtful · ${counts.questionable} questionable</b> — full report + per-player sources: HASHMARK+</div>
+      <div class="navrow"><button class="navbtn primary" id="injdetail">Full availability report <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
+      <div id="injrows"></div>`;
+  } else {
+    inj+=`<div class="secsub" style="padding:6px 2px">Availability reports populate in-season (sources publish beginning Week 0-1).</div>`;
+  }
+  const injNews=news.filter(n=>/injur|surgery|out for|questionable|doubtful|hamstring|ACL|concussion|sidelined/i.test(n.headline)).slice(0,3);
+  if(injNews.length) inj+=`<div class="ha" style="padding:8px 2px 2px">Injury-tagged headlines — cited sources, not Hashmark medical information.</div>`+injNews.map(newsRow).join("");
+  // ---- C3 portal (FREE) ----
+  let por="";
+  if(portal.length){
+    const val=new Set([...(((pe[0]||{}).top_in)||[]),...(((pe[0]||{}).top_out)||[])].map(x=>String(x.player||"").toLowerCase().replace(/[^a-z]/g,"")));
+    const row=p=>{ const inc=String(p.dest_id)===String(teamId);
+      const chip=val.has(String(p.player||"").toLowerCase().replace(/[^a-z]/g,""))?` <span class="chip-plus" style="display:inline-flex" data-tip="carries measurable prior-season production value (value in role, not stars)">valued mover</span>`:"";
+      return `<div class="stgame"><div class="stopp"><div>
+        <div class="on">${esc(p.player)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}</small>${chip}</div>
+        <div class="ha">${inc?`from ${esc(p.origin_school||"?")}`:`to ${esc(p.dest_school||"uncommitted")}`}${p.transfer_date?` · ${new Date(p.transfer_date).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`:""}</div></div></div>
+        <div class="glres ${inc?"w":"l"}">${inc?"IN":"OUT"}</div></div>`; };
+    const inc=portal.filter(p=>String(p.dest_id)===String(teamId));
+    const out=portal.filter(p=>String(p.origin_id)===String(teamId)&&String(p.dest_id)!==String(teamId));
+    por+=`<div class="secsub" style="padding:2px 2px 6px">Net: <b>+${inc.length} in / -${out.length} out</b> (${SEASON_SCHED} cycle · production values in Roster Economy)</div>`;
+    if(inc.length) por+=`<div class="glseason">Incoming</div>`+inc.slice(0,15).map(row).join("");
+    if(out.length) por+=`<div class="glseason">Outgoing</div>`+out.slice(0,15).map(row).join("");
+  } else por=`<div class="secsub" style="padding:6px 2px">No ${SEASON_SCHED}-cycle portal moves on file for ${esc(t.school)}.</div>`;
+  // ---- C4 coaching (FREE) ----
+  let coa="";
+  if(staff.length){
+    staff.forEach(r=>{ coa+=`<div class="stgame"><div class="stopp"><div>
+      <div class="on">${esc(r.name)} <small>${esc(r.role)}</small>${r.new_for_season?` <span class="chip-new">New ${r.role==="HC"?"HC":r.role} for ${SEASON_SCHED}</span>`:""}</div>
+      <div class="ha">${r.first_season_at_school?`at ${esc(t.school)} since ${r.first_season_at_school}`:""}${r.career_w!=null?` · career ${r.career_w}-${r.career_l}`:""}</div></div></div></div>`; });
+  } else coa=`<div class="secsub" style="padding:6px 2px">Staff data publishes with the ${SEASON_SCHED} coaching pull.</div>`;
+  const coaNews=news.filter(n=>/coach|coordinator|staff|hire|fired/i.test(n.headline)).slice(0,3);
+  if(coaNews.length) coa+=`<div class="ha" style="padding:8px 2px 2px">Coaching headlines — cited sources.</div>`+coaNews.map(newsRow).join("");
+  host.innerHTML=
+    _accIntel("recruit", `Recruiting — classes of ${SEASON_SCHED} + ${SEASON_SCHED+1}`, "commits + cited intel", rec)
+    +_accIntel("avail", "Injuries and availability", avail.length?"counts free · detail Hashmark+":"in-season", inj)
+    +_accIntel("portal", `Transfer portal — ${SEASON_SCHED} cycle`, "incoming and outgoing", por)
+    +_accIntel("staff", `Coaching staff — ${SEASON_SCHED}`, "who runs the show", coa);
+  const idb=document.getElementById("injdetail");
+  if(idb) idb.onclick=async()=>{
+    if(PLUS_GATED.injury_detail && !(await plusUpsell("The full availability report",
+      "Player-by-player status with the SOURCE behind every line — a Hashmark+ view; free while we're in preview."))) return;
+    document.getElementById("injrows").innerHTML=avail.map(r=>`<div class="stgame"><div class="stopp"><div>
+      <div class="on">${esc(r.player||"?")} <small>${esc(r.position||"")}</small></div>
+      <div class="ha">${esc(BUCKET(r.status))} · source: ${esc(r.source||"report")} · ${new Date(r.fetch_ts).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div></div></div></div>`).join("");
+    idb.remove();
+  };
 }
 async function injectTeamViz(teamId){
   const host=app.querySelector(".detail .note");   // batch 7 #2: gauntlet embed sits below the rating hero
