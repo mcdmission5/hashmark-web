@@ -5677,7 +5677,24 @@ async function openNILEconomy(){
         <div class="lknm">${esc(t.school)}<small>${srcs.length} figure${srcs.length!==1?"s":""} on file${r.limited_disclosure?" · limited disclosure":""}</small></div>
         ${confBadge(r.confidence)}${disputed?`<span class="nilconf disputed">disputed</span>`:""}</div>`; });
     h+=`</div>`; });
-  h+=`<div class="note"><b>NIL Economy — ${SEASON_SCHED}.</b> ${NIL_DISCLAIMER} Named sources include The NIL Standard, On3/Pete Nakos, CBS Sports, 247Sports and on-record school statements — see Methodology for every source and why they disagree. ${BRAND_LINE}</div></div></div>`;
+  // Batch 10 #4 (the owner's complaint): ALL 136 FBS teams render. Teams without
+  // attributable data get an honest "limited public disclosure" row with league context.
+  try{
+    const ds=await api(`nil_disclosure_status?select=team_id,school,status,note&season=eq.${SEASON_SCHED-1}`).catch(()=>api(`nil_disclosure_status?select=team_id,school,status,note&season=eq.2025`));
+    const tiered=new Set(tiers.map(r=>String(r.team_id)));
+    const rest=(ds||[]).filter(r=>!tiered.has(String(r.team_id)))
+      .sort((a,b)=>(a.school||"").localeCompare(b.school||""));
+    if(rest.length){
+      h+=`<div class="sec"><div class="sectitle">Everyone else — limited public disclosure <small>${rest.length} teams</small></div>
+        <div class="secsub">Searched — nothing attributable to a credible source. League context where it exists: P4 programs typically est. $13-15M; most G5 rosters under est. $5M; AAC members pledged a $10M+ cumulative program.</div>`;
+      rest.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
+        h+=`<div class="nilrow" data-team="${r.team_id}" style="opacity:.75">${crestEl("glcr",t.school,hx(t.color))}
+          <div class="lknm">${esc(t.school)}<small>${esc(r.note||(r.status==="searched_empty"?"searched — nothing attributable":"no credible public figure"))}</small></div>
+          <span class="nilconf low">limited disclosure</span></div>`; });
+      h+=`</div>`;
+    }
+  }catch(e){}
+  h+=`<div class="note"><b>NIL Economy — ${SEASON_SCHED}.</b> ${NIL_DISCLAIMER} Named sources include The NIL Standard, On3/Pete Nakos, CBS Sports, 247Sports and on-record school statements — see Methodology for every source and why they disagree. Rev-share allocations are the strongest public data class; third-party NIL on top is where reporting goes dark. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   document.getElementById("nileff").onclick=()=>gatedNILEfficiency();
