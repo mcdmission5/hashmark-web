@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v37";   // v37: batch 10 - expected-wins records, pick-any-game browser, 136-team NIL board, signature board pages, What-Wins leaderboards, helmets icon, Aug 22 pickem
+const VERSION = "hashmark-v38";   // v38: batch 11 - grep-proofed A-items (subtitle/helmets/AP chip), Stats tab + FAB, team intelligence sections (recruiting/availability/portal/coaching)
 const SHELL = [
   "./",
   "./index.html",
