@@ -1012,7 +1012,7 @@
 <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v6h14v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
 <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 8h13m0 0-4-4m4 4-4 4M17 16H4m0 0 4 4m-4-4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-vs" viewBox="0 0 24 24"><path d="M5.5 18.5 17 7m0 0v3.4M17 7h-3.4M18.5 18.5 7 7m0 0v3.4M7 7h3.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-vs" viewBox="0 0 24 24"><path d="M10.2 8.2a4 4 0 0 0-6.4 3.1c0 1.2.4 2 .9 2.6l-.5 1.9 2.2-.4c.5.2 1.2.4 1.9.4M10 12.6h-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.8 8.2a4 4 0 0 1 6.4 3.1c0 1.2-.4 2-.9 2.6l.5 1.9-2.2-.4c-.5.2-1.2.4-1.9.4M14 12.6h2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1" fill="currentColor"/></symbol>
 <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6m0 0-5 5m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -1487,7 +1487,7 @@ function header(){
           ? "Best <b>defenses</b> — opponent-adjusted defensive unit quality (what each unit suppresses)."
           : SEASON_PHASE.started
             ? `Our power rating <b>through Week ${SEASON_PHASE.week}</b> — opponent-adjusted results, roster talent, and coaching, updated weekly.`
-            : "Our <b>way-too-early</b> projection — last season's opponent-adjusted rating, recruited talent, and proven coaching.";
+            : "";   // batch 10 #1: the way-too-early line is gone (header + methodology carry it)
   const v26small = SHOW_HASHMARK_RATINGS
     ? (SEASON_PHASE.started ? `Wk ${SEASON_PHASE.week} · Hashmark` : "Preseason · Hashmark")
     : "In preview";
@@ -1548,7 +1548,7 @@ async function render2026Home(){
     <div class="xgrid" style="padding:0 2px">
       <div class="xcard" data-cs="scores"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg><h4>${SEASON_SCHED} schedule</h4><p>Every game — dates, kickoff times &amp; TV as they're announced.</p></div>
       <div class="xcard" data-cs="sos"><svg class="ic" aria-hidden="true"><use href="#i-ruler"/></svg><h4>Toughest schedules</h4><p>The ${SEASON_SCHED} preseason strength-of-schedule board.</p></div>
-      <div class="xcard" data-cs="pickem"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><h4>Pick'em</h4><p>Groups are open — first slate lands with Week 1.</p></div>
+      <div class="xcard" data-cs="pickem"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><h4>Pick'em</h4><p>Groups are open — first slate: Aug 22.</p></div>
       <div class="xcard" data-cs="signature"><svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg><h4>Signature stats</h4><p>The Collapse Index and the preseason watch-list.</p></div>
     </div>
     <div id="cs-teasers"></div>
@@ -2618,7 +2618,7 @@ async function openPickem(){
 function renderPickemEmpty(){
   app.innerHTML = backHeader("Pick'em")+`<div class="list" style="padding-top:6px">
     <div class="sec"><div class="sectitle">Hashmark Pick'em</div><div class="secsub">
-    The first weekly slate publishes Sunday, Aug 30 — 10 marquee games, pick winners,
+    The first slate publishes Saturday, Aug 22 — 3 opening-week games, then 10 weekly. Pick winners,
     rank your confidence 1–10, and try to beat the Hashmark Model. Private groups with
     friends, season standings with your two worst weeks dropped. Free forever, no prizes,
     for entertainment only.</div></div>
@@ -3213,6 +3213,7 @@ function renderSim(){
   let h=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px">Pick ${SEASON_SCHED} winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> see the standings, conference champions and the <b>12-team Playoff (2026 CFP format)</b>. ${nLocked?`<b>${nLocked}</b> completed game${nLocked>1?"s are":" is"} locked to the real result. `:""}${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; the odds come from the Monte-Carlo run.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Records count all 12 games — FCS opponents resolve at the historical FBS win rate. Hypothetical — no ratings or betting lines.</div>
     <div class="navrow"><button class="navbtn primary" id="simpick"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg> Pick a team's games</button>
+      <button class="navbtn" id="simbrowse"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg> Pick any game</button>
       <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button>
       ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Simulate ${SIM_MC_N.toLocaleString()}×</button>`:""}</div>
     <div id="simteamchips" class="simchips" style="padding:2px 2px 4px"></div>
@@ -3285,6 +3286,7 @@ function renderSim(){
       simTeamSheet(el.dataset.teamchip); });
     const at=document.getElementById("addteam"); if(at) at.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
   }
+  const gb=document.getElementById("simbrowse"); if(gb) gb.onclick=()=>simGameBrowser();
   const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={}; renderSim(); if(SHOW_PREDICTIONS) simAutoOdds(); };
   const run=document.getElementById("simrun"); if(run) run.onclick=async()=>{ if(await simRunGate()) simRunOdds(); };
   document.querySelectorAll("[data-ccg]").forEach(el=>el.onclick=()=>ccgSheet(el.dataset.ccg));
@@ -3305,7 +3307,8 @@ async function ccgSheet(conf){
     <div style="font-weight:800;font-size:15px;flex:1">${esc(conf)} — title race</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="picklist" id="ccgsheet"></div></div>`;
   document.body.appendChild(ov);
-  const cgames=sim.games.filter(g=>sim.conf[String(g.home_team_id)]===conf&&sim.conf[String(g.away_team_id)]===conf)
+  // batch 10 #5: EVERY conference game in the race is flippable (flex/dual games excluded)
+  const cgames=sim.games.filter(g=>g.conference_game!==false&&sim.conf[String(g.home_team_id)]===conf&&sim.conf[String(g.away_team_id)]===conf)
     .sort((a,b)=>a.week-b.week);
   const draw=()=>{
     const eff=simEffective(), c=simCompute(eff);
@@ -3379,6 +3382,54 @@ async function ccgSheet(conf){
   const close=()=>{ ov.remove(); renderSim(); };
   ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
 }
+
+// Batch 10 #5: pick ANY game — week-by-week browser over every FBS game (CCGs included
+// once qualified). Picking is free; the recomputed bracket reveal stays behind the seam.
+function simGameBrowser(){
+  const ov=document.createElement("div"); ov.className="pickov";
+  ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+    <div style="font-weight:800;font-size:15px;flex:1">Pick any game</div>
+    <button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="picklist" id="gbsheet"></div></div>`;
+  document.body.appendChild(ov);
+  const weeks=[...new Set(sim.games.map(g=>g.week))].sort((a,b)=>a-b);
+  let wk=weeks[0];
+  const nm=id=>(teamMeta[id]||{}).school||"?";
+  const draw=()=>{ const eff=simEffective(), c=simCompute(eff);
+    let html=`<div class="confbar" style="padding:0 0 8px">${weeks.map(w=>`<button class="confpill ${wk===w?"on":""}" data-gbwk="${w}">W${w}</button>`).join("")}<button class="confpill ${wk==="ccg"?"on":""}" data-gbwk="ccg">CCGs</button></div>`;
+    if(wk==="ccg"){
+      Object.entries(c.ccg||{}).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cf,x])=>{
+        html+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(shortConf(cf))} title game</div>
+          <div class="ha">${esc(nm(x.pair[0]))} vs ${esc(nm(x.pair[1]))}${sim.userPicks["ccg|"+cf]?" · your pick":""}</div></div></div>
+          <div class="stbtns"><button class="stb ${x.winner===x.pair[0]?"w":""}" data-gbccg="${esc(cf)}" data-gbpick="${x.pair[0]}">${esc(monogram(nm(x.pair[0])))}</button>
+          <button class="stb ${x.winner===x.pair[1]?"w":""}" data-gbccg="${esc(cf)}" data-gbpick="${x.pair[1]}">${esc(monogram(nm(x.pair[1])))}</button></div></div>`; });
+    } else {
+      sim.games.filter(g=>g.week===wk).forEach(g=>{
+        const h=String(g.home_team_id), a=String(g.away_team_id), w=String(eff[g.id]);
+        if(sim.locked[g.id]){
+          html+=`<div class="stgame stfinal"><div class="stopp"><div><div class="on">${esc(nm(a))} @ ${esc(nm(h))}</div>
+            <div class="ha">Final — ${esc(nm(String(sim.locked[g.id])))} won</div></div></div>
+            <div class="stlock"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg></div></div>`;
+          return; }
+        html+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(nm(a))} @ ${esc(nm(h))}</div>
+          <div class="ha">${sim.userPicks[g.id]!=null?"your pick":"model favorite"}</div></div></div>
+          <div class="stbtns"><button class="stb ${w===a?"w":""}" data-gbg="${g.id}" data-gbpick="${a}">${esc(monogram(nm(a)))}</button>
+          <button class="stb ${w===h?"w":""}" data-gbg="${g.id}" data-gbpick="${h}">${esc(monogram(nm(h)))}</button></div></div>`; });
+    }
+    document.getElementById("gbsheet").innerHTML=html;
+    document.querySelectorAll("[data-gbwk]").forEach(b=>b.onclick=()=>{ wk=b.dataset.gbwk==="ccg"?"ccg":+b.dataset.gbwk; draw(); });
+    document.querySelectorAll("[data-gbg]").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gbg]=b.dataset.gbpick; draw(); });
+    document.querySelectorAll("[data-gbccg]").forEach(b=>b.onclick=async()=>{
+      if(!(await simResultsGate())) return;
+      sim.userPicks["ccg|"+b.dataset.gbccg]=b.dataset.gbpick; draw(); });
+  };
+  draw();
+  const openSig=simPicksSig();
+  const close=async()=>{ ov.remove();
+    if(simPicksSig()!==openSig && !(await simResultsGate())) return;
+    renderSim(); };
+  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+}
 function simTeamSheet(teamId){
   teamId=String(teamId);
   const tgames=sim.games.filter(g=>String(g.home_team_id)===teamId||String(g.away_team_id)===teamId)
@@ -3402,9 +3453,12 @@ function simTeamSheet(teamId){
       const stale=run.sig!==simPicksSig();
       const ty=run.tally[teamId]||{po:0,ct:0,wo:0,seeds:{},wins:{}};
       const N=run.N;
-      let modeW=null,best=0; Object.entries(ty.wins).forEach(([w,n])=>{ if(n>best){ best=n; modeW=+w; } });
+            let modeW=null,best=0,totN=0,sumW=0;
+      Object.entries(ty.wins).forEach(([w,n])=>{ totN+=n; sumW+=(+w)*n; if(n>best){best=n; modeW=+w;} });
+      const expW=totN?(sumW/totN):null;
       const nAll = tgames.length + ((sim.fcsBy&&sim.fcsBy[teamId])||[]).length;
-      const rec = modeW==null? "—" : `${modeW}–${Math.max(nAll-modeW,0)}`;
+      const modePct=totN?Math.round(100*best/totN):0;
+      const rec = expW==null? "—" : expW.toFixed(1);
       // P4: full seed-distribution histogram + first-round matchup probabilities
       const smax=Math.max(1,...Object.values(ty.seeds));
       const hist=Array.from({length:12},(_,i)=>{ const n=ty.seeds[i+1]||0;
@@ -3416,7 +3470,8 @@ function simTeamSheet(teamId){
           <div><b>${Math.round(100*ty.po/N)}%</b><small>Make CFP</small></div>
           <div><b>${Math.round(100*ty.ct/N)}%</b><small>Conf title</small></div>
           <div><b>${Math.round(100*ty.wo/N)}%</b><small>Win out</small></div>
-          <div><b>${rec}</b><small>Most common record (sims)</small></div></div>
+          <div><b>${rec}</b><small>Projected wins</small></div></div>
+        ${modeW!=null?`<div class="ha" style="padding:1px 0 4px">${modeW}-${Math.max(nAll-modeW,0)} is the single most common record — it happens in ${modePct} of 100 seasons.</div>`:""}
         ${ty.po?(()=>{ let best=0,bs=null; Object.entries(ty.seeds).forEach(([sd,n2])=>{ if(n2>best){best=n2;bs=sd;} });
           return `<div class="ha" style="padding:4px 0 1px"><b>If they make the Playoff, which seed?</b></div>
           <div class="ha" style="padding:0 0 3px">Across ${N.toLocaleString()} simulated seasons where they make the field, how often each seed lands${bs?` — most often: <b>#${bs}</b>`:""}. Seeds 1-4 carry a first-round bye.</div>
@@ -5068,6 +5123,7 @@ const NAV_ROUTES={
   injuries:()=>openInjuries(),
   landing:()=>openLanding(),
   nilperf:()=>openNILPerformance(),
+  sigboard:p=>openSignatureBoard(p&&p.k),
 };
 function navPush(v,p){
   if(_navRestoring) return;
@@ -5108,7 +5164,7 @@ setTimeout(()=>{
  ["openBox","box",(id,team)=>({id,team})],["openPickemBoard","pickemboard"],
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
- ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],
+ ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -5484,7 +5540,7 @@ function gauntletHTML(teamId, games, wpm, compact){
     <i style="height:${Math.max(2,d/dmax*34)}px"></i><small>${w}</small></div>`).join("");
   return `<div class="gauntlet">${cells}</div>
     <div class="rdist"><div class="rdbars">${bars}</div>
-    <div class="secsub" style="padding:2px 2px 0">Projected-record distribution — how often each win total lands (${SEASON_SCHED}, model win probabilities). Most likely: <b>${dist.indexOf(dmax)}–${games.length-dist.indexOf(dmax)}</b>.</div></div>`;
+    <div class="secsub" style="padding:2px 2px 0">Projected: <b>${probs.reduce((a,b)=>a+b,0).toFixed(1)} wins</b> (${SEASON_SCHED}, model win probabilities). The single most common record, ${dist.indexOf(dmax)}-${games.length-dist.indexOf(dmax)}, lands in ${Math.round(dmax*100)} of 100 seasons — every other total splits the rest.</div></div>`;
 }
 async function injectTeamViz(teamId){
   const host=app.querySelector(".detail .note");   // batch 7 #2: gauntlet embed sits below the rating hero
@@ -6284,7 +6340,34 @@ async function openWhatWins(){
       <div class="wwk">${m[0]}<small>${m[1]}</small></div>
       <div class="wwv">${win}</div>
       <div class="wwv ${stabCls(st)}">${stabLbl(st)}<small>${st!=null?("r = "+st.toFixed(2)):""}</small></div></div>`; });
-  h+=`</div>
+  h+=`</div>`;
+  // Batch 10 #7: in-season per-factor TEAM leaderboards (state-driven). Preseason shows
+  // a labeled placeholder; in season, top 3 free per factor, full boards Hashmark+.
+  const FACTOR_STATS=[["efficiency","off_success_rate","Efficiency (success rate)"],
+    ["explosiveness","off_explosiveness","Explosiveness"],["finishing","off_points_per_opp","Finishing drives"],
+    ["field_pos","off_field_position","Field position"],["turnovers","turnover_margin","Turnover margin"]];
+  if(!SEASON_PHASE.started){
+    h+=`<div class="sec"><div class="sectitle">Who wins each factor <small>${SEASON_SCHED}</small></div>
+      <div class="secsub">Per-factor team leaderboards populate when ${SEASON_SCHED} games begin.</div></div>`;
+  } else {
+    try{
+      const lrows=await api(`team_stat_season?select=team_id,stat_key,value,rank&season=eq.${SEASON_SCHED}&stat_key=in.(${FACTOR_STATS.map(f=>f[1]).join(",")})&order=rank.asc`);
+      if(lrows.length){
+        await ensureTeamMeta();
+        h+=`<div class="sec"><div class="sectitle">Who wins each factor <small>${SEASON_SCHED} · through Week ${SEASON_PHASE.week}</small></div>`;
+        FACTOR_STATS.forEach(([fk,sk,label])=>{
+          const top=lrows.filter(r=>r.stat_key===sk).slice(0,3);
+          if(!top.length) return;
+          h+=`<div class="glseason">${label}</div>`;
+          top.forEach(r=>{ const t=teamMeta[r.team_id]||{school:"?"};
+            h+=`<div class="nilrow" data-team="${r.team_id}" style="padding:6px 10px">${crestEl("glcr",t.school,hx(t.color))}
+              <div class="lknm">#${r.rank} ${esc(t.school)}</div><div class="lkv">${Number(r.value).toFixed(sk==="turnover_margin"?0:3)}</div></div>`; });
+        });
+        h+=`<div class="teaserow" data-wwlb="1">Full leaderboards, all 136 teams per factor <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div></div>`;
+      }
+    }catch(e){}
+  }
+  h+=`
     <div class="sec"><div class="sectitle">The point</div><div class="secsub">
       Explosiveness and turnovers win the day they show up — then largely reset. Efficiency is the thing that
       carries. That's exactly how the Hashmark Model is built: it <b>weights the repeatable factors</b> (success
@@ -6300,6 +6383,10 @@ async function openWhatWins(){
       expected-points data (it rewards desperation deep balls), so we measure the share of explosive plays instead —
       a cleaner battle that still shows the same story: helps today, barely repeats. Season-labeled, gambling-free. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
+  const wl=document.querySelector("[data-wwlb]");
+  if(wl) wl.onclick=async()=>{ if(PLUS_GATED.whatwins_full && !(await plusUpsell("Full factor leaderboards",
+    "Every team ranked on every factor, updated weekly through the season. A Hashmark+ view; free while we're in preview."))) return;
+    openStats("leaders"); };
   const wu=document.querySelector("[data-wwup]");
   if(wu) wu.onclick=async()=>{ if(PLUS_GATED.whatwins_full && !(await plusUpsell("The full What-Wins board",
     "All six factors on both axes — what wins the day vs what carries to next season. A Hashmark+ view; free while we're in preview."))) return;
@@ -6607,6 +6694,35 @@ drawScores=async function(){
 
 
 /* ---------------- §4 Signature Stats (free teaser + locked shells) ---------------- */
+
+// Batch 10 #6: every signature card opens its own board page (gate seam at board level).
+const SIG_META={
+  luck_audit:["Luck Audit","Teams whose records ran ahead of their play — flagged to step back.","flagged team's win rate drops the following season"],
+  hidden_riser:["Hidden Riser","The breakout the underlying numbers already see.","flagged team's win rate rises the following season"],
+  talent_bomb:["Talent Bomb","Elite rosters that underperformed their talent.","flagged team's win rate rises the following season"],
+  model_vs_poll:["Model vs Poll","Where we rank furthest from the voters.","final poll closer to the model than the poll's preseason rank"],
+  gauntlet:["The Gauntlet","The toughest three-game stretch in football.","descriptive — no hit rate"],
+  collapse_index:["The Collapse Index","The preseason top-10 regression watch-list.","flagged team finishes outside the final AP Top 25"]};
+async function openSignatureBoard(key){
+  window.scrollTo(0,0); app.innerHTML=skelView(6);
+  await ensureTeamMeta();
+  const meta=SIG_META[key]||[key,"",""];
+  if(PLUS_GATED.signature_full && key!=="collapse_index" &&
+     !(await plusUpsell(meta[0], meta[1]+" The full board is a Hashmark+ view; free while we're in preview."))){ openSignature(); return; }
+  const rows=await api(`signature_stats?select=*&stat_key=eq.${key}&order=rank.asc`).catch(()=>[]);
+  let h=`<div class="cmp">${backHeader(meta[0])}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">${esc(meta[1])} Every call is logged and scored — misses stay up.${rows[0]?` ${rows[0].season} season.`:""}</div>`;
+  if(!rows.length) h+=`<div class="sec"><div class="secsub">This board publishes with the preseason build.</div></div>`;
+  rows.forEach(r=>{ const t=teamMeta[r.team_id]||{school:"?"};
+    const d=r.drivers||{}; const drv=(d.top_drivers||d.drivers||[]).slice(0,2);
+    h+=`<div class="nilrow" data-team="${r.team_id}">${crestEl("glcr",t.school,hx(t.color))}
+      <div class="lknm">#${r.rank} ${esc(t.school)}<small>${drv.map(x=>esc(String(x)).slice(0,60)).join(" · ")||esc(String(d.basis||d.season_label||""))}</small></div>
+      <div class="lkv">${r.value!=null?(key==="collapse_index"?Math.round(Number(r.value)*100)+" of 100":Number(r.value).toFixed(2)):""}</div></div>`; });
+  const tr=(rows[0]||{}).track||{};
+  h+=`<div class="note"><b>${esc(meta[0])}.</b> Scored definition: ${esc(meta[2])}.${tr.n?` Record since ${tr.since||2014}: ${tr.hits} of ${tr.n}.`:""} ${esc(String((rows[0]&&rows[0].drivers&&rows[0].drivers.disclaimer)||"No proven edge claimed; every call is logged and scored."))} ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=()=>openSignature();
+}
 async function openSignature(){
   window.scrollTo(0,0);
   app.innerHTML=`<div class="loading">Loading signature stats…</div>`;
@@ -6652,13 +6768,13 @@ async function openSignature(){
   }
   // Batch 8 #8: every card leads with its one-line claim (boards themselves stay
   // server-side RLS-locked to Hashmark+ rows)
-  const LOCKED=[["Luck Audit","The teams whose records ran ahead of their play — flagged to step back."],
-    ["Hidden Riser","The breakout the underlying numbers already see coming."],
-    ["Model vs Poll","The teams we rank furthest from the voters — tracked to a verdict."],
-    ["The Gauntlet","The single toughest three-game stretch in football this season."],
-    ["Talent Bomb","Elite rosters that underperformed their talent — the usual bounce-back list."]];
+  const LOCKED=[["luck_audit","Luck Audit","The teams whose records ran ahead of their play — flagged to step back."],
+    ["hidden_riser","Hidden Riser","The breakout the underlying numbers already see coming."],
+    ["model_vs_poll","Model vs Poll","The teams we rank furthest from the voters — tracked to a verdict."],
+    ["gauntlet","The Gauntlet","The single toughest three-game stretch in football this season."],
+    ["talent_bomb","Talent Bomb","Elite rosters that underperformed their talent — the usual bounce-back list."]];
   h+=`<div class="sect-h">The full set</div><div class="xgrid" style="padding:0 2px">`;
-  LOCKED.forEach(([t2,p])=>{ h+=`<div class="xcard" data-lock="1"><svg class="ic" style="color:var(--text3)"><use href="#i-lock"/></svg>
+  LOCKED.forEach(([key,t2,p])=>{ h+=`<div class="xcard" data-lock="${key}"><svg class="ic" style="color:var(--amber)"><use href="#i-flame"/></svg>
     <h4>${t2} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>${p}</p></div>`; });
   h+=`</div>`;
   if(myth){
@@ -6671,8 +6787,7 @@ async function openSignature(){
   h+=`<div class="note">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=()=>openExplore();
-  document.querySelectorAll("[data-lock]").forEach(el=>el.onclick=()=>plusUpsell(
-    "The full signature set","Every board, every driver, every tracked call — coming with Hashmark+. Free while we're in preview? Not this one: signature boards stay locked until launch."));
+  document.querySelectorAll("[data-lock]").forEach(el=>el.onclick=()=>openSignatureBoard(el.dataset.lock));
 }
 
 /* boot */
