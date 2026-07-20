@@ -684,6 +684,10 @@
   .landrow{display:flex;gap:12px;align-items:flex-start;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;padding:13px;margin:7px 2px}
   .landrow b{font-size:13.5px} .landrow small{display:block;color:var(--text2);font-size:11.5px;padding-top:2px;line-height:1.5}
+  #statsfab{position:fixed;right:14px;bottom:92px;z-index:55;background:var(--amber);color:#10130c;
+    border:0;border-radius:999px;padding:12px 18px;font-family:"Barlow Condensed",sans-serif;
+    font-weight:800;font-size:13px;letter-spacing:.06em;cursor:pointer;
+    box-shadow:0 6px 22px rgba(232,182,87,.35)}
   #awaybanner{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:70;width:min(480px,94vw);
     background:var(--surface);border:1px solid var(--amber);border-radius:14px;padding:10px 12px;
     box-shadow:0 8px 30px rgba(0,0,0,.5)}
@@ -1031,7 +1035,7 @@
 <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v6h14v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
 <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 8h13m0 0-4-4m4 4-4 4M17 16H4m0 0 4 4m-4-4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-vs" viewBox="0 0 24 24"><path d="M10.2 8.2a4 4 0 0 0-6.4 3.1c0 1.2.4 2 .9 2.6l-.5 1.9 2.2-.4c.5.2 1.2.4 1.9.4M10 12.6h-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.8 8.2a4 4 0 0 1 6.4 3.1c0 1.2-.4 2-.9 2.6l.5 1.9-2.2-.4c-.5.2-1.2.4-1.9.4M14 12.6h2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-vs" viewBox="0 0 24 24"><!-- two football helmets nose-to-nose (batch 10 #2) --><path d="M10.2 8.2a4 4 0 0 0-6.4 3.1c0 1.2.4 2 .9 2.6l-.5 1.9 2.2-.4c.5.2 1.2.4 1.9.4M10 12.6h-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.8 8.2a4 4 0 0 1 6.4 3.1c0 1.2-.4 2-.9 2.6l.5 1.9-2.2-.4c-.5.2-1.2.4-1.9.4M14 12.6h2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1" fill="currentColor"/></symbol>
 <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6m0 0-5 5m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -1506,7 +1510,7 @@ function header(){
           ? "Best <b>defenses</b> — opponent-adjusted defensive unit quality (what each unit suppresses)."
           : SEASON_PHASE.started
             ? `Our power rating <b>through Week ${SEASON_PHASE.week}</b> — opponent-adjusted results, roster talent, and coaching, updated weekly.`
-            : "";   // batch 10 #1: the way-too-early line is gone (header + methodology carry it)
+            : "";   // batch 10/11 #A1: no preseason subtitle (header + methodology carry it)
   const v26small = SHOW_HASHMARK_RATINGS
     ? (SEASON_PHASE.started ? `Wk ${SEASON_PHASE.week} · Hashmark` : "Preseason · Hashmark")
     : "In preview";
@@ -1918,9 +1922,18 @@ async function injectYourTeam(){
     if(SHOW_HASHMARK_RATINGS){ await ensureBoard();
       const i=board2026.findIndex(b=>String(b.team_id)===String(fav)); rk=i>=0?i+1:null; }
   }catch(e){}
+  // batch 11 A3: poll rank chip — current-season AP (CFP auto-replaces when committee
+  // rows exist, same data-driven swap as the picker); until the 2026 poll publishes,
+  // the final-2025 AP with an explicit label. Unranked = no chip, never "AP —".
+  let pollChip="";
+  try{
+    const pr=await loadPickerRanks();
+    if(pr.pollName && pr.poll[fav]) pollChip=` <span class="favtag">${pr.pollName} #${pr.poll[fav]}</span>`;
+    else{ const p25=await ensurePoll(); if(p25[fav]) pollChip=` <span class="favtag" data-tip="Final 2025 AP poll — the 2026 preseason AP replaces this when it publishes">'25 AP #${p25[fav]}</span>`; }
+  }catch(e){}
   const v=nxt?gameView(nxt,fav):null;
   host.innerHTML=`<div class="favcard big" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
-    <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--amber-tint);color:var(--amber)">HASHMARK #${rk}</span>`:""}</div>
+    <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--amber-tint);color:var(--amber)">HASHMARK #${rk}</span>`:""}${pollChip}</div>
       <div class="favsub">${st?`${st.wins}–${st.losses} ${SEASON_RESULTS} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}`:esc(t.conference||"")}${pre?` · ${SEASON_SCHED} SoS #${pre.sos_rank||"—"}`:""}</div>
       ${v?`<div class="favsub">Next: ${v.home?"vs":"@"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""}</div>`:""}
       ${news?`<div class="favsub favnews" id="ytnews" role="link" title="Team news">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""} <svg class="ic" style="width:11px;height:11px"><use href="#i-chev-r"/></svg></div>`:""}</div>
@@ -2033,6 +2046,7 @@ const FEATURE_TILES=[
   ["movers","trend","Weekly Movers",null,false,"Who rose, who fell — updated Sundays.",()=>openMovers()],
 ];
 const EXPLORE_EXTRA=[
+  ["teams","star","Teams","amber",false,"Every FBS team — search, pick your favorite.",()=>openTeams()],
   ["method","info","Methodology",null,false,"How the numbers get made.",()=>openMethodology()],
   ["accuracy","check","Checking Our Work","amber",false,"Every call logged before kickoff. Misses stay up.",()=>openCheckingWork()],
   ["notify","bell","Notifications",null,false,"Picks reminders and results.",()=>openNotifyPrefs()],
@@ -4336,7 +4350,7 @@ function drawCompare(){
     `<div class="fakebar" style="width:93%"></div><div class="fakebar" style="width:70%"></div>`);
   h+=`</div>`;
 
-  h+=`<div class="note"><b>${phaseTitle()} — Hashmark projection.</b> A single-game projection from our ${SEASON_PHASE.started?"current":"way-too-early preseason"} ratings: projected margin = the teams' rating gap on a points scale plus the model's home-field value, and win probability is the normal-model share of outcomes above zero at the calibrated &sigma;=${ENGINE.sigma}. ${SEASON_PHASE.started?`Ratings update weekly as ${SEASON_SCHED} results land.`:"Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer."} ${BRAND_LINE}</div></div>`;
+  h+=`<div class="note"><b>${phaseTitle()} — Hashmark projection.</b> A single-game projection from our ${SEASON_PHASE.started?"current":"early preseason"} ratings: projected margin = the teams' rating gap on a points scale plus the model's home-field value, and win probability is the normal-model share of outcomes above zero at the calibrated &sigma;=${ENGINE.sigma}. ${SEASON_PHASE.started?`Ratings update weekly as ${SEASON_SCHED} results land.`:"Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer."} ${BRAND_LINE}</div></div>`;
 
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
@@ -4698,10 +4712,47 @@ function teamHonors(honors){
 }
 
 // ---------- Part 3: the league-wide Stats hub ----------
+
+// Batch 11 B2: the HASHMARK+ STATS floating button on the general stats page — a sheet
+// teasing the four premium stat products, each with a LIVE preview stat.
+async function plusStatsSheet(){
+  const ov=document.createElement("div"); ov.className="pickov";
+  ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+    <div style="font-weight:800;font-size:15px;flex:1">HASHMARK+ STATS</div>
+    <button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="picklist" id="pssheet"><div class="loading">Loading…</div></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  let top="?", collapse=null, eff=null, nilBest=null;
+  try{ await ensureBoard(); await ensureTeamMeta(); top=(board2026[0].teams||{}).school||"?"; }catch(e){}
+  try{ const c=await api("signature_stats?select=team_id,value&free=eq.true&stat_key=eq.collapse_index&limit=1"); collapse=c[0]; }catch(e){}
+  try{ const w=await api("what_wins?select=factor,win_pct&factor=eq.efficiency&limit=1"); eff=w[0]; }catch(e){}
+  try{ const n=await api("nil_performance_2025?select=school,band,residual&band=eq.outperformed&order=residual.desc&limit=1"); nilBest=n[0]; }catch(e){}
+  const rows=[
+    ["Hashmark Model", "Every model view — quadrant, ledger, gauntlet, odds.", `${esc(top)} is #1 of 138`, ()=>openModelHub()],
+    ["NIL Economy", "Estimated spend tiers + performance vs the money.", nilBest?`${esc(nilBest.school)}: best value in the sport (2025)`:"Attributed tiers, all 136 teams", ()=>openNILEconomy()],
+    ["Signature Stats", "The Collapse Index and friends — tracked calls.", collapse?`Collapse Index: ${esc((teamMeta[collapse.team_id]||{}).school||"?")} ${Math.round(Number(collapse.value)*100)}/100`:"Named teams, scored calls", ()=>openSignature()],
+    ["What Wins Games", "What wins today vs what repeats next season.", eff?`Efficiency wins ${Math.round(Number(eff.win_pct))} of 100`:"The factor board", ()=>openWhatWins()],
+  ];
+  document.getElementById("pssheet").innerHTML=rows.map((r,i)=>`<div class="hubrow" data-ps="${i}">
+    <svg class="ic" style="color:var(--amber);flex:none"><use href="#i-chart"/></svg>
+    <div class="hubmeta"><b>${r[0]} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></b>
+    <small>${r[1]}</small><div class="hubprev">${r[2]}</div></div>
+    <svg class="ic" style="color:var(--text3);flex:none"><use href="#i-chev-r"/></svg></div>`).join("");
+  document.querySelectorAll("[data-ps]").forEach(el=>el.onclick=()=>{ close(); rows[+el.dataset.ps][3](); });
+}
+function mountStatsFab(){
+  const old=document.getElementById("statsfab"); if(old) old.remove();
+  const f=document.createElement("button"); f.id="statsfab";
+  f.innerHTML=`HASHMARK+ STATS`;
+  f.onclick=()=>plusStatsSheet();
+  app.appendChild(f);   // lives inside the view — auto-clears on navigation
+}
 async function openStats(tab){
   if(tab) statTab=tab;
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading stats…</div>`;
-  try{ await Promise.all([ensureTeamMeta(), ensureCatalog()]); await renderStats(); }
+  try{ await Promise.all([ensureTeamMeta(), ensureCatalog()]); await renderStats(); mountStatsFab(); }   // batch 11 B2
   catch(e){ app.innerHTML=backHeader("Stats")+`<div class="list"><div class="err">Couldn't load stats: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=load; }
 }
@@ -5143,6 +5194,7 @@ const NAV_ROUTES={
   landing:()=>openLanding(),
   nilperf:()=>openNILPerformance(),
   sigboard:p=>openSignatureBoard(p&&p.k),
+  teams:()=>openTeams(),
 };
 function navPush(v,p){
   if(_navRestoring) return;
@@ -5183,7 +5235,7 @@ setTimeout(()=>{
  ["openBox","box",(id,team)=>({id,team})],["openPickemBoard","pickemboard"],
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
- ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],
+ ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -5223,7 +5275,7 @@ if ("serviceWorker" in navigator) {
     <button data-tab="home" class="on"><svg class="ic"><use href="#i-home"/></svg>Home</button>
     <button data-tab="games"><svg class="ic"><use href="#i-cal"/></svg>Games</button>
     <button data-tab="picks"><svg class="ic"><use href="#i-check"/></svg>Picks</button>
-    <button data-tab="myteam" id="tab-myteam"><svg class="ic"><use href="#i-star"/></svg><span id="tab-myteam-label">Teams</span></button>
+    <button data-tab="stats" id="tab-stats"><svg class="ic"><use href="#i-chart"/></svg><span>Stats</span></button>
     <button data-tab="explore"><svg class="ic"><use href="#i-search"/></svg>Explore</button>
   </div>
 </nav>
@@ -5293,13 +5345,14 @@ function favTeamId(){
 function setTab(name){
   document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.classList.toggle("on", b.dataset.tab===name));
 }
+async function openTeams(){ return tabMyTeam(); }   // batch 11 B1: named view for Explore/nav
 async function tabMyTeam(){
   const fav = favTeamId();
   if(fav){ openDetail(fav); return; }
   const ts = await ensureSearchTeams();
   let h = `<div class="cmp"><div class="cmptop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
     <div class="cmptag">Pick your team</div></div>
-    <div class="secsub" style="padding:6px 4px">Your team becomes a tab. Change it any time from the team page.</div>
+    <div class="secsub" style="padding:6px 4px">Pick your team — it leads the home page every visit. Change it any time from the team page.</div>
     <div class="searchwrap" style="margin:0 2px 8px"><span class="si"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></span>
       <input id="favsearch" type="text" placeholder="Search teams..." autocomplete="off" autocapitalize="words"></div>
     <div class="list">`;
@@ -5325,6 +5378,8 @@ async function tabMyTeam(){
   });
 }
 async function refreshMyTeamTab(){
+  // batch 11 B1: the star tab is gone (Stats replaced it); teams stay reachable via the
+  // your-team card, search, and the Teams tile on Explore. Kept as a safe no-op.
   const fav=favTeamId(); const lbl=document.getElementById("tab-myteam-label");
   if(!lbl) return;
   if(!fav){ lbl.textContent="Teams"; return; }
@@ -5339,7 +5394,7 @@ async function gatedSimulator(){
   openSimulator();
 }
 const TABS = { home:()=>load(), games:()=>openScores(), picks:()=>openPickem(),
-               myteam:()=>tabMyTeam(), explore:()=>openExplore() };
+               stats:()=>openStats(), explore:()=>openExplore() };   // batch 11 B1: Stats replaces the star tab
 document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.onclick=()=>{ setTab(b.dataset.tab); TABS[b.dataset.tab](); });
 
 /* ================================================================================
