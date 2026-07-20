@@ -46,7 +46,7 @@
     border-left:1px solid var(--line);border-right:1px solid var(--line)}
   header{position:sticky;top:0;z-index:5;padding:18px 18px 0;
     background:rgba(11,17,32,.9);backdrop-filter:blur(10px)}
-  .wordmark{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:26px;letter-spacing:-.5px}
+  .wordmark{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:26px;letter-spacing:-.5px;cursor:pointer}
   .wordmark .dot{color:var(--amber)}
   /* season toggle */
   .toggle{display:flex;gap:6px;margin:14px 0 10px;background:var(--surface);
@@ -372,7 +372,8 @@
   .wwrow .wwk small{display:block;font-weight:500;font-size:10.5px;color:var(--text3)}
   .wwrow .wwv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:14px}
   .wwrow .wwv small{display:block;font-weight:500;font-size:9.5px;color:var(--text3)}
-  /* team-page accordions (teampage brief #1) */
+  /* collapsible sections (.acc) — Signature pages + preseason award watch lists (the
+     team page's accordions became the bubble nav in batch 12 #3) */
   .acc{border:1px solid var(--line);border-radius:13px;margin:8px 0;background:linear-gradient(165deg,#151f36,#101828);overflow:hidden}
   .acchdr{width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;background:none;border:0;cursor:pointer;
     color:var(--text);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:14px;letter-spacing:.03em;text-align:left;min-height:44px}
@@ -382,6 +383,19 @@
   .accbody{padding:0 4px 6px}
   .accbody .sec{border:0;background:none;margin-top:0}
   .accbody > .sec > .sectitle{display:none}
+  /* team-page bubble nav (batch 12 #3) — horizontally-scrollable chip row + one panel;
+     active bubble = amber fill; edge fades signal there's more row to scroll */
+  .bubwrap{position:relative;margin:10px 0 2px}
+  .bubrow{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 14px 2px 2px}
+  .bubrow::-webkit-scrollbar{display:none}
+  .bubwrap:before,.bubwrap:after{content:"";position:absolute;top:0;bottom:0;width:16px;pointer-events:none;z-index:1}
+  .bubwrap:before{left:0;background:linear-gradient(90deg,var(--bg),rgba(11,17,32,0))}
+  .bubwrap:after{right:0;background:linear-gradient(270deg,var(--bg),rgba(11,17,32,0))}
+  .bub{flex:none;border:1px solid var(--line2);border-radius:999px;background:linear-gradient(165deg,#151f36,#101828);
+    color:var(--text);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13.5px;letter-spacing:.04em;
+    padding:8px 14px;min-height:36px;cursor:pointer;white-space:nowrap;text-transform:uppercase}
+  .bub.on{background:var(--amber);border-color:var(--amber);color:#0b1120}
+  #tp-panel{min-height:120px}
   /* On-Track Pace live panel */
   .pacehdr{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);
     font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12.5px;
@@ -856,6 +870,8 @@
   .honor .hn{font-weight:600;font-size:13.5px;flex:1}
   .honor .hn small{color:var(--text2);font-weight:500}
   .honor .hpos{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--text2);flex:none}
+  .honor .hstack{display:flex;flex-wrap:wrap;gap:4px;padding-top:4px}  /* batch 12 #4: chip-stacked lists */
+  .honor .hstack .srcpill{font-size:10px}
   /* explorer + leaderboards */
   .exprow{display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--surface);
     border:1px solid var(--line);border-top:none;cursor:pointer}
@@ -1365,9 +1381,13 @@ const scoresCache = {};     // season -> [games]
 async function ensureTeamMeta(){
   if(teamMeta) return teamMeta;
   teamMeta = {};
-  (await api("teams?select=id,school,color,alt_color,conference")).forEach(t=>teamMeta[t.id]=t);
+  (await api("teams?select=id,school,color,alt_color,conference,mascot")).forEach(t=>teamMeta[t.id]=t);
   return teamMeta;
 }
+// batch 12 #1: "{School} {Mascot}" in search/picker rows — searchable by mascot ("ducks"
+// finds Oregon). Mascot NULL degrades to school-only; tight chips/badges stay school-only.
+const teamFull = t => !t||!t.school ? "?" : (t.mascot ? `${t.school} ${t.mascot}` : t.school);
+const teamMatch = (t,q) => !!t && `${t.school||""} ${t.mascot||""}`.toLowerCase().includes(q);
 const fetchTeamSeason = async id =>
   (await api(`team_season?select=*&season=eq.${SEASON_RESULTS}&team_id=eq.${id}`))[0]||null;
 const fetchTeamGames = async id =>
@@ -1454,7 +1474,7 @@ async function openScores(){
   app.innerHTML = `<div class="loading">Loading scores…</div>`;
   try{ await ensureTeamMeta(); scoresWeek=null; await drawScores(); }
   catch(e){ app.innerHTML = `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-    <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
     <div class="err">Couldn't load scores: ${e.message}</div>`; document.querySelector(".back").onclick=load; }
 }
 async function drawScores(){
@@ -1475,7 +1495,7 @@ async function drawScores(){
 
   let h = `<div class="cmp">
     <div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-      <div class="wordmark">Hashmark<span class="dot">.</span></div>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
       <div class="cmptag">Scores</div></div>
     <div class="venue"><div class="toggle">
       <button data-ss="${SEASON_SCHED}" class="${scoresSeason===SEASON_SCHED?"on":""}">${SEASON_SCHED}<small>Schedule</small></button>
@@ -1515,7 +1535,7 @@ function header(){
     ? (SEASON_PHASE.started ? `Wk ${SEASON_PHASE.week} · Hashmark` : "Preseason · Hashmark")
     : "In preview";
   return `<header>
-    <div class="htop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
+    <div class="htop"><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
       <div id="acctslot" class="acctslot">${accountControl()}</div></div>
     <div class="toggle">
       <button data-v="${SEASON_SCHED}" class="${view===String(SEASON_SCHED)?"on":""}">${SEASON_SCHED}<small>${v26small}</small></button>
@@ -1668,11 +1688,10 @@ const HOME_EXPLORE = [
 async function renderHome(){
   app.innerHTML = `<div class="loading">Loading Hashmark…</div>`;
   try{
-    const [, cat, leaders, ap, ext] = await Promise.all([
+    const [, cat, leaders, ap] = await Promise.all([
       ensureTeamMeta(), ensureCatalog(),
       api(`team_stat_season?select=stat_key,team_id,value&season=eq.${STAT_SEASON}&rank=eq.1&stat_key=in.(${HOME_LEADERS.map(x=>x[0]).join(",")})`),
-      api("poll_rankings?select=rank,team_id,teams(school,conference,color,alt_color)&season=eq.2025&poll=eq.AP%20Top%2025&order=rank.asc"),
-      api("external_rankings?select=player,position,team_id,school,rank,ranking_type,source&season=eq.2026") ]);
+      api("poll_rankings?select=rank,team_id,teams(school,conference,color,alt_color)&season=eq.2025&poll=eq.AP%20Top%2025&order=rank.asc") ]);
     const lmap={}; leaders.forEach(r=>lmap[r.stat_key]=r);
     let h = header() + `<div class="list" style="padding-top:4px">`;
     // onboarding (#4): personalized module for EVERYONE — guests pick via localStorage
@@ -1850,11 +1869,11 @@ function wireHomeSearch(){
   if(!inp) return;
   const run=async()=>{ const q=inp.value.trim(); if(q.length<1){ res.style.display="none"; return; }
     const ql=q.toLowerCase();
-    const teams=(await ensureSearchTeams()).filter(t=>t.school.toLowerCase().includes(ql)).slice(0,5);
+    const teams=(await ensureSearchTeams()).filter(t=>teamMatch(t,ql)).slice(0,5);
     let players=[];
     if(q.length>=2){ try{ players=await api(`player_index?select=athlete_id,player,team_id,position&name_lower=ilike.*${encodeURIComponent(ql)}*&order=last_season.desc&limit=6`); }catch(e){} }
     let html=teams.map(t=>`<div class="sropt" data-team="${t.id}">${crestEl("src",t.school,hx(t.color))}
-        <div class="snm">${esc(t.school)}</div><div class="scf">${esc(t.conference||"")} · team</div></div>`).join("");
+        <div class="snm">${esc(teamFull(t))}</div><div class="scf">${esc(t.conference||"")} · team</div></div>`).join("");
     html+=players.map(p=>{ const t=teamMeta[p.team_id]||{}; return `<div class="sropt" data-player="${p.athlete_id}">
         ${crestEl("src",t.school||"·",oppColor(p.team_id))}<div class="snm">${esc(p.player)}</div>
         <div class="scf">${esc(p.position||"")} ${esc(t.school||"")} · player</div></div>`; }).join("");
@@ -2223,13 +2242,13 @@ function teamPicker(excludeId, cb){
   const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
   const draw=q=>{ q=(q||"").toLowerCase().trim();
     const rk=_pickerRanks||{hm:{},poll:{},pollName:null};
-    list.innerHTML=teams.filter(t=>t.school.toLowerCase().includes(q)).map(t=>{ const c=hx(t.color), dis=String(t.id)===String(excludeId);
+    list.innerHTML=teams.filter(t=>teamMatch(t,q)).map(t=>{ const c=hx(t.color), dis=String(t.id)===String(excludeId);
       const bits=[];
       if(rk.hm[t.id]) bits.push(`Hashmark #${rk.hm[t.id]}`);
       if(rk.pollName&&rk.poll[t.id]) bits.push(`${rk.pollName} #${rk.poll[t.id]}`);
       return `<div class="pitem${dis?' dis':''}" data-id="${t.id}">
         <div class="pcr" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
-        <div><div class="pnm">${esc(t.school)}</div><div class="pcf">${esc(t.conference||"")}${bits.length?` · ${bits.join(" · ")}`:""}</div></div></div>`; }).join("")
+        <div><div class="pnm">${esc(teamFull(t))}</div><div class="pcf">${esc(t.conference||"")}${bits.length?` · ${bits.join(" · ")}`:""}</div></div></div>`; }).join("")
       ||`<div class="loading" style="padding:30px">No teams match "${esc(q)}"</div>`;
     list.scrollTop=0;   // batch 7 #1 BUG FIX: filtered results must never hide above a stale scroll
   };
@@ -2290,7 +2309,7 @@ function renderMatchup(statsRows, wp, hh, S){
   const a=matchup.a, b=matchup.b, tA=teamMeta[a]||{school:"?"}, tB=teamMeta[b]||{school:"?"};
   const idx={}; statsRows.forEach(r=>{ idx[`${r.team_id}|${r.stat_key}`]=r; });
   let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-      <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Matchup</div></div>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div><div class="cmptag">Matchup</div></div>
     <div class="pickrow">${mPickCard("a")}<div class="pickvs">VS</div>${mPickCard("b")}</div>`;
   // win probability (ONLY thing from the model; never a rating or margin)
   if(SHOW_PREDICTIONS && MATCHUP_SHOW_MODEL && wp){
@@ -3712,7 +3731,7 @@ const CMETA = {
 
 let board2026=null, poll2025=null;
 async function ensureBoard(){ if(!board2026) board2026 = await api(
-  `power_ratings?select=team_id,overall,off,def,teams(school,conference,color,alt_color)&season=eq.${SEASON_SCHED}&week=eq.0&order=overall.desc`); return board2026; }
+  `power_ratings?select=team_id,overall,off,def,teams(school,conference,color,alt_color,mascot)&season=eq.${SEASON_SCHED}&week=eq.0&order=overall.desc`); return board2026; }
 async function ensurePoll(){ if(!poll2025){ poll2025={};
   (await api("poll_rankings?select=rank,team_id&season=eq.2025&poll=eq.AP%20Top%2025")).forEach(x=>poll2025[x.team_id]=x.rank); }
   return poll2025; }
@@ -3722,39 +3741,28 @@ async function openDetail(teamId){
   app.innerHTML = skelView(8);   // batch 8 #3: skeleton, not a bare line
   try{
     await ensureTeamMeta();
-    // official/factual data shown in BOTH preview and full mode (record + schedule)
+    // batch 12 #3: the page-load fetch carries only what's visible on open (hero, record,
+    // chips, the default Schedule panel, ratings) — every bubble panel lazy-loads its own
+    // data on first tap and caches it (see wireTeamPanels).
     const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
-    if(true){   // reveal reconciliation: the modern team page IS the page — the old
-                // renderDetail full-mode layout stays dormant; ratings render inline below
-      const [team, ap, cat, stats, players, honors, gamelog, standing, splits] = await Promise.all([
-        api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
-        api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
-        ensureCatalog().then(c=>ensureBaselines().then(()=>c)),
-        api(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${[...new Set([PRIOR_SEASON,STAT_SEASON,SEASON_SCHED])].join(",")})&team_id=eq.${teamId}`),
-        api(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`),
-        api(`external_rankings?select=*&season=eq.2026&team_id=eq.${teamId}`),
-        api(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats,off_epa,def_epa&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`),
-        api(`standings?select=season,conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${teamId}`),
-        api(`team_splits?select=season,side,split_type,split_key,plays,epa_per_play,success_rate,explosive_rate&season=in.(${[...new Set([STAT_SEASON,SEASON_SCHED])].join(",")})&team_id=eq.${teamId}`) ]);
-      let hm=null;
-      if(SHOW_HASHMARK_RATINGS){ try{
-        const [pr, comps] = await Promise.all([
-          api(`power_ratings?select=overall,off,def&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`),
-          api(`rating_components?select=component,value&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`)]);
-        if(pr[0]){ await ensureBoard();
-          hm={...pr[0], rank: board2026.findIndex(b=>String(b.team_id)===String(teamId))+1, comps}; }
-      }catch(e){} }
-      return renderDetailPreview(team[0], ap[0], ts, games, teamId, {cat, stats, players, honors, gamelog,
-        standing:(standing||[]).find(r=>r.season===SEASON_RESULTS),
-        preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), splits, hm});
-    }
-    const [comps, board, poll] = await Promise.all([
-      api(`rating_components?select=component,value&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`),
-      ensureBoard(), ensurePoll() ]);
-    renderDetail(teamId, comps, board, poll, ts, games);
+    const [team, ap, standing] = await Promise.all([
+      api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
+      api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
+      api(`standings?select=season,conference,conf_rank,conf_wins,conf_losses,sos,sos_rank&season=in.(${SEASON_RESULTS},${SEASON_SCHED})&team_id=eq.${teamId}`) ]);
+    let hm=null;
+    if(SHOW_HASHMARK_RATINGS){ try{
+      const [pr, comps] = await Promise.all([
+        api(`power_ratings?select=overall,off,def&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`),
+        api(`rating_components?select=component,value&season=eq.${SEASON_SCHED}&week=eq.0&team_id=eq.${teamId}`)]);
+      if(pr[0]){ await ensureBoard();
+        hm={...pr[0], rank: board2026.findIndex(b=>String(b.team_id)===String(teamId))+1, comps}; }
+    }catch(e){} }
+    return renderDetailPreview(team[0], ap[0], ts, games, teamId, {
+      standing:(standing||[]).find(r=>r.season===SEASON_RESULTS),
+      preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), hm});
   }catch(e){
     app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-      <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
       <div class="err">Couldn't load team: ${e.message}</div>`;
     document.querySelector(".back").onclick = load;
   }
@@ -3794,8 +3802,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     // identity/record block, above the deep stat sections (overrides design-doc order)
     // UX batch 4 #4: news lands directly under the stats card (its own host slot)
     const slot = document.getElementById("tp-newshost");
-    const host = document.getElementById("tp-sched") || document.getElementById("tp-accordions")
-      || app.querySelector(".note");
+    const host = document.getElementById("tp-bubbles") || app.querySelector(".note");
     if(slot) slot.appendChild(d.firstChild);
     else if(host) host.parentNode.insertBefore(d.firstChild, host);
     if(window._scrollNews){ window._scrollNews=false;   // Part 0.2: favorite-module headline tap
@@ -3803,7 +3810,6 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
       if(sec) sec.scrollIntoView({behavior:"smooth", block:"start"}); }
   }catch(_e){} }, 0);
   setTimeout(()=>{ try{ injectTeamViz(teamId); }catch(_e){} }, 0);   // V4/V5 team-page embeds
-  setTimeout(()=>{ try{ injectTeamIntel(teamId); }catch(_e){} }, 0);   // batch 11 Part C
   // Ask Hashmark entry (P2-E5, now LIVE): injected only when the edge function answers
   // the probe — the section simply never appears while the feature is dark.
   setTimeout(async()=>{ try{
@@ -3818,7 +3824,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     const b=document.getElementById("askopen"); if(b) b.onclick=async()=>{ if(await askGate()) openAsk(teamId); };
   }catch(_e){} }, 0);
   if(!t){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-    <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
     <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=load; return; }
   const c=hx(t.color);
   const cls = (t.classification||"").toUpperCase()==="FBS" ? "FBS" : (t.classification||"—");
@@ -3836,26 +3842,19 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
       ${st?`<div class="schip"><span class="sl">Conference</span><span class="sv">${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}</span></div>`:""}
       ${sosChip}
     </div>` : "";
-  // batch 7 #2: per-team season swap — >=3 completed current-season games moves the
-  // 2026 stat accordions on top and demotes 2025 to a "final season" group at the bottom.
+  // batch 12 #3: BUBBLE NAV — a horizontally-scrollable chip row + ONE swappable panel
+  // replace the stacked accordions (owner-specified order; Schedule is the default panel).
+  // >=3 completed current-season games flips the Stats/Splits panels to the current season
+  // (batch 7's top/bottom swap superseded); the 2025 bubbles stay as the historical archive.
   const done26 = (games||[]).filter(g=>g.season===SEASON_SCHED && g.completed && g.home_points!=null).length;
-  const has26stats = (e.stats||[]).some(r=>Number(r.season)===SEASON_SCHED);
-  const swap26 = done26>=3 && has26stats;
-  const statsFor = yr => (e.stats||[]).filter(r=>Number(r.season)===yr||Number(r.season)===yr-1);
-  const splitsFor = yr => (e.splits||[]).filter(x=>Number(x.season||STAT_SEASON)===yr);
-  const profile = (e.cat && e.stats) ? statProfile(e.cat, statsFor(swap26?SEASON_SCHED:STAT_SEASON), t.school, swap26?SEASON_SCHED:STAT_SEASON) : "";
-  const splitsTop = teamSplitsSection(splitsFor(swap26?SEASON_SCHED:STAT_SEASON), t.school, swap26?SEASON_SCHED:STAT_SEASON);
-  const glogTop = gameLogSection((e.gamelog||[]).filter(g=>swap26?g.season===SEASON_SCHED:true), teamId);
-  const leaders = teamLeaders(e.players || []);
-  const honors  = e.honors ? teamHonors(e.honors) : "";
-  // teampage brief #1: hero stays visible; news (injected) then the 2026 schedule sit on
-  // top; everything deeper collapses into accessible accordions (all closed by default).
-  const acc=(id,title,sub,inner)=> inner?`<div class="acc">
-      <button class="acchdr" aria-expanded="false" aria-controls="accb-${id}" data-acc="${id}">
-        <span>${title}</span><small>${sub||""}</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
-      <div class="accbody" id="accb-${id}" hidden>${inner}</div></div>`:"";
+  const swap26 = done26>=3;
+  const BUBS = [["sched","Schedule"],["stats","Stats"]]
+    .concat(swap26?[["splits","Splits"]]:[])
+    .concat([["recruit","Recruiting"],["avail","Injuries"],["portal","Transfer portal"],["nil","NIL"],
+      ["leaders","Returning leaders"],["stats25",`${SEASON_RESULTS} Stats`],["sched25",`${SEASON_RESULTS} Schedule`],
+      ["splits25",`${SEASON_RESULTS} Splits`],["honors","Honors"],["staff","Coaching"]]);
   let h = `<div class="detail">
-    <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+    <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
       <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
       <div style="flex:1"><div class="dschool">${esc(t.school)}</div>
@@ -3866,22 +3865,12 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     ${head}
     ${standLine}
     <div id="tp-newshost"></div>
-    <div id="tp-accordions">
-    ${acc("profile", `${swap26?SEASON_SCHED:STAT_SEASON} stat profile`, "ranks + percentiles", profile)}
-    ${acc("splits", `${swap26?SEASON_SCHED:STAT_SEASON} situational splits`, swap26?"3rd down, red zone, by quarter":"updates to 2026 after 3 games", splitsTop)}
-    ${acc("leaders", "Returning leaders", "who's back, who left", leaders)}
-    ${acc("gamelog", `${swap26?SEASON_SCHED+" game log":"Game log"}`, "every box line", glogTop)}
-    ${acc("honors", "Preseason honors", "third-party, attributed", honors)}
-    </div>
-    ${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)}
-    <div id="tp-intel"></div>
+    <div class="bubwrap" id="tp-bubbles"><div class="bubrow" id="tp-bubrow" role="tablist" aria-label="Team sections">
+      ${BUBS.map(([k,l])=>`<button class="bub${k==="sched"?" on":""}" role="tab" aria-selected="${k==="sched"}" data-bub="${k}">${l}</button>`).join("")}
+    </div></div>
+    <div id="tp-panel">${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
+      || `<div class="secsub" style="padding:10px 2px">No ${SEASON_SCHED} schedule on file yet.</div>`}</div>
     ${hmSection(e.hm, t)}
-    ${swap26?`<div class="sectitle" style="padding:10px 2px 4px">${STAT_SEASON===SEASON_SCHED?SEASON_SCHED-1:STAT_SEASON} — final season</div>
-    <div>
-    ${acc("profile25", `${SEASON_RESULTS} stat profile`, "final", (e.cat&&e.stats)?statProfile(e.cat, statsFor(SEASON_RESULTS), t.school, SEASON_RESULTS):"")}
-    ${acc("splits25", `${SEASON_RESULTS} situational splits`, "final", teamSplitsSection(splitsFor(SEASON_RESULTS), t.school, SEASON_RESULTS))}
-    ${acc("gamelog25", `${SEASON_RESULTS} game log`, "final", gameLogSection((e.gamelog||[]).filter(g=>g.season<SEASON_SCHED), teamId))}
-    </div>`:""}
     ${e.hm?"":`<div class="sec" style="padding-top:6px">
       <div class="soon" style="padding:22px 20px 6px">
         <div class="soonbadge">COMING SOON</div>
@@ -3892,13 +3881,101 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick = load;
-  // batch 7 #4: schedule rows open the matchup pre-set to this pairing + venue
-  document.querySelectorAll("[data-mopp]").forEach(el=>el.onclick=e=>{
-    e.stopPropagation(); openMatchup(teamId, el.dataset.mopp, el.dataset.mven); });
+  wireTeamPanels(teamId, t, games, e, swap26);
   // batch 7 #1: favorite star on every team header
   const star=document.getElementById("tpstar");
   if(star) star.onclick=()=>{ if(String(favTeamId())===String(teamId)) teamPicker(null, id=>pickFavAny(id));
     else pickFavAny(teamId); };
+}
+
+// batch 12 #3: the bubble-panel engine. Each panel's data loads on FIRST open and caches
+// (all closures live per page-visit, so a new openDetail starts clean); bubble taps swap
+// the single #tp-panel in place and NEVER push history — Back always leaves the team page.
+// Deep links (#team/:id/:tab) were considered and skipped: the app routes by history
+// state, not URL fragments, so a hash router would be a new subsystem, not a cheap add.
+function wireTeamPanels(teamId, t, games, e, swap26){
+  const panel=document.getElementById("tp-panel"), row=document.getElementById("tp-bubrow");
+  if(!panel || !row) return;
+  const C={html:{}, data:{}, active:"sched"};
+  const J=q=>api(q).catch(()=>[]);
+  const emptyNote=s=>`<div class="secsub" style="padding:10px 2px">${s}</div>`;
+  const statsFor=(rows,yr)=>(rows||[]).filter(r=>Number(r.season)===yr||Number(r.season)===yr-1);
+  const loadStats=async()=>{ if(!C.data.stats){
+      const cat=await ensureCatalog(); await ensureBaselines();
+      const rows=await J(`team_stat_season?select=season,stat_key,value,rank,percentile&season=in.(${[...new Set([PRIOR_SEASON,STAT_SEASON,SEASON_SCHED])].join(",")})&team_id=eq.${teamId}`);
+      C.data.stats={cat, rows}; } return C.data.stats; };
+  const loadSplits=async()=>{ if(!C.data.splits)
+      C.data.splits=await J(`team_splits?select=season,side,split_type,split_key,plays,epa_per_play,success_rate,explosive_rate&season=in.(${[...new Set([SEASON_RESULTS,SEASON_SCHED])].join(",")})&team_id=eq.${teamId}`);
+    return C.data.splits; };
+  const loadIntel=async()=>{ if(!C.data.intel) C.data.intel=await teamIntelData(teamId, t); return C.data.intel; };
+  const loadNIL=async()=>{ if(!C.data.nil){
+      const [tier, ds, perf]=await Promise.all([
+        J(`nil_tiers?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`),
+        J(`nil_disclosure_status?select=status,note&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}`),
+        J(`nil_performance_2025?select=band,wins,losses,est_low_musd,est_high_musd,confidence,disputed&team_id=eq.${teamId}`)]);
+      C.data.nil={tier:tier[0], ds:ds[0], perf:perf[0]}; } return C.data.nil; };
+  const BUILD={
+    sched: async()=> scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
+      || emptyNote(`No ${SEASON_SCHED} schedule on file yet.`),
+    stats: async()=>{
+      if(!swap26) return `<div class="sec"><div class="sectitle">${SEASON_SCHED} stats</div>
+        <div class="secsub">${SEASON_SCHED} stats populate as games are played — once ${esc(t.school)} has 3 completed games, this panel carries the current-season profile (ranks + percentiles). Until then the <b>${SEASON_RESULTS} Stats</b> bubble holds the final ${SEASON_RESULTS} profile.</div>
+        <div class="navrow"><button class="navbtn" data-bubgo="stats25">Open ${SEASON_RESULTS} Stats</button></div></div>`;
+      const s=await loadStats(); const cur=statsFor(s.rows, SEASON_SCHED);
+      return cur.some(r=>Number(r.season)===SEASON_SCHED) ? statProfile(s.cat, cur, t.school, SEASON_SCHED)
+        : emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`); },
+    splits: async()=>{ const sp=await loadSplits();
+      return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_SCHED), t.school, SEASON_SCHED)
+        || emptyNote(`${SEASON_SCHED} situational splits are still processing.`); },
+    recruit: async()=>(await loadIntel()).rec,
+    avail:   async()=>(await loadIntel()).inj,
+    portal:  async()=>(await loadIntel()).por,
+    staff:   async()=>(await loadIntel()).coa,
+    nil:     async()=> teamNILPanel(await loadNIL(), t),
+    leaders: async()=>{ if(!C.data.players)
+        C.data.players=await J(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`);
+      return teamLeaders(C.data.players||[]) || emptyNote("No returning-leader data on file yet."); },
+    stats25: async()=>{ const s=await loadStats();
+      return statProfile(s.cat, statsFor(s.rows, SEASON_RESULTS), t.school, SEASON_RESULTS)
+        || emptyNote(`No ${SEASON_RESULTS} stat profile on file.`); },
+    sched25: async()=>{ if(!C.data.gamelog)
+        C.data.gamelog=await J(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`);
+      return gameLogSection((C.data.gamelog||[]).filter(g=>g.season<SEASON_SCHED), teamId)
+        || emptyNote(`No ${SEASON_RESULTS} results on file.`); },
+    splits25: async()=>{ const sp=await loadSplits();
+      return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_RESULTS), t.school, SEASON_RESULTS)
+        || emptyNote(`No ${SEASON_RESULTS} situational splits on file.`); },
+    honors: async()=>{ if(!C.data.honors)
+        C.data.honors=await J(`external_rankings?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`);
+      return teamHonors(C.data.honors||[])
+        || emptyNote(`No third-party preseason honors on file for ${esc(t.school)} yet — conference teams, All-America lists and award watch lists roll out through August.`); },
+  };
+  const wirePanel=k=>{
+    // batch 7 #4: schedule rows open the matchup pre-set to this pairing + venue
+    panel.querySelectorAll("[data-mopp]").forEach(el=>el.onclick=ev=>{
+      ev.stopPropagation(); openMatchup(teamId, el.dataset.mopp, el.dataset.mven); });
+    panel.querySelectorAll("[data-bubgo]").forEach(el=>el.onclick=()=>show(el.dataset.bubgo));
+    if(k==="avail") wireInjGate(panel, C.data.intel);
+    if(k==="nil") wireNILPanel(panel, C.data.nil, t);
+  };
+  const show=async k=>{
+    if(!BUILD[k]) return;
+    C.active=k;
+    row.querySelectorAll(".bub").forEach(b=>{ const on=b.dataset.bub===k;
+      b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); });
+    if(C.html[k]==null){
+      panel.innerHTML=`<div class="loading">Loading…</div>`;
+      try{ const built=await BUILD[k]();
+        if(C.active!==k) return;                    // user moved on while this panel loaded
+        C.html[k]=built;
+      }catch(err){ if(C.active===k) panel.innerHTML=`<div class="err">Couldn't load: ${err.message}</div>`; return; }
+    }
+    panel.innerHTML=C.html[k];
+    wirePanel(k);
+  };
+  row.onclick=ev=>{ const b=ev.target.closest("[data-bub]"); if(b) show(b.dataset.bub); };
+  C.html.sched=panel.innerHTML;   // the default Schedule panel rendered with the page
+  wirePanel("sched");
 }
 
 // ---------- Game logs + box scores (official CFBD game data — no Hashmark ratings) ----------
@@ -3915,7 +3992,7 @@ function gameLogSection(rows, teamId){
   if(!rows.length) return "";
   const bySeason={}; rows.forEach(r=>{ (bySeason[r.season]=bySeason[r.season]||[]).push(r); });
   const seasons=Object.keys(bySeason).map(Number).sort((a,b)=>b-a);
-  let h=`<div class="sec"><div class="sectitle">Game log</div>
+  let h=`<div class="sec"><div class="sectitle">Results &amp; box scores</div>
     <div class="secsub">Every game's official box line. Tap a game for the full box score. Source: CFBD.</div>`;
   seasons.forEach(s=>{
     h+=`<div class="glseason">${s}${s===SEASON_RESULTS?" season":""}</div>`;
@@ -4106,78 +4183,6 @@ function premCard(ic, title, tease, fake){
     <div class="lock"><div class="lockbadge">PREMIUM</div><div class="lt">${tease}</div></div></div>`;
 }
 
-function renderDetail(teamId, comps, board, poll, ts, games){
-  const idx = board.findIndex(b=>String(b.team_id)===String(teamId));
-  if(idx<0){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button></div>
-    <div class="err">No 2026 projection for this team.</div>`; document.querySelector(".back").onclick=load; return; }
-  const b=board[idx], t=b.teams, rank=idx+1, overall=Number(b.overall);
-  const cv={}; comps.forEach(c=>cv[c.component]=Number(c.value));
-  // ONE canonical unit rating (power_ratings.off/def) — the opponent-adjusted, talent-shrunk
-  // off/def quality, the same number the leaderboards show (not the attribution contribution).
-  const off=(b.off!=null?Number(b.off):0), def=(b.def!=null?Number(b.def):0), ap=poll[teamId];
-  const c=hx(t.color);
-  // breakdown shows what drives the OVERALL beyond the offense/defense ratings above
-  const drivers = CORDER.filter(k=>k!=="off_eff"&&k!=="def_eff").map(k=>({k,v:cv[k]||0})).sort((a,b)=>b.v-a.v);
-  const maxabs = Math.max(0.001, ...drivers.map(d=>Math.abs(d.v)));
-  const ratingTip = `Hashmark Rating — ${esc(t.school)}'s 2026 projection (${f3(overall)}, #${rank}). A learned, results-aware blend of unit quality (the offense & defense ratings above), results/Elo, talent, QB, coaching and returning production.`;
-
-  let h = `<div class="detail">
-    <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark">Hashmark<span class="dot">.</span></div></div>
-    <div class="dhead">
-      <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
-      <div><div class="dschool">${esc(t.school)}</div>
-        <div class="dconf">${esc(t.conference||"")} · <span class="rk">#${rank}</span> · 2026 Hashmark</div></div>
-    </div>
-    <div class="drating"><div class="dbig" data-tip="${esc(ratingTip)}">${f3(overall)}</div>
-      <div class="dlbl">Hashmark proj rating</div></div>
-    <div class="od">
-      <div class="odcard o" data-tip="${esc('Off '+f3(off)+' — '+CMETA.off_eff.tip)}">
-        <div class="odk">Off</div><div class="odv">${f3(off)}</div></div>
-      <div class="odcard d" data-tip="${esc('Def '+f3(def)+' — '+CMETA.def_eff.tip)}">
-        <div class="odk">Def</div><div class="odv">${f3(def)}</div></div>
-    </div>
-    <div class="sec" style="padding-top:6px">
-      <div class="cmpcta" id="dcmpcta"><span class="ar"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg></span>Compare ${esc(t.school)} vs another team</div>
-    </div>
-    <div class="sec">
-      <div class="sectitle">What's driving this rating</div>
-      <div class="secsub">Every piece adds up to the rating above — the transparency other rankings don't show. Tap any row for what it means.</div>`;
-  drivers.forEach(d=>{
-    const m=CMETA[d.k], w=Math.abs(d.v)/maxabs*48;
-    const bar = d.v>=0 ? `<i class="pos" style="left:50%;width:${w}%"></i>`
-                       : `<i class="neg" style="right:50%;width:${w}%"></i>`;
-    h += `<div class="driver" data-tip="${esc(m.name+' '+f3(d.v)+' — '+m.tip)}">
-      <div class="dvk">${m.name}</div>
-      <div class="dvbar"><span class="mid"></span>${bar}</div>
-      <div class="dvv">${f3(d.v)}</div></div>`;
-  });
-  h += `</div>
-    <div class="sec"><div class="sectitle">2025 <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> 2026</div>
-      <div class="ctx">
-        <div class="ctxcol"><div class="y">2025 finish</div><div class="v">${ts?(ts.wins+'–'+ts.losses):(ap?('#'+ap):'NR')}</div>
-          <div class="vs">${ap?'#'+ap+' AP':'unranked (AP)'}</div></div>
-        <div class="ctxarrow"><svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div>
-        <div class="ctxcol"><div class="y">2026 projection</div><div class="v">#${rank}</div>
-          <div class="vs">Hashmark</div></div>
-      </div>
-    </div>
-    ${scheduleSection(games||[], teamId)}
-    <div class="sec"><div class="sectitle">Go deeper</div>
-      <div class="secsub">Premium unlocks the forward-looking model for ${esc(t.school)}.</div>`;
-  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg>',"Schedule projections","Unlock game-by-game win probabilities for all 12 games",
-    `<div class="fakebar" style="width:92%"></div><div class="fakebar" style="width:74%"></div><div class="fakebar" style="width:84%"></div>`);
-  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg>',"Playoff simulator","See CFP & conference-title odds from a 1,000-season Monte Carlo",
-    `<div class="fakebar" style="width:58%"></div><div class="fakebar" style="width:40%"></div>`);
-  h += premCard('<svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>',"Ask Hashmark",`Ask anything about ${esc(t.school)}'s outlook, matchups and roster`,
-    `<div class="fakebar" style="width:95%"></div><div class="fakebar" style="width:68%"></div>`);
-  h += `</div>
-    <div class="note"><b>${phaseTitle()} — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings (finishing + success rate + efficiency, with coordinator track records folded in where the staff changed); the breakdown shows each factor's contribution to the overall rating. ${SEASON_PHASE.started?`Updated weekly as ${SEASON_SCHED} results land.`:"Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer."} ${BRAND_LINE}</div></div>`;
-  app.innerHTML = h;
-  document.querySelector(".back").onclick = load;
-  const dc=document.getElementById("dcmpcta");
-  if(dc) dc.onclick = ()=> openCompare(teamId);
-}
-
 // ---------- compare tool (free-tier flagship: single-game projection) ----------
 // Engine constants from the Hashmark model (wf-ridge-v1). The margin model is
 //   margin = beta * zdiff + hfa * home_field   (build_winprob.py serving engine)
@@ -4229,7 +4234,7 @@ async function openCompare(aId, bId){
     drawCompare();
   }catch(e){
     app.innerHTML = `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-      <div class="wordmark">Hashmark<span class="dot">.</span></div></div>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
       <div class="err">Couldn't load matchup: ${e.message}</div>`;
     document.querySelector(".back").onclick = load;
   }
@@ -4295,7 +4300,7 @@ function drawCompare(){
 
   let h=`<div class="cmp">
     <div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-      <div class="wordmark">Hashmark<span class="dot">.</span></div>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
       <div class="cmptag">Compare</div></div>
     <div class="pickrow">${pickCard("a")}<div class="pickvs">VS</div>${pickCard("b")}</div>
     <div class="venue"><div class="toggle">`;
@@ -4376,12 +4381,12 @@ function openPicker(slot){
   const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
   function draw(q){
     q=(q||"").toLowerCase().trim();
-    list.innerHTML = board2026.filter(b=>b.teams && b.teams.school.toLowerCase().includes(q))
+    list.innerHTML = board2026.filter(b=>teamMatch(b.teams,q))
       .map(b=>{ const t=b.teams, c=hx(t.color), dis=String(b.team_id)===String(other);
         return `<div class="pitem${dis?' dis':''}" data-id="${b.team_id}">
           <div class="prk">${boardRank(b.team_id)}</div>
           <div class="pcr" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
-          <div><div class="pnm">${esc(t.school)}</div><div class="pcf">${esc(t.conference||"")}</div></div>
+          <div><div class="pnm">${esc(teamFull(t))}</div><div class="pcf">${esc(t.conference||"")}</div></div>
           <div class="pov">${f3(b.overall)}</div></div>`; }).join("")
       || `<div class="loading" style="padding:30px">No teams match "${esc(q)}"</div>`;
     list.scrollTop=0;   // batch 7 #1: same stale-scroll fix as teamPicker
@@ -4459,7 +4464,7 @@ const ordinal = n => { const v=n%100, s=["th","st","nd","rd"]; return n+(s[(v-20
 const rankBucket = p => p>=80?"elite":p>=60?"good":p>=40?"avg":p>=20?"below":"poor";
 function backHeader(tag){
   return `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
-    <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">${tag}</div></div>`;
+    <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div><div class="cmptag">${tag}</div></div>`;
 }
 async function statRows(key){
   if(!_statCache[key]) _statCache[key] = await api(
@@ -4695,21 +4700,53 @@ function teamLeaders(players){
   return h+`</div>`;
 }
 function teamHonors(honors){
-  const aa=honors.filter(h=>h.ranking_type==="all_american");
-  const cons=aa.filter(h=>h.source==="Consensus");
-  const single=aa.filter(h=>h.source!=="Consensus");
-  const poll=honors.filter(h=>h.ranking_type==="preseason_poll");
-  if(!aa.length && !poll.length) return "";
-  const seen=new Set(); let h=`<div class="sec"><div class="sectitle">Around CFB — preseason 2026</div>
-    <div class="secsub">Third-party preseason honors &amp; rankings, attributed to each outlet — <b>not</b> Hashmark ratings.</div>`;
+  // batch 12 #4: the team Honors panel — every third-party preseason honor for this
+  // team's players across all_america / all_conference / award watch lists, one row per
+  // player with the lists CHIP-STACKED ("Walter Camp 1st Team AA · Athlon 1st Team"),
+  // each chip linking to its source. Facts + attribution only.
+  const isConfPoll=x=>/\(conference poll\)/i.test(x.group_or_poll||"");
+  const poll=honors.filter(h=>h.ranking_type==="preseason_poll" && !isConfPoll(h));
+  const confPoll=honors.filter(h=>h.ranking_type==="preseason_poll" && isConfPoll(h));
+  const NAMED=["preseason_all_america","preseason_all_conference","award_watchlist"];
+  const named=honors.filter(h=>NAMED.includes(h.ranking_type) && h.player);
+  const oldAA=honors.filter(h=>h.ranking_type==="all_american");
+  if(!named.length && !oldAA.length && !poll.length && !confPoll.length) return "";
+  // short chip label per honor row
+  const shortSrc=s=>String(s||"").replace(" Football Foundation","").replace(" via On3","")
+    .replace(" Sports","").replace(/ Conference \(official\)| \(official\)/,"");
+  const lvl=s=>String(s||"").replace(/^First/,"1st").replace(/^Second/,"2nd")
+    .replace(/ (Offense|Defense|Special Teams)$/,"");
+  const chipLbl=x=>{
+    if(x.ranking_type==="preseason_all_america") return `${shortSrc(x.source)} ${lvl(x.team_label)} AA`;
+    if(x.ranking_type==="award_watchlist") return `${x.group_or_poll} watch list`;
+    if(/^(First|Second|Watch List)/.test(x.team_label||""))
+      return `${shortSrc(x.group_or_poll)} ${/^Watch List/.test(x.team_label)?"preseason watch list":lvl(x.team_label)+" Team All-Conference"}`;
+    return `${shortSrc(x.group_or_poll)} ${x.team_label}`;   // a league preseason award
+  };
+  // fold the earlier June all_american rows in as chips, skipping outlets that now have a
+  // fuller per-outlet list seeded (Phil Steele June subset vs the July full team)
+  const newSrc=new Set(named.filter(x=>x.ranking_type==="preseason_all_america")
+    .map(x=>shortSrc(x.source).toLowerCase()));
+  const folded=oldAA.filter(x=>x.source!=="Consensus" && !newSrc.has(shortSrc(x.source).toLowerCase()))
+    .map(x=>({...x, _lbl:`${shortSrc(x.source)} preseason AA`}))
+    .concat(oldAA.filter(x=>x.source==="Consensus").map(x=>({...x, _lbl:"Consensus preseason AA (2+ outlets)"})));
+  let h=`<div class="sec"><div class="sectitle">Around CFB — preseason 2026</div>
+    <div class="secsub">Third-party preseason honors &amp; rankings, attributed and linked to each outlet — <b>not</b> Hashmark ratings.</div>`;
   poll.forEach(x=>{ h+=`<div class="honor"><div class="hb">${esc((x.source||"").toUpperCase().slice(0,10))}</div>
     <div class="hn">Projected <b>#${x.rank}</b> in <a class="srcpill" href="${esc(x.source_url)}" target="_blank" rel="noopener">${esc(x.source)}'s 2026 preseason Top&nbsp;25</a></div></div>`; });
-  const row=(x,badge)=>{ seen.add(normName(x.player));
-    return `<div class="honor"><div class="hb">${badge}</div>
-      <div class="hn">${esc(x.player)} <small>· ${esc(x.position||"")}</small></div>
-      <div class="hpos">preseason AA</div></div>`; };
-  cons.forEach(x=>{ h+=row(x,"CONSENSUS"); });
-  single.forEach(x=>{ if(seen.has(normName(x.player))) return; h+=row(x, x.source==="ESPN"?"ESPN":"P. STEELE"); });
+  confPoll.forEach(x=>{ h+=`<div class="honor"><div class="hb">${esc((x.source||"").toUpperCase().slice(0,10))}</div>
+    <div class="hn">Picked <b>#${x.rank}</b> in the <a class="srcpill" href="${esc(x.source_url)}" target="_blank" rel="noopener">${esc((x.group_or_poll||"").replace(" (conference poll)",""))} preseason poll</a></div></div>`; });
+  const byPlayer={};
+  named.concat(folded).forEach(x=>{ const k=normName(x.player);
+    (byPlayer[k]=byPlayer[k]||{player:x.player, pos:x.position, items:[]}).items.push(x); });
+  Object.values(byPlayer).sort((a,b)=>b.items.length-a.items.length || a.player.localeCompare(b.player))
+    .forEach(p=>{
+      const chips=p.items.map(x=>{ const lbl=esc(x._lbl||chipLbl(x));
+        return x.source_url?`<a class="srcpill" href="${esc(x.source_url)}" target="_blank" rel="noopener">${lbl}</a>`
+          :`<span class="srcpill">${lbl}</span>`; }).join(" ");
+      h+=`<div class="honor"><div class="hb">${p.items.length}×</div>
+        <div class="hn">${esc(p.player)} <small>· ${esc(p.pos||"")}</small><div class="hstack">${chips}</div></div></div>`;
+    });
   return h+`</div>`;
 }
 
@@ -5008,7 +5045,12 @@ function renderPreseason(rows){
   const aa=rows.filter(r=>r.ranking_type==="all_american");
   const cons=aa.filter(r=>r.source==="Consensus");
   const espn=aa.filter(r=>r.source==="ESPN"), steele=aa.filter(r=>r.source==="Phil Steele");
-  const poll=rows.filter(r=>r.ranking_type==="preseason_poll").sort((a,b)=>a.rank-b.rank);
+  const isConfPoll=r=>/\(conference poll\)/i.test(r.group_or_poll||"");
+  const poll=rows.filter(r=>r.ranking_type==="preseason_poll" && !isConfPoll(r)).sort((a,b)=>a.rank-b.rank);
+  const confPolls=rows.filter(r=>r.ranking_type==="preseason_poll" && isConfPoll(r)).sort((a,b)=>a.rank-b.rank);
+  const fullAA=rows.filter(r=>r.ranking_type==="preseason_all_america");
+  const allConf=rows.filter(r=>r.ranking_type==="preseason_all_conference");
+  const watch=rows.filter(r=>r.ranking_type==="award_watchlist");
   const asof=(rows.find(r=>r.as_of_date)||{}).as_of_date||"";
   const link=(src,url)=>url?`<a class="srcpill" href="${esc(url)}" target="_blank" rel="noopener"><b>${esc(src)}</b> <svg class="ic" aria-hidden="true"><use href="#i-up-r"/></svg></a>`:`<span class="srcpill"><b>${esc(src)}</b></span>`;
   const teamTap=r=>r.team_id?` data-team="${r.team_id}"`:"";
@@ -5047,6 +5089,62 @@ function renderPreseason(rows){
   h+=srcBlock("ESPN", espn, espn[0]&&espn[0].source_url);
   h+=srcBlock("Phil Steele", steele, steele[0]&&steele[0].source_url);
 
+  // ---- batch 12 #4: preseason All-America — FULL teams, by outlet (attributed) ----
+  const aaCell=r=>`<div class="aacell"><div class="ap">${esc(r.position||"")}</div>
+    <div class="anm">${esc(r.player)}</div><div class="asc">${esc((teamMeta[r.team_id]||{}).school||r.school)}</div></div>`;
+  if(fullAA.length){
+    h+=`<div class="sec"><div class="sectitle">Preseason All-America — by outlet</div>
+      <div class="secsub">Full published teams, per outlet — facts only (player · position · school), each list linked to its source. Spelling variants are normalized to one name; the source's own spelling is preserved in our records.</div>`;
+    const byOut={}; fullAA.forEach(r=>{ (byOut[r.source]=byOut[r.source]||[]).push(r); });
+    Object.keys(byOut).sort().forEach(src=>{
+      const list=byOut[src];
+      const byLvl={}; list.forEach(r=>{ (byLvl[r.team_label]=byLvl[r.team_label]||[]).push(r); });
+      h+=`<div class="sgtitle" style="margin-top:10px">${esc(src)} ${link("source",list[0].source_url)}</div>`;
+      Object.keys(byLvl).sort().forEach(lb=>{
+        h+=`<div class="secsub" style="padding:4px 2px 2px"><b>${esc(lb)}</b></div><div class="aagrid">${byLvl[lb].map(aaCell).join("")}</div>`; });
+    });
+    h+=`</div>`;
+  }
+
+  // ---- batch 12 #4: preseason All-Conference — by league (official releases) ----
+  if(allConf.length){
+    h+=`<div class="sec"><div class="sectitle">Preseason All-Conference — by league</div>
+      <div class="secsub">Official league releases only, seeded as printed (CUSA switched to a 50-player watch-list format; the Mountain West's release includes North Dakota State as printed). SEC, ACC, American and the Big Ten media poll release through late July — they appear here automatically as our tracker ingests them.</div>`;
+    const byConf={}; allConf.forEach(r=>{ (byConf[r.group_or_poll]=byConf[r.group_or_poll]||[]).push(r); });
+    Object.keys(byConf).sort().forEach(cn=>{
+      const list=byConf[cn];
+      h+=`<div class="sgtitle" style="margin-top:10px">${esc(cn)} ${link("official release",list[0].source_url)}</div>`;
+      const awards=list.filter(r=>!/^(First|Second|Watch List)/.test(r.team_label||""));
+      if(awards.length) h+=awards.map(r=>`<div class="honor"><div class="hb">AWARD</div>
+        <div class="hn">${esc(r.team_label)}: <b>${esc(r.player)}</b> <small>· ${esc(r.position||"")} · ${esc((teamMeta[r.team_id]||{}).school||r.school)}</small></div></div>`).join("");
+      const byLvl={}; list.filter(r=>/^(First|Second|Watch List)/.test(r.team_label||"")).forEach(r=>{ (byLvl[r.team_label]=byLvl[r.team_label]||[]).push(r); });
+      Object.keys(byLvl).sort().forEach(lb=>{
+        h+=`<div class="secsub" style="padding:4px 2px 2px"><b>${esc(lb)}</b></div><div class="aagrid">${byLvl[lb].map(aaCell).join("")}</div>`; });
+    });
+    h+=`<div class="secsub" style="padding-top:8px"><b>Pac-12:</b> no preseason all-conference team exists — the rebuilt league staged no media days and has released no preseason honors. Nothing to show is the honest state.</div>`;
+    h+=`</div>`;
+  }
+
+  // ---- batch 12 #4: national award watch lists — collapsible per award (they're long) ----
+  if(watch.length){
+    const accP=(id,title,sub,inner)=>`<div class="acc">
+      <button class="acchdr" aria-expanded="false" aria-controls="accb-${id}" data-acc="${id}">
+        <span>${title}</span><small>${sub||""}</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+      <div class="accbody" id="accb-${id}" hidden>${inner}</div></div>`;
+    h+=`<div class="sec"><div class="sectitle">National award watch lists</div>
+      <div class="secsub">Preseason watch lists, per the awarding body. The NCFAA lists (Maxwell, Nagurski, Outland, Butkus, Thorpe and friends) release Jul 28 – Aug 11 and appear here as they land.</div>`;
+    const byAward={}; watch.forEach(r=>{ (byAward[r.group_or_poll]=byAward[r.group_or_poll]||[]).push(r); });
+    Object.keys(byAward).sort().forEach((aw,i)=>{
+      const list=byAward[aw];
+      const partial=(list[0].note||"").toLowerCase().includes("partial");
+      const inner=`<div class="aagrid">${list.map(aaCell).join("")}</div>
+        ${partial?`<div class="secsub" style="padding:6px 2px 0">Partial list — only the slice we could verify is shown; the full list lands via our release-calendar tracker.</div>`:""}
+        ${list[0].source_url?`<div class="morelink">${link("Full list at the source",list[0].source_url)}</div>`:""}`;
+      h+=accP(`award${i}`, esc(aw), `${list.length} name${list.length===1?"":"s"}${partial?" · partial":""}`, inner);
+    });
+    h+=`</div>`;
+  }
+
   // Preseason Top 25 — EVERY source, per-source lists + a consensus (brief #6: no single
   // outlet is featured as THE source; facts only, attributed and linked)
   const bySrc={}; poll.forEach(r=>{ (bySrc[r.source]=bySrc[r.source]||[]).push(r); });
@@ -5081,6 +5179,18 @@ function renderPreseason(rows){
   } else {
     h+=`<div class="secsub">The official AP &amp; Coaches preseason Top 25 release in August — they'll appear here automatically (CFBD).</div>`;
   }
+  // batch 12 #4: conference coaches polls render separately — divisional ranks are not
+  // national Top-25 votes, so they stay out of the consensus above
+  if(confPolls.length){
+    const byCP={}; confPolls.forEach(r=>{ (byCP[`${r.source}|${r.group_or_poll}`]=byCP[`${r.source}|${r.group_or_poll}`]||[]).push(r); });
+    h+=`<div class="sgtitle" style="margin-top:12px">Conference preseason polls <small>official league polls · not part of the consensus</small></div>`;
+    Object.keys(byCP).sort().forEach(k=>{ const list=byCP[k].slice().sort((a,b)=>a.rank-b.rank);
+      h+=`<div class="secsub" style="padding:4px 2px 2px"><b>${esc((list[0].group_or_poll||"").replace(" (conference poll)",""))}</b> — ${esc(list[0].source)} ${link("source",list[0].source_url)}</div>`;
+      list.forEach(r=>{ const t=teamMeta[r.team_id];
+        h+=`<div class="t25row"${r.team_id?` data-team="${r.team_id}"`:""}><div class="trk">${r.rank}</div>
+          ${crestEl("schedcr",(t?t.school:r.school),t?hx(t.color):"#384455")}
+          <div class="tnm">${esc(t?t.school:r.school)}${r.note?`<small> ${esc(r.note)}</small>`:""}</div></div>`; }); });
+  }
   h+=`</div>`;
 
   h+=`<div class="note"><b>Preseason 2026 — third-party.</b> All selections belong to the cited outlets and link to their source; Hashmark compiles a consensus only where 2+ agree and copies facts only, never their analysis. ${BRAND_LINE}</div></div></div>`;
@@ -5093,7 +5203,7 @@ let _searchTeams=null;
 async function ensureSearchTeams(){
   if(_searchTeams) return _searchTeams;
   await ensureTeamMeta();
-  _searchTeams=Object.entries(teamMeta).map(([id,t])=>({id,school:t.school,conference:t.conference,color:t.color}))
+  _searchTeams=Object.entries(teamMeta).map(([id,t])=>({id,school:t.school,mascot:t.mascot,conference:t.conference,color:t.color}))
     .sort((a,b)=>a.school.localeCompare(b.school));
   return _searchTeams;
 }
@@ -5103,9 +5213,9 @@ function wireSearch(){
   const run=async()=>{ const q=inp.value.trim().toLowerCase();
     if(!q){ res.style.display="none"; return; }
     const list=await ensureSearchTeams();
-    const hits=list.filter(t=>t.school.toLowerCase().includes(q)).slice(0,8);
+    const hits=list.filter(t=>teamMatch(t,q)).slice(0,8);
     res.innerHTML=hits.map(t=>`<div class="sropt" data-team="${t.id}">
-      ${crestEl("src",t.school,hx(t.color))}<div class="snm">${esc(t.school)}</div>
+      ${crestEl("src",t.school,hx(t.color))}<div class="snm">${esc(teamFull(t))}</div>
       <div class="scf">${esc(t.conference||"")}</div></div>`).join("")||`<div class="sropt"><div class="snm" style="color:var(--text2)">No team found</div></div>`;
     res.style.display="block"; };
   inp.oninput=run; inp.onfocus=run;
@@ -5123,8 +5233,20 @@ document.body.addEventListener("mouseout", e=>{const el=e.target.closest("[data-
 document.body.addEventListener("click",    e=>{const el=e.target.closest("[data-tip]");if(el){showTip(el);e.stopPropagation();}else hideTip();});
 document.addEventListener("scroll", hideTip, {passive:true, capture:true});   // S2: bubble dismisses on scroll (any container)
 // tap a ranking row (anywhere but its number/tooltip) -> open the team detail page
+// batch 12 #2: the HASHMARK. wordmark is a home link from every header variant (main,
+// detail .dtop, compare .cmptop, landing) — pushes a history state like any nav.
+function goHome(){
+  const st=history.state;
+  if(st && st.hm && st.v==="home"){ window.scrollTo(0,0); return; }   // already home: just scroll up
+  navPush("home",{view});
+  load(); window.scrollTo(0,0);
+}
+document.body.addEventListener("keydown", e=>{
+  if((e.key==="Enter"||e.key===" ") && e.target.closest && e.target.closest(".wordmark")){ e.preventDefault(); goHome(); }
+});
 document.body.addEventListener("click", e=>{
   if(e.target.closest("[data-tip]")) return;
+  const wm=e.target.closest(".wordmark"); if(wm){ goHome(); return; }
   // accounts (optional): account button, auth-modal actions, modal close
   const ax=e.target.closest("[data-authx]"); if(ax){ closeAuth(); return; }
   const au=e.target.closest("[data-auth]"); if(au){ authAction(au.dataset.auth); return; }
@@ -5353,7 +5475,7 @@ async function tabMyTeam(){
   const fav = favTeamId();
   if(fav){ openDetail(fav); return; }
   const ts = await ensureSearchTeams();
-  let h = `<div class="cmp"><div class="cmptop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
+  let h = `<div class="cmp"><div class="cmptop"><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
     <div class="cmptag">Pick your team</div></div>
     <div class="secsub" style="padding:6px 4px">Pick your team — it leads the home page every visit. Change it any time from the team page.</div>
     <div class="searchwrap" style="margin:0 2px 8px"><span class="si"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></span>
@@ -5361,7 +5483,7 @@ async function tabMyTeam(){
     <div class="list">`;
   ts.slice().sort((a,b)=>a.school.localeCompare(b.school)).forEach(t=>{
     h+=`<div class="row" data-pickfav="${t.id}" style="cursor:pointer;min-height:44px">
-      ${crestEl("src",t.school,hx(t.color))}<div style="flex:1"><b>${esc(t.school)}</b>
+      ${crestEl("src",t.school,hx(t.color))}<div style="flex:1"><b>${esc(teamFull(t))}</b>
       <div class="conf">${esc(t.conference||"")}</div></div><svg class="ic" style="color:var(--text3)"><use href="#i-chev-r"/></svg></div>`;
   });
   h+=`</div></div>`;
@@ -5620,18 +5742,12 @@ function gauntletHTML(teamId, games, wpm, compact){
     <div class="secsub" style="padding:2px 2px 0">Projected: <b>${probs.reduce((a,b)=>a+b,0).toFixed(1)} wins</b> (${SEASON_SCHED}, model win probabilities). The single most common record, ${dist.indexOf(dmax)}-${games.length-dist.indexOf(dmax)}, lands in ${Math.round(dmax*100)} of 100 seasons — every other total splits the rest.</div></div>`;
 }
 
-// ================= Batch 11 PART C: team-page intelligence sections =================
-// Four collapsible sections (recruiting / availability / portal / coaching), injected
-// async so a missing pipeline degrades to an honest empty state. Placement: after the
-// schedule, before the ratings section (hero > news > accordions > schedule > THESE > ratings).
-const _accIntel=(id,title,sub,inner)=> inner?`<div class="acc">
-  <button class="acchdr" aria-expanded="false" aria-controls="accb-${id}" data-acc="${id}">
-    <span>${title}</span><small>${sub||""}</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
-  <div class="accbody" id="accb-${id}" hidden>${inner}</div></div>`:"";
-async function injectTeamIntel(teamId){
-  const host=document.getElementById("tp-intel");
-  if(!host) return;
-  const t=teamMeta[teamId]||{school:"?"};
+// ============ Batch 11 PART C intelligence, batch 12 #3 bubble panels ============
+// Recruiting / availability / portal / coaching — one shared lazy fetch feeding four
+// bubble panels (wireTeamPanels), each degrading to an honest empty state. Same content
+// + gating as batch 11: injury COUNTS free, player rows + sources HASHMARK+.
+async function teamIntelData(teamId, t){
+  t=t||teamMeta[teamId]||{school:"?"};
   const J=(q)=>api(q).catch(()=>[]);
   const [cls, commits, portal, pe, staff, avail, news]=await Promise.all([
     J(`recruiting_class?select=*&team_id=eq.${teamId}&order=class_year.asc`),
@@ -5698,19 +5814,68 @@ async function injectTeamIntel(teamId){
   } else coa=`<div class="secsub" style="padding:6px 2px">Staff data publishes with the ${SEASON_SCHED} coaching pull.</div>`;
   const coaNews=news.filter(n=>/coach|coordinator|staff|hire|fired/i.test(n.headline)).slice(0,3);
   if(coaNews.length) coa+=`<div class="ha" style="padding:8px 2px 2px">Coaching headlines — cited sources.</div>`+coaNews.map(newsRow).join("");
-  host.innerHTML=
-    _accIntel("recruit", `Recruiting — classes of ${SEASON_SCHED} + ${SEASON_SCHED+1}`, "commits + cited intel", rec)
-    +_accIntel("avail", "Injuries and availability", avail.length?"counts free · detail Hashmark+":"in-season", inj)
-    +_accIntel("portal", `Transfer portal — ${SEASON_SCHED} cycle`, "incoming and outgoing", por)
-    +_accIntel("staff", `Coaching staff — ${SEASON_SCHED}`, "who runs the show", coa);
-  const idb=document.getElementById("injdetail");
-  if(idb) idb.onclick=async()=>{
+  const sec=(title,sub,inner)=>`<div class="sec"><div class="sectitle">${title} <small>${sub||""}</small></div>${inner}</div>`;
+  return {
+    rec: sec(`Recruiting — classes of ${SEASON_SCHED} + ${SEASON_SCHED+1}`, "commits + cited intel", rec),
+    inj: sec("Injuries and availability", avail.length?"counts free · detail Hashmark+":"in-season", inj),
+    por: sec(`Transfer portal — ${SEASON_SCHED} cycle`, "incoming and outgoing", por),
+    coa: sec(`Coaching staff — ${SEASON_SCHED}`, "who runs the show", coa),
+    avail, BUCKET,
+  };
+}
+// the injuries gate seam (batch 11 C2, unchanged): counts render free; the full player-by-
+// player report with sources sits behind the HASHMARK+ upsell.
+function wireInjGate(panel, intel){
+  const idb=panel.querySelector("#injdetail");
+  if(!idb || !intel) return;
+  idb.onclick=async()=>{
     if(PLUS_GATED.injury_detail && !(await plusUpsell("The full availability report",
       "Player-by-player status with the SOURCE behind every line — a Hashmark+ view; free while we're in preview."))) return;
-    document.getElementById("injrows").innerHTML=avail.map(r=>`<div class="stgame"><div class="stopp"><div>
+    const rows=panel.querySelector("#injrows");
+    if(rows) rows.innerHTML=intel.avail.map(r=>`<div class="stgame"><div class="stopp"><div>
       <div class="on">${esc(r.player||"?")} <small>${esc(r.position||"")}</small></div>
-      <div class="ha">${esc(BUCKET(r.status))} · source: ${esc(r.source||"report")} · ${new Date(r.fetch_ts).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div></div></div></div>`).join("");
+      <div class="ha">${esc(intel.BUCKET(r.status))} · source: ${esc(r.source||"report")} · ${new Date(r.fetch_ts).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div></div></div></div>`).join("");
     idb.remove();
+  };
+}
+// batch 12 #3: the per-team NIL panel — this team's tier + confidence + every attributed
+// figure w/ links, or the honest limited-disclosure state; the 2025 performance-vs-money
+// band rides the same HASHMARK+ lane as the NIL Economy boards (tier free, detail gated).
+function teamNILPanel(n, t){
+  let h=`<div class="sec"><div class="sectitle">NIL — ${SEASON_SCHED} <small>attributed estimates</small></div>`;
+  if(n.tier){
+    const r=n.tier, srcs=nilSrcs(r), disputed=srcs.some(s=>s.disputed);
+    const confTxt=r.confidence==="high"?"on record":r.confidence==="medium"?"multiple reports":"single source";
+    h+=`<div class="secsub" style="padding:2px 2px 8px">Tier <b>${r.tier}</b>${r.tier_label?` — ${esc(r.tier_label)}`:""}
+      <span class="nilconf ${esc(r.confidence||"low")}">${confTxt}</span>${disputed?`<span class="nilconf disputed">disputed</span>`:""}</div>`;
+    h+=srcs.map(s=>nilFigLine({source:s.source, url:s.url, type:(s.type||"").replace(/_/g," "), range:s.range})
+      +(s.disputed?`<div class="ha" style="padding:0 0 6px;color:#E8B657">This figure was publicly disputed by the program.</div>`:"")).join("")
+      || `<div class="ha">Tier assignment only — no stored point figures.</div>`;
+    if(r.sources&&r.sources.confidence_note) h+=`<div class="ha" style="padding:6px 0 0">${esc(r.sources.confidence_note)}</div>`;
+  } else {
+    h+=`<div class="secsub" style="padding:2px 2px 8px"><b>Limited public disclosure.</b> ${n.ds&&n.ds.note?esc(n.ds.note)+". ":"Searched — nothing attributable to a credible source. "}Schools don't publish football NIL/rev-share spending and we don't guess. League context where it exists: P4 programs typically est. $13-15M; most G5 rosters under est. $5M.</div>`;
+  }
+  if(n.perf) h+=`<div id="tpnilband"><div class="navrow" style="padding-top:8px">
+    <button class="navbtn primary" id="tpnilperf">${SEASON_RESULTS}: performance vs the money <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
+  h+=`<div class="navrow" style="padding-top:8px"><button class="navbtn" id="tpnilboard">Full NIL Economy board</button></div>`;
+  h+=`<div class="ha" style="padding:8px 2px 0">${NIL_DISCLAIMER}</div></div>`;
+  return h;
+}
+function wireNILPanel(panel, n, t){
+  const bb=panel.querySelector("#tpnilboard"); if(bb) bb.onclick=()=>openNILEconomy();
+  const pb=panel.querySelector("#tpnilperf");
+  if(pb && n && n.perf) pb.onclick=async()=>{
+    if(PLUS_GATED.nil_efficiency && !(await plusUpsell(`${SEASON_RESULTS}: performance vs the money`,
+      "How this team's final 2025 season measured against its estimated roster money — the band, the range and every source. Free during preview."))) return;
+    const r=n.perf;
+    const BANDL={outperformed:"Outperformed the money", in_line:"In line with the money",
+      underperformed:"Underperformed the estimate", tier_context:"Tier context only"};
+    const host=panel.querySelector("#tpnilband");
+    if(host) host.innerHTML=`<div class="secsub" style="padding:8px 2px 0"><b>${BANDL[r.band]||esc(r.band||"—")}</b> —
+      ${r.wins!=null?`${r.wins}-${r.losses} in ${SEASON_RESULTS}`:`${SEASON_RESULTS} season`} on
+      ${r.est_low_musd!=null?`est. $${Number(r.est_low_musd).toFixed(0)}-${Number(r.est_high_musd).toFixed(0)}M`:"a tier-only estimate"}
+      (${esc(r.confidence||"tier basis")})${r.disputed?" · figure disputed by the program":""}.
+      The full board lives in NIL Economy under ${SEASON_RESULTS} performance.</div>`;
   };
 }
 async function injectTeamViz(teamId){
@@ -6077,8 +6242,11 @@ async function openUpsetRadar(){
   }catch(e){}
   if(!crowd){
     // preseason empty-state: the model board vs the multi-outlet preseason consensus
-    const ext=await api(`external_rankings?select=team_id,rank,source&season=eq.${SEASON_SCHED}&ranking_type=eq.preseason_poll`);
-    const agg={}; ext.forEach(r=>{ if(r.team_id==null) return; (agg[r.team_id]=agg[r.team_id]||[]).push(Number(r.rank)); });
+    const ext=await api(`external_rankings?select=team_id,rank,source,group_or_poll&season=eq.${SEASON_SCHED}&ranking_type=eq.preseason_poll`);
+    // batch 12 #4: conference coaches polls (divisional ranks 1-7) must not blend into the
+    // national consensus — they'd read as top-7 national votes
+    const natl=ext.filter(r=>!/\(conference poll\)/i.test(r.group_or_poll||""));
+    const agg={}; natl.forEach(r=>{ if(r.team_id==null) return; (agg[r.team_id]=agg[r.team_id]||[]).push(Number(r.rank)); });
     const cons=Object.entries(agg).filter(([,v])=>v.length>=2)
       .map(([tid,v])=>({tid, avg:v.reduce((s,x)=>s+x,0)/v.length, n:v.length}));
     const rows=cons.map(c=>{ const mi=board2026.findIndex(b=>String(b.team_id)===String(c.tid));
@@ -6264,7 +6432,7 @@ async function openLanding(){
     <div><b>${title}</b><small>${body}</small></div></div>`;
   app.innerHTML=`<div class="landing">
     <div class="landhero">
-      <div class="wordmark" style="font-size:34px">Hashmark<span class="dot">.</span></div>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home" style="font-size:34px">Hashmark<span class="dot">.</span></div>
       <div class="landtag">Gambling-free college football analytics — official stats, a model that shows its work, and tools built for fans.</div>
     </div>
     ${row("check","Checking our work, in public",accLine)}
@@ -6415,9 +6583,9 @@ async function omniRun(q){
     h+=`<div class="r-row" data-tool="${i}"><svg class="ic" style="color:var(--amber)"><use href="#i-${t[1]}"/></svg><b>${t[0]}</b></div>`; });
   if(q){
     try{
-      const teams=(await ensureSearchTeams()).filter(t=>t.school.toLowerCase().includes(ql)).slice(0,6);
+      const teams=(await ensureSearchTeams()).filter(t=>teamMatch(t,ql)).slice(0,6);
       teams.forEach(t=>{ h+=`<div class="r-row" data-team="${t.id}">${crestEl("src",t.school,hx(t.color))}
-        <div><b>${esc(t.school)}</b><div class="conf">${esc(t.conference||"")} · team</div></div></div>`; });
+        <div><b>${esc(teamFull(t))}</b><div class="conf">${esc(t.conference||"")} · team</div></div></div>`; });
       if(q.length>=2){
         const players=await api(`player_index?select=athlete_id,player,team_id,position&name_lower=ilike.*${encodeURIComponent(ql)}*&order=last_season.desc&limit=6`);
         players.forEach(p=>{ const t=teamMeta[p.team_id]||{};
@@ -6587,7 +6755,7 @@ async function openWhatWins(){
 /* ---------------- Explore hub ---------------- */
 async function openExplore(){
   window.scrollTo(0,0);
-  let h=`<div class="cmp"><div class="cmptop"><div class="wordmark">Hashmark<span class="dot">.</span></div>
+  let h=`<div class="cmp"><div class="cmptop"><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
     <div class="cmptag">Explore</div>
     <button class="navbtn" style="margin-left:auto;flex:none;min-height:44px" id="xsearch"><svg class="ic"><use href="#i-search"/></svg></button></div>
   <div class="card card-hero-amber" id="xsim" style="margin:10px 2px;padding:15px;cursor:pointer">
@@ -6631,7 +6799,7 @@ async function openMovers(){
   let rows=[];
   try{ rows=await api(`poll_rankings_history?select=season,week,rank,team_id&poll=eq.AP%20Top%2025&order=season.desc,week.desc&limit=100`);}catch(e){}
   let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic"><use href="#i-chev-l"/></svg></button>
-    <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Weekly movers</div></div>`;
+    <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div><div class="cmptag">Weekly movers</div></div>`;
   const weeks=[...new Set(rows.map(r=>r.season*100+r.week))].sort((a,b)=>b-a);
   if(weeks.length<2){
     h+=`<div class="card" style="margin:12px 2px;padding:16px"><b>Movement starts Week 1.</b>
@@ -6920,7 +7088,7 @@ async function openSignature(){
   const collapse=free.find(r=>r.stat_key==="collapse_index");
   const myth=free.find(r=>r.stat_key==="myth_trap_games");
   let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic"><use href="#i-chev-l"/></svg></button>
-    <div class="wordmark">Hashmark<span class="dot">.</span></div><div class="cmptag">Signature stats</div></div>
+    <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div><div class="cmptag">Signature stats</div></div>
     <div class="secsub" style="padding:4px 2px">Named teams, tracked calls — every card links to its own record. Misses stay up.</div>`;
   if(collapse){
     // Batch 8 #8: instant comprehension — gauge + ONE-line claim + 3 driver chips +
