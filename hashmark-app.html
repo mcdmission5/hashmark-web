@@ -5643,6 +5643,7 @@ function navPush(v,p){
     if(cur&&cur.hm) history.replaceState({...cur, scroll:window.scrollY}, "");
     history.pushState({hm:1, v, p:p||{}}, "");
   }catch(e){}
+  try{ syncTabbar(); }catch(_e){}   // U38: the bar swap follows the nav — never IS the nav
 }
 window.addEventListener("popstate", e=>{
   if(typeof simHideFab==="function") simHideFab();   // U2: Back off the sim clears the RUN button
@@ -5657,6 +5658,7 @@ window.addEventListener("popstate", e=>{
   if(!st||!st.hm) return;              // beyond our bottom -> the browser leaves normally
   _navRestoring=true;
   try{ const f=NAV_ROUTES[st.v]; if(f) f(st.p||{}); }catch(_e){}
+  try{ syncTabbar(); }catch(_e){}   // U38: Back across a section boundary swaps the bar too
   setTimeout(()=>{ _navRestoring=false; if(st.scroll!=null) window.scrollTo(0, st.scroll); }, 120);
 });
 try{ history.replaceState({hm:1, v:"home", p:{}}, ""); }catch(e){}
@@ -5719,13 +5721,7 @@ if ("serviceWorker" in navigator) {
 </script>
 
 <nav class="tabbar" id="tabbar" aria-label="Main">
-  <div class="tabs">
-    <button data-tab="home" class="on"><svg class="ic"><use href="#i-home"/></svg>Home</button>
-    <button data-tab="games"><svg class="ic"><use href="#i-cal"/></svg>Games</button>
-    <button data-tab="picks"><svg class="ic"><use href="#i-check"/></svg>Picks</button>
-    <button data-tab="stats" id="tab-stats"><svg class="ic"><use href="#i-chart"/></svg><span>Stats</span></button>
-    <button data-tab="explore"><svg class="ic"><use href="#i-search"/></svg>Explore</button>
-  </div>
+  <div class="tabs" id="tabset"><!-- U38: rendered per-section from TABSETS --></div>
 </nav>
 <div class="omni" id="omni" role="dialog" aria-label="Search Hashmark">
   <div style="display:flex;gap:8px;align-items:center">
@@ -5792,7 +5788,67 @@ function favTeamId(){
   return (typeof authProfile!=="undefined" && authProfile && authProfile.favorite_team_id)
     || Number(localStorage.getItem(GUEST_FAV_KEY)) || null;
 }
-function setTab(name){
+// ================= U38: contextual bottom tabs =================
+// ONE tab-bar component, re-rendered from a per-section config map when the active
+// top-level SECTION changes. Tabs are section DESTINATIONS; bubbles stay in-view
+// content panels (no duplicated destinations with the active view's bubbles — e.g. the
+// stats hub's own statnav sub-tabs are inside the view, never mirrored here). Every tab
+// tap routes through the U17 primitives (wrapped open* / goHome — a real nav push); the
+// bar SWAP itself is only a re-render, never a nav event. Home anchors every set; no
+// dead tabs (Bracket joins the picks set in December with U22).
+const TAB_DEFS={
+  home:     ["Home","home",()=>goHome()],
+  games:    ["Games","cal",()=>openScores()],
+  picks:    ["Picks","check",()=>openPickem()],
+  stats:    ["Stats","chart",()=>openStats()],
+  explore:  ["Explore","search",()=>openExplore()],
+  sim:      ["Sim","trophy",()=>gatedSimulator()],
+  matchup:  ["Matchup","vs",()=>openMatchup()],
+  pkboard:  ["Board","globe",()=>openPickemBoard()],
+  crowd:    ["Crowd/Model","trend",()=>openUpsetRadar()],
+  rankings: ["Rankings","trophy",()=>openPreseason()],
+  signature:["Signature","flame",()=>openSignature()],
+  whatwins: ["What Wins","target",()=>openWhatWins()],
+};
+const TABSETS={
+  home:    ["home","games","picks","stats","explore"],
+  games:   ["home","games","sim","matchup"],
+  picks:   ["home","picks","pkboard","crowd"],
+  stats:   ["home","stats","rankings","signature","whatwins"],
+  explore: ["home","games","picks","stats","explore"],   // Explore keeps the full map
+};
+const VIEW_SECTION={ home:"home", landing:"home",
+  scores:"games", sim:"games", matchup:"games", matchupgrid:"games", box:"games", compare:"games",
+  pickem:"picks", pickemboard:"picks", crowdmodel:"picks",
+  stats:"stats", standings:"stats", standingsboard:"stats", preseason:"stats", signature:"stats",
+  sigboard:"stats", whatwins:"stats", playerrank:"stats", quadrant:"stats", luck:"stats",
+  gauntlet:"stats", gauntletwall:"stats", oddstime:"stats", movers:"stats", nileconomy:"stats",
+  nileff:"stats", nilperf:"stats", nilmethod:"stats", modelhub:"stats", injuries:"stats",
+  whyrating:"stats", rosterecon:"stats",
+  explore:"explore", teams:"explore", newsarchive:"explore", method:"explore",
+  checking:"explore", accuracy:"explore" };
+  // team/player/playercard are reachable from every section, so they are STICKY (keep the current set)
+const VIEW_TAB={ home:"home", scores:"games", sim:"sim", matchup:"matchup", matchupgrid:"matchup",
+  compare:"matchup", box:"games", pickem:"picks", pickemboard:"pkboard", crowdmodel:"crowd",
+  stats:"stats", preseason:"rankings", signature:"signature", sigboard:"signature",
+  whatwins:"whatwins", explore:"explore" };
+let _tabSection="home";
+function renderTabbar(){
+  const host=document.getElementById("tabset"); if(!host) return;
+  host.innerHTML=TABSETS[_tabSection].map(id=>{ const d=TAB_DEFS[id];
+    return `<button data-tab="${id}"><svg class="ic"><use href="#i-${d[1]}"/></svg><span>${d[0]}</span></button>`; }).join("");
+  host.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>TAB_DEFS[b.dataset.tab][2]());
+}
+function syncTabbar(){
+  const v=(history.state||{}).v;
+  const sec=VIEW_SECTION[v]||_tabSection;              // sticky for team/player/etc.
+  if(sec!==_tabSection){ _tabSection=sec; renderTabbar(); }
+  const cur=VIEW_TAB[v];
+  const hl=(cur&&TABSETS[_tabSection].includes(cur))?cur
+    :(TABSETS[_tabSection].includes(_tabSection)?_tabSection:"home");
+  document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.classList.toggle("on", b.dataset.tab===hl));
+}
+function setTab(name){   // U38 compat shim (legacy teaser callers) — highlight only; syncTabbar re-asserts on nav
   document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.classList.toggle("on", b.dataset.tab===name));
 }
 async function openTeams(){ return tabMyTeam(); }   // batch 11 B1: named view for Explore/nav
@@ -5843,9 +5899,9 @@ async function gatedSimulator(){
   // global run, per-team run, CCG odds run share one counter). Name kept for callers.
   openSimulator();
 }
-const TABS = { home:()=>goHome(), games:()=>openScores(), picks:()=>openPickem(),   // U17: the Home tab is a real nav
-               stats:()=>openStats(), explore:()=>openExplore() };   // batch 11 B1: Stats replaces the star tab
-document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.onclick=()=>{ setTab(b.dataset.tab); TABS[b.dataset.tab](); });
+// U38: the per-section tab bar boots here (TABS map + static wiring replaced by
+// TAB_DEFS/TABSETS + renderTabbar/syncTabbar above)
+renderTabbar(); syncTabbar();
 
 /* ================================================================================
    VISUALS CORE (visuals-nil-news brief, Part 1) — lightweight inline SVG, team

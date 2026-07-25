@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v49";   // v49: UG1 - Hashmark Grade reconciled (composite headline + components, LOW SAMPLE badge + shrinkage tooltip, name-collision join fix)
+const VERSION = "hashmark-v50";   // v50: U38 - contextual bottom tabs (per-section sets from one config map, Home anchor everywhere, U17-routed taps, sticky team/player pages)
 const SHELL = [
   "./",
   "./index.html",
