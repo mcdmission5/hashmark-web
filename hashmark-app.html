@@ -174,6 +174,22 @@
   .cmptop .wordmark{font-size:20px}
   .cmptag{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13px;color:var(--text2);
     margin-left:auto;letter-spacing:.4px;text-transform:uppercase}
+  /* U23: the persistent header search icon — ONE element re-mounted into whichever
+     header the active view rendered; margin-left:auto rides flex to the right edge
+     (.cmptop's cmptag already owns the auto margin, so there it just appends after) */
+  .hdrsearch{flex:none;display:flex;align-items:center;justify-content:center;width:34px;height:34px;
+    margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    color:var(--text2);cursor:pointer;padding:0}
+  .hdrsearch .ic{width:15px;height:15px}
+  .hdrsearch:active{border-color:var(--amber);color:var(--amber)}
+  .cmptop .hdrsearch{margin-left:0}   /* cmptag already owns the auto margin there */
+  /* U23: notched-iOS safe area — the sticky headers (the icon rides inside them) pad
+     below the status bar in the standalone PWA */
+  @supports(padding:max(0px)){
+    header{padding-top:max(18px, env(safe-area-inset-top))}
+    .dtop{padding-top:max(14px, env(safe-area-inset-top))}
+    .cmptop{padding-top:max(14px, env(safe-area-inset-top))}
+  }
   /* team pickers */
   .pickrow{display:flex;align-items:stretch;gap:9px;padding:12px 14px 4px}
   .pick{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;
@@ -5425,6 +5441,26 @@ document.body.addEventListener("mouseout", e=>{const el=e.target.closest("[data-
 document.body.addEventListener("click",    e=>{const el=e.target.closest("[data-tip]");if(el){showTip(el);e.stopPropagation();}else hideTip();});
 document.addEventListener("scroll", hideTip, {passive:true, capture:true});   // S2: bubble dismisses on scroll (any container)
 // tap a ranking row (anywhere but its number/tooltip) -> open the team detail page
+// U23: the persistent header search — ONE icon (#hdrsearch) re-mounted into whichever
+// header the active view rendered (.htop before the account slot, .dtop/.cmptop at the
+// right edge). Opens the EXISTING teamPicker (no second search system); re-mounts via a
+// MutationObserver on #app so every innerHTML swap — including future views — gets it.
+// The landing splash is intentionally excluded (pre-app marketing gate, its CTA enters
+// the app). Bottom floats (Ask/FAB/RUN) live at the other screen edge — no collision.
+function mountHeaderSearch(){
+  if(document.getElementById("hdrsearch")) return;
+  const host=document.querySelector(".htop, .dtop, .cmptop");
+  if(!host) return;
+  const b=document.createElement("button");
+  b.id="hdrsearch"; b.className="hdrsearch"; b.setAttribute("aria-label","Search teams");
+  b.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>`;
+  b.onclick=async()=>{ await ensureTeamMeta(); teamPicker(null, id=>openDetail(id)); };
+  const slot=host.querySelector(".acctslot");
+  if(slot) host.insertBefore(b, slot); else host.appendChild(b);
+}
+new MutationObserver(()=>{ try{ mountHeaderSearch(); }catch(_e){} }).observe(app, {childList:true});
+setTimeout(mountHeaderSearch, 0);
+
 // batch 12 #2: the HASHMARK. wordmark is a home link from every header variant (main,
 // detail .dtop, compare .cmptop, landing) — pushes a history state like any nav.
 function goHome(){

@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v43";   // v43: U25 - gauntlet renders all THREE stretch games (board legs w/ opponent+venue+win prob, team-strip stretch block; wall verified full-season)
+const VERSION = "hashmark-v44";   // v44: U23 - persistent header search icon on every view (observer-mounted, teamPicker reuse, safe-area header padding)
 const SHELL = [
   "./",
   "./index.html",
