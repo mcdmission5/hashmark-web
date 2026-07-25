@@ -922,6 +922,11 @@
   .honor .hpos{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--text2);flex:none}
   .honor .hstack{display:flex;flex-wrap:wrap;gap:4px;padding-top:4px}  /* batch 12 #4: chip-stacked lists */
   .honor .hstack .srcpill{font-size:10px}
+  /* UG1: the VISIBLE low-sample confidence badge + muted small-sample grade number */
+  .lowsample{display:inline-flex;align-items:center;font-size:8.5px;font-weight:800;letter-spacing:.05em;
+    color:#E8B657;border:1px solid rgba(232,182,87,.45);border-radius:999px;padding:2px 7px;
+    margin-left:4px;cursor:default}
+  .gmuted{opacity:.55}
   /* explorer + leaderboards */
   .exprow{display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--surface);
     border:1px solid var(--line);border-top:none;cursor:pointer}
@@ -4748,6 +4753,14 @@ async function openPlayer(aid){
         api(`qb_value_rating?select=season,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]),
         api(`player_value_rating?select=season,role,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]) ]);
       grades=[...qb.map(r=>({...r, role:"qb"})), ...pv];
+      // UG1: the grade tables key on (player, team) — a bare name match could hang a
+      // same-named OTHER player's grades on this page. Keep only rows whose team is one
+      // of THIS player's own teams (any season, so transfers keep their history).
+      try{ await ensureTeamMeta();
+        const own=new Set([idx[0].team_id, ...seasons.map(s2=>s2.team_id)]
+          .map(tid=>(teamMeta[tid]||{}).school).filter(Boolean));
+        if(own.size) grades=grades.filter(g=>own.has(g.team));
+      }catch(_e){}
     }
     renderPlayer(aid, idx[0], seasons, games, grades);
     // P3: percentile-card entry on every graded player page
@@ -4791,19 +4804,36 @@ function renderPlayer(aid, idx, seasons, games, grades){
                     rush:"Rush value — includes OL/scheme context",
                     receiving:"Target value — includes QB/scheme context",
                     kicker:"Kicking — points vs distance-based expectation"};
-    h+=`<div class="sec"><div class="sectitle">Hashmark grades <small>0–100 · 50 = FBS average</small></div>`;
+    const SHRINK_TIP="Below the qualifying floor (150 QB plays · 100 carries · 40 targets · 10 kicks), the number shown is shrunk toward 50 — the FBS average — in proportion to sample size, and it ranks nowhere until it qualifies. Small samples lie; the shrinkage says so out loud.";
+    h+=`<div class="sec"><div class="sectitle">Hashmark Grade <small>0–100 · 50 = FBS average · opponent-adjusted</small></div>`;
     const latestSeason=Math.max(...grades.map(g=>Number(g.season)));
-    const curG=grades.filter(g=>Number(g.season)===latestSeason);
+    const curG=grades.filter(g=>Number(g.season)===latestSeason)
+      .sort((a,b)=>(b.qualified-a.qualified)||(b.plays-a.plays));
     const histG=grades.filter(g=>Number(g.season)!==latestSeason);
     window._gradeHist=histG;
-    curG.slice(0,4).forEach(g=>{
+    // UG1: ONE headline Hashmark Grade per player-season — the primary (most-played,
+    // qualified-first) role, with every role listed as components beneath. No new math:
+    // the headline IS that role's existing published value grade.
+    const prim=curG[0];
+    if(prim){
+      const lowChip=prim.qualified?"":`<span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`;
+      h+=`<div class="boxrow" style="align-items:center">
+        <div class="bva ${prim.qualified?(prim.rating>=70?"win":""):"gmuted"}" style="font-size:26px;font-weight:800">${Number(prim.rating).toFixed(0)}</div>
+        <div class="bk">${latestSeason} Hashmark Grade · ${esc((ROLE_LBL[prim.role]||prim.role).split(" — ")[0])} ${lowChip}
+          <small>${prim.qualified?`${Math.round(prim.percentile||0)}th percentile · ${tier(prim.rating)}`:"shrunk toward 50 until it qualifies"}</small></div>
+        <div class="bvb"><small>${prim.plays} plays</small></div></div>`;
+    }
+    if(curG.length>1) h+=`<div class="ha" style="padding:4px 2px 2px"><b>Components — value by role</b></div>`;
+    curG.slice(prim?1:0,4).forEach(g=>{
       const badge = g.qualified
         ? `<small>${Math.round(g.percentile||0)}th pct · ${tier(g.rating)}</small>`
-        : `<small class="qbadge">below qualifying threshold — shown, not ranked</small>`;
-      h+=`<div class="boxrow"><div class="bva ${g.qualified&&g.rating>=70?"win":""}">${g.qualified?Number(g.rating).toFixed(0):"·"+Number(g.rating).toFixed(0)+"·"}</div>
+        : `<span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`;
+      h+=`<div class="boxrow"><div class="bva ${g.qualified?(g.rating>=70?"win":""):"gmuted"}">${Number(g.rating).toFixed(0)}</div>
         <div class="bk">${g.season} · ${ROLE_LBL[g.role]||g.role} ${badge}</div>
         <div class="bvb"><small>${g.plays} plays</small></div></div>`;
     });
+    if(SEASON_PHASE.started && SEASON_PHASE.week<=3)
+      h+=`<div class="secsub" style="padding:2px 2px 0">Early season: grades stabilize after ~3 games — LOW SAMPLE badges clear as snaps accumulate.</div>`;
     if(histG.length) h+=`<div class="navrow" style="padding-top:6px;margin:0"><button class="navbtn" id="gradehist">Grade history (${histG.length} prior season${histG.length>1?"s":""}) <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div><div id="gradehistout" style="display:none"></div>`;
     h+=`<div class="secsub" style="padding:4px 2px 2px">Performance evaluation of past play —
       value produced in role, not isolated skill. <span data-go="methodology"
