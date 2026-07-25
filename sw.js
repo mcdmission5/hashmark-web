@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v46";   // v46: U39 - whole headlines everywhere (no clamp/ellipsis), source label demoted to muted inline "SOURCE - 2h ago" suffix (fire bar wraps, away banner inline)
+const VERSION = "hashmark-v47";   // v47: U17 - back-button root cause fixed (59 back arrows -> navBack; 18 overlays history-integrated via navOverlay; tab-home pushes; nav-policy lint)
 const SHELL = [
   "./",
   "./index.html",

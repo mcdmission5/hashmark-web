@@ -1293,7 +1293,9 @@ function accountControl(){
   return `<button class="acctbtn signin" data-acct="signin">Sign in</button>`;
 }
 function syncAccountUI(){ const s=document.getElementById("acctslot"); if(s) s.innerHTML=accountControl(); }
-function closeAuth(){ const o=document.getElementById("authov"); if(o) o.remove(); }
+function closeAuth(){ const o=document.getElementById("authov"); if(!o) return;   // U17: stack-aware
+  const i=_ovStack.findIndex(en=>en.dom===o); if(i>=0) _ovStack.splice(i,1);
+  o.remove(); }
 function authMsg(t, ok){ const m=document.getElementById("authmsg"); if(m){ m.textContent=t; m.className="authmsg "+(ok?"ok":"err"); } }
 function openAuthModal(){
   if(!sb){ return; }
@@ -1320,7 +1322,7 @@ function openAuthModal(){
     </div>
     <div class="authfine">By continuing you agree to our <a href="privacy.html" target="_blank">Privacy Policy</a>. We never sell your data or use it for ads.</div>
   </div>`;
-  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov); navOverlay(ov); ov.onclick=e=>{ if(e.target===ov) closeAuth(); };
   renderTurnstile();
 }
 function openAccountMenu(){
@@ -1337,7 +1339,7 @@ function openAccountMenu(){
     <button class="authrowbtn signout" data-auth="signout">Sign out</button>
     <div class="authfine">Manage or delete your account &amp; data anytime — see the <a href="privacy.html" target="_blank">Privacy Policy</a>.</div>
   </div>`;
-  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov); navOverlay(ov); ov.onclick=e=>{ if(e.target===ov) closeAuth(); };
 }
 async function authAction(kind){
   if(!sb) return;
@@ -1506,7 +1508,7 @@ async function openScores(){
   try{ await ensureTeamMeta(); scoresWeek=null; await drawScores(); }
   catch(e){ app.innerHTML = `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
-    <div class="err">Couldn't load scores: ${e.message}</div>`; document.querySelector(".back").onclick=load; }
+    <div class="err">Couldn't load scores: ${e.message}</div>`; document.querySelector(".back").onclick=navBack; }
 }
 async function drawScores(){
   const games = await fetchSeasonGames(scoresSeason);
@@ -1543,7 +1545,7 @@ async function drawScores(){
   if(!list.length) h+=`<div class="loading" style="padding:30px">No games.</div>`;
   h += `<div class="note"><b>Official ${scoresSeason} ${scoresSeason===SEASON_RESULTS?"results":"schedule"}.</b> Source: CFBD game data. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML = h;
-  document.querySelector(".back").onclick = load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-ss]").forEach(b=>b.onclick=()=>{ const s=+b.dataset.ss;
     if(s!==scoresSeason){ scoresSeason=s; scoresWeek=null; drawScores(); window.scrollTo(0,0); } });
   document.querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>{ if(b.dataset.wk!==scoresWeek){
@@ -1809,7 +1811,7 @@ function openMethodology(){
     <div class="note"><b>Performance evaluation only.</b> Grades are analysis of past play — not
       projections of player futures and not framed for wagering of any kind. ${BRAND_LINE}</div>
   </div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
 }
 
@@ -1852,7 +1854,7 @@ async function openCheckingWork(){
   h+=`<div class="note"><b>Checking Our Work.</b> Methodology: <span data-go="methodology"
     style="color:var(--amber);font-weight:600">how our ratings work</span>. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
 }
 
@@ -1886,7 +1888,7 @@ async function openAccuracy(){
   });
   h+=`<div class="note"><b>Accuracy tracker.</b> Walk-forward = trained only on earlier seasons; 2024-25 were a locked holdout during development. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 function wireHome(){
   setHdrH();   // U1 (B1 #3): sticky search offset on the 2025 home too
@@ -2220,7 +2222,7 @@ async function openStandings(){
     renderStandings(rows);
   }catch(e){
     app.innerHTML = backHeader("Standings")+`<div class="list"><div class="err">Couldn't load standings: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=load;
+    document.querySelector(".back").onclick=navBack;
   }
 }
 function _strkCls(s){ return s&&s[0]==="W"?"w":s&&s[0]==="L"?"l":""; }
@@ -2284,7 +2286,7 @@ function renderStandings(allRows){
   }
   h+=`<div class="note"><b>Official standings.</b> 2025 records from CFBD game results; 2025 strength of schedule is the average win percentage of a team's FBS opponents. The <b>2026 preseason</b> board grades each opponent's final 2025 record (70%) and final AP-poll points (30%) on a 0–100 scale with road (+8) and neutral (+4) bumps — public results and polls only, recomputed daily as the schedule firms up. No Hashmark ratings shown. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-stm]").forEach(b=>b.onclick=()=>{ if(standingsMode!==b.dataset.stm){ standingsMode=b.dataset.stm; openStandings(); } });
   document.querySelectorAll("[data-soss]").forEach(b=>b.onclick=()=>{ if(sosSeason!==+b.dataset.soss){ sosSeason=+b.dataset.soss; openStandings(); } });
 }
@@ -2346,10 +2348,10 @@ function teamPicker(excludeId, cb){
   };
   draw("");
   loadPickerRanks().then(()=>{ if(document.body.contains(ov)) draw(search.value); });
-  const close=()=>ov.remove();
-  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  navOverlay(ov);   // U17: Back closes the picker
+  ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
   search.oninput=()=>draw(search.value);
-  list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it||it.classList.contains("dis")) return; close(); cb(it.dataset.id); };
+  list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it||it.classList.contains("dis")) return; ovClose(ov); cb(it.dataset.id); };
 }
 async function openMatchup(aId,bId,venue){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading matchup…</div>`;
@@ -2361,7 +2363,7 @@ async function openMatchup(aId,bId,venue){
     matchup={a:String(aId), b:String(bId), venue:venue||"neutral"};
     await drawMatchup();
   }catch(e){ app.innerHTML=backHeader("Matchup")+`<div class="list"><div class="err">Couldn't load matchup: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=load; }
+    document.querySelector(".back").onclick=navBack; }
 }
 async function fetchWinProb(a,b){
   const lo=Math.min(+a,+b), hi=Math.max(+a,+b);
@@ -2453,7 +2455,7 @@ function renderMatchup(statsRows, wp, hh, S){
   h+=`</div><div class="navrow" style="padding:4px 2px"><button class="navbtn" id="mshare"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Share matchup card</button></div>`;
   h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${(SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   const mup=document.querySelector("[data-mup]");
   if(mup) mup.onclick=async()=>{ if(PLUS_GATED.matchup_full && !(await plusUpsell("The full matchup comparison",
     "Every stat, side by side with national ranks — a Hashmark+ view; free while we're in preview."))) return;
@@ -2549,7 +2551,7 @@ async function openAsk(teamId){
     <input class="authin" id="askq" placeholder="e.g. How did Indiana do last season?">
     <button class="authprimary" id="askgo">Ask</button>
     <div class="authfine">For entertainment only. ${""}</div></div>`;
-  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov); navOverlay(ov); ov.onclick=e=>{ if(e.target===ov) closeAuth(); };   // U17
   ov.querySelector("#askgo").onclick=async()=>{
     const q=ov.querySelector("#askq").value.trim(); if(!q) return;
     const out=ov.querySelector("#askout"); out.textContent="…";
@@ -2644,7 +2646,7 @@ async function openNewsArchive(teamId){
     if(items.length===500) h+=`<div class="secsub" style="padding:6px 2px">Showing the 500 most recent this month.</div>`;
     h+=`<div class="note"><b>News archive.</b> Headlines link to the original source; we store only the headline, source, link and date. ${BRAND_LINE}</div></div></div>`;
     app.innerHTML=h;
-    document.querySelector(".back").onclick=load;
+    document.querySelector(".back").onclick=navBack;
     mountAppSelect(document.getElementById("newsmonth"), months, month,
       v=>{ month=v; draw(); }, {ariaLabel:"Archive month"});
   };
@@ -2756,7 +2758,7 @@ async function openPickem(){
     renderPickem();
   }catch(e){
     app.innerHTML = backHeader("Pick'em")+`<div class="list"><div class="err">Couldn't load pick'em: ${esc(e.message||e)}</div></div>`;
-    document.querySelector(".back").onclick=load;
+    document.querySelector(".back").onclick=navBack;
   }
 }
 function renderPickemEmpty(){
@@ -2767,7 +2769,7 @@ function renderPickemEmpty(){
     friends, season standings with your two worst weeks dropped. Free forever, no prizes,
     for entertainment only.</div></div>
     <div class="note">${BRAND_LINE}</div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 const pkLocked = g => new Date(g.kickoff) <= new Date();
 function renderPickem(){
@@ -2833,7 +2835,7 @@ function renderPickem(){
     confidence ranks. Season standings drop your two worst weeks. The Hashmark Model plays in every group — beating it earns
     the week's badge. For entertainment only. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML = h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   // U24: pick buttons carry data-pkteam (NOT data-team) — with data-team the click also
   // bubbled to the body delegate and yanked the picker onto the team page mid-pick.
   document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.pkteam); renderPickem(); });
@@ -2922,7 +2924,7 @@ async function openPickemBoard(groupId){
   h += `</div><div class="navrow"><button class="navbtn" id="sharebrag"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Share my week</button></div>
     <div class="note">For entertainment only — no prizes, ever. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=openPickem;
+  document.querySelector(".back").onclick=navBack;
   const sb2=document.getElementById("sharebrag");
   if(sb2) sb2.onclick=()=>sharePickemCard(rows);
 }
@@ -2963,8 +2965,9 @@ async function softAskPush(){
       <button class="authprimary" id="pushyes">Turn on notifications</button>
       <button class="authlink center" id="pushno">Not now</button></div>`;
     document.body.appendChild(ov);
-    ov.querySelector("#pushno").onclick=()=>ov.remove();
-    ov.querySelector("#pushyes").onclick=async()=>{ ov.remove(); await subscribePush(); };
+    navOverlay(ov);   // U17
+    ov.querySelector("#pushno").onclick=ovDismiss;
+    ov.querySelector("#pushyes").onclick=async()=>{ ovClose(ov); await subscribePush(); };
   }catch(_e){}
 }
 async function subscribePush(){
@@ -2990,7 +2993,7 @@ async function openNotifyPrefs(){
     ${items.map(([k,l])=>`<label class="authrowbtn" style="display:flex;justify-content:space-between">
       <span>${l}</span><input type="checkbox" data-npref="${k}" ${p[k]!==false?"checked":""}></label>`).join("")}
   </div>`;
-  document.body.appendChild(ov); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov); navOverlay(ov); ov.onclick=e=>{ if(e.target===ov) closeAuth(); };   // U17
   ov.querySelectorAll("[data-npref]").forEach(cb=>cb.onchange=async()=>{
     const cur={...p}; ov.querySelectorAll("[data-npref]").forEach(c=>cur[c.dataset.npref]=c.checked);
     await authFetch("PATCH", `profiles?id=eq.${authUser.id}`, {notify_prefs:cur});
@@ -3071,7 +3074,7 @@ async function openSimulator(){
     renderSim();
     if(SHOW_PREDICTIONS) simAutoOdds();   // B7 (kept per B2): the initial chalk-default MC on open — after this, recomputes come only via RUN
   }catch(e){ app.innerHTML=backHeader("Simulator")+`<div class="list"><div class="err">Couldn't load simulator: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=load; }
+    document.querySelector(".back").onclick=navBack; }
 }
 function simPHome(h,a,neutral){
   const lo=Math.min(+h,+a), hi=Math.max(+h,+a), row=sim&&sim.wp.get(lo+"-"+hi);
@@ -3168,10 +3171,10 @@ function ccgInterstitial(focus, cg, conf){
       <div class="ha" style="padding:4px 2px 6px">Close to let the model favorite decide it instead. Probabilities only — hypothetical.</div>
       </div></div>`;
     document.body.appendChild(ov);
-    const done=v=>{ ov.remove(); res(v); };
-    ov.querySelectorAll("[data-ccgi]").forEach(b=>b.onclick=()=>done(b.dataset.ccgi));
-    ov.querySelector(".pickx").onclick=()=>done(null);
-    ov.onclick=e=>{ if(e.target===ov) done(null); };
+    navOverlay(ov, ()=>{ try{ ov.remove(); }catch(_e){} res(null); });   // U17: Back = model favorite decides
+    ov.querySelectorAll("[data-ccgi]").forEach(b=>b.onclick=()=>{ ovClose(ov); res(b.dataset.ccgi); });
+    ov.querySelector(".pickx").onclick=ovDismiss;
+    ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
   });
 }
 function renderSimLoading(){
@@ -3180,12 +3183,12 @@ function renderSimLoading(){
       <div class="simloadtitle">Simulating…</div>
       <div class="secsub" id="simprog">Spinning up ${SIM_MC_N.toLocaleString()} seasons — completed games locked, your picks fixed, the rest drawn from the model's win probabilities.</div>
     </div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 async function simRunFlow(){
   if(!sim) return;
   simHideFab();
-  document.querySelectorAll(".pickov").forEach(o=>o.remove());   // pick surfaces close on RUN
+  navPurgeOverlays();   // U17: pick surfaces close on RUN; their history entries go dead + get skipped
   // team flow: picks that put the focus team into its CCG ask for the CCG winner first
   const focus=sim.fabFocus; sim.fabFocus=null;
   if(focus){
@@ -3509,7 +3512,7 @@ function renderSim(){
   }   // end CFP view
   h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: completed games are locked to their real results; your picks and model favorites fill in the rest to determine standings, conference champions and the 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Simplifications, stated plainly: FCS opponents are counted at the historical FBS-over-FCS rate (97 of 100 for Power Four hosts, 91 of 100 for Group of Six, 2015-2025) — a win in the chalk view, drawn at that rate in the Monte-Carlo — and each <b>conference champion is its title game's winner</b> — the championship pairings come from the real 2026 qualification rules and the CCG is a pickable game (your pick, or the model favorite/Monte-Carlo draw when unpicked). Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?`The Monte-Carlo runs ${SIM_MC_N.toLocaleString()} seasons of the unpicked games from the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.`:""}${sim.wpMissing>sim.games.length*0.03?` <b>Data gap:</b> ${sim.wpMissing} matchups are missing a model win probability and fall back to a coin flip.`:""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
   // Batch 9 3f: chips for every team with picks (tap = its sheet; x = clear that team)
   const chipHost=document.getElementById("simteamchips");
@@ -3617,7 +3620,7 @@ async function ccgSheet(conf){
     document.querySelectorAll("#ccgsheet [data-ccgpick]").forEach(b=>b.onclick=async()=>{
       if(!(await simResultsGate())) return;
       sim.userPicks["ccg|"+b.dataset.ccgconf]=b.dataset.ccgpick; draw(); simMarkDirty(null); });
-    document.querySelectorAll("#ccgsheet [data-simteam]").forEach(r=>r.onclick=()=>{ ov.remove(); simTeamSheet(r.dataset.simteam); });
+    document.querySelectorAll("#ccgsheet [data-simteam]").forEach(r=>r.onclick=()=>{ ovClose(ov); simTeamSheet(r.dataset.simteam); });
     const cr=document.getElementById("ccgrun");
     if(cr) cr.onclick=async()=>{
       if(!(await simRunGate())) return;
@@ -3627,8 +3630,8 @@ async function ccgSheet(conf){
     };
   };
   draw();
-  const close=()=>{ ov.remove(); renderSim(); };
-  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  navOverlay(ov, ()=>{ ov.remove(); renderSim(); });   // U17: Back closes the race sheet
+  ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
 }
 
 // Batch 10 #5: pick ANY game — week-by-week browser over every FBS game (CCGs included
@@ -3676,7 +3679,8 @@ function simGameBrowser(){
   const close=async()=>{ ov.remove();
     if(simPicksSig()!==openSig && !(await simResultsGate())) return;
     renderSim(); };
-  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  navOverlay(ov, close);   // U17
+  ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
 }
 function simTeamSheet(teamId){
   teamId=String(teamId);
@@ -3818,8 +3822,9 @@ function simTeamSheet(teamId){
   const close=async()=>{ ov.remove();
     if(simPicksSig()!==openSig && !(await simResultsGate())) return;
     renderSim(); };   // U2: no silent auto-MC on close — the Monte Carlo reruns only via RUN
-  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
-  document.getElementById("stteampage").onclick=()=>{ ov.remove(); openDetail(+teamId); };
+  navOverlay(ov, close);   // U17
+  ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
+  document.getElementById("stteampage").onclick=()=>{ ovClose(ov); openDetail(+teamId); };
 }
 // ---- Monte Carlo engine (B4): chunked so the main thread never freezes — batches of
 // sims per frame with a live progress readout. Locked finals are never re-randomized
@@ -3956,7 +3961,7 @@ async function openDetail(teamId){
     app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
       <div class="err">Couldn't load team: ${e.message}</div>`;
-    document.querySelector(".back").onclick = load;
+    document.querySelector(".back").onclick=navBack;
   }
 }
 
@@ -4017,7 +4022,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   }catch(_e){} }, 0);
   if(!t){ app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
     <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
-    <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=load; return; }
+    <div class="err">Team not found.</div>`; document.querySelector(".back").onclick=navBack; return; }
   const c=hx(t.color);
   const cls = (t.classification||"").toUpperCase()==="FBS" ? "FBS" : (t.classification||"—");
   const head = ts ? recordCard(ts, ap)
@@ -4072,7 +4077,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div>`}
     <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
-  document.querySelector(".back").onclick = load;
+  document.querySelector(".back").onclick=navBack;
   wireTeamPanels(teamId, t, games, e, swap26);
   // batch 7 #1: favorite star on every team header
   const star=document.getElementById("tpstar");
@@ -4293,13 +4298,13 @@ async function openBox(gameId, fromTeam){
     renderBox(gameId, tg, pg, fromTeam, um);
   }catch(e){
     app.innerHTML = backHeader("Box score")+`<div class="list"><div class="err">Couldn't load box score: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load();
+    document.querySelector(".back").onclick=navBack;
   }
 }
 function boxCrest(id){ const t=teamMeta[id]||{school:"?"}; return crestEl("boxcr", t.school, oppColor(id)); }
 function renderBox(gameId, tg, pg, fromTeam, um){
   if(!tg||tg.length<2){ app.innerHTML=backHeader("Box score")+`<div class="list"><div class="err">No box score for this game yet.</div></div>`;
-    document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load(); return; }
+    document.querySelector(".back").onclick=navBack; return; }
   // home on the left (fall back to the row order)
   let A=tg.find(r=>r.home_away==="home")||tg[0];
   let B=tg.find(r=>r!==A)||tg[1];
@@ -4383,7 +4388,7 @@ function renderBox(gameId, tg, pg, fromTeam, um){
   });
   h+=`<div class="note"><b>Official box score — ${sLabel}.</b> Team &amp; player game stats and per-game EPA/play, from CFBD play-by-play. No Hashmark ratings or projections shown. ${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=()=>fromTeam?openDetail(fromTeam):load();
+  document.querySelector(".back").onclick=navBack;
 }
 
 function premCard(ic, title, tease, fake){
@@ -4445,7 +4450,7 @@ async function openCompare(aId, bId){
     app.innerHTML = `<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
       <div class="err">Couldn't load matchup: ${e.message}</div>`;
-    document.querySelector(".back").onclick = load;
+    document.querySelector(".back").onclick=navBack;
   }
 }
 
@@ -4569,7 +4574,7 @@ function drawCompare(){
   h+=`<div class="note"><b>${phaseTitle()} — Hashmark projection.</b> A single-game projection from our ${SEASON_PHASE.started?"current":"early preseason"} ratings: projected margin = the teams' rating gap on a points scale plus the model's home-field value, and win probability is the normal-model share of outcomes above zero at the calibrated &sigma;=${ENGINE.sigma}. ${SEASON_PHASE.started?`Ratings update weekly as ${SEASON_SCHED} results land.`:"Early-offseason data is thin, so it leans on 2025 results and will sharpen through the summer."} ${BRAND_LINE}</div></div>`;
 
   app.innerHTML = h;
-  document.querySelector(".back").onclick = load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll(".venue button").forEach(btn=>{
     btn.onclick=()=>{ if(cmp.venue!==btn.dataset.venue){ cmp.venue=btn.dataset.venue; drawCompare(); } };
   });
@@ -4601,12 +4606,12 @@ function openPicker(slot){
     list.scrollTop=0;   // batch 7 #1: same stale-scroll fix as teamPicker
   }
   draw("");
-  const close=()=>ov.remove();
-  ov.querySelector(".pickx").onclick=close;
-  ov.onclick=e=>{ if(e.target===ov) close(); };
+  navOverlay(ov);   // U17
+  ov.querySelector(".pickx").onclick=ovDismiss;
+  ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
   search.oninput=()=>draw(search.value);
   list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it) return;
-    close(); setTeam(slot, it.dataset.id); };
+    ovClose(ov); setTeam(slot, it.dataset.id); };
 }
 
 // plain-English tooltip — hover (desktop) + tap (mobile)
@@ -4727,13 +4732,13 @@ async function openPlayer(aid){
     }catch(_e){} }, 0);
   }catch(e){
     app.innerHTML = backHeader("Player")+`<div class="list"><div class="err">Couldn't load player: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=load;
+    document.querySelector(".back").onclick=navBack;
   }
 }
 function _catStat(stats, t){ const v=stats&&stats[t]; return v==null||v===""?null:v; }
 function renderPlayer(aid, idx, seasons, games, grades){
   if(!idx){ app.innerHTML=backHeader("Player")+`<div class="list"><div class="err">Player not found.</div></div>`;
-    document.querySelector(".back").onclick=load;
+    document.querySelector(".back").onclick=navBack;
   const gh=document.getElementById("gradehist");
   if(gh) gh.onclick=async()=>{ if(PLUS_GATED.grade_history &&
       !(await plusUpsell("Grade history","Season-by-season Hashmark grades for every player — how the grade built over a career. Free during preview."))) return;
@@ -4839,7 +4844,7 @@ function renderPlayer(aid, idx, seasons, games, grades){
   }
   h+=`<div class="note"><b>Player stats — official.</b> Season totals and per-game lines from CFBD. The forward-looking "returning leaders" elsewhere show 2026-active players only; this player page is the complete record incl. departed players ("2025 final"). Names &amp; stats only — no photos. ${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 
 // ---------- Part 2: team stat profile + leaders + preseason honors (on the team page) ----------
@@ -4971,8 +4976,8 @@ async function plusStatsSheet(){
     <button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="picklist" id="pssheet"><div class="loading">Loading…</div></div></div>`;
   document.body.appendChild(ov);
-  const close=()=>ov.remove();
-  ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
+  navOverlay(ov);   // U17
+  ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
   let top="?", collapse=null, eff=null, nilBest=null;
   try{ await ensureBoard(); await ensureTeamMeta(); top=(board2026[0].teams||{}).school||"?"; }catch(e){}
   try{ const c=await api("signature_stats?select=team_id,value&free=eq.true&stat_key=eq.collapse_index&limit=1"); collapse=c[0]; }catch(e){}
@@ -4989,7 +4994,7 @@ async function plusStatsSheet(){
     <div class="hubmeta"><b>${r[0]} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></b>
     <small>${r[1]}</small><div class="hubprev">${r[2]}</div></div>
     <svg class="ic" style="color:var(--text3);flex:none"><use href="#i-chev-r"/></svg></div>`).join("");
-  document.querySelectorAll("[data-ps]").forEach(el=>el.onclick=()=>{ close(); rows[+el.dataset.ps][3](); });
+  document.querySelectorAll("[data-ps]").forEach(el=>el.onclick=()=>{ ovClose(ov); rows[+el.dataset.ps][3](); });
 }
 function mountStatsFab(){
   const old=document.getElementById("statsfab"); if(old) old.remove();
@@ -5003,7 +5008,7 @@ async function openStats(tab){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading stats…</div>`;
   try{ await Promise.all([ensureTeamMeta(), ensureCatalog()]); await renderStats(); mountStatsFab(); }   // batch 11 B2
   catch(e){ app.innerHTML=backHeader("Stats")+`<div class="list"><div class="err">Couldn't load stats: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=load; }
+    document.querySelector(".back").onclick=navBack; }
 }
 async function renderStats(){
   // header follows the selected stat's season — a STAT_SEASON_OVERRIDE stat (e.g. the 2026
@@ -5018,7 +5023,7 @@ async function renderStats(){
   h+=`</div><div id="statbody"><div class="loading">…</div></div>
     <div class="note"><b>Official stats — 2025 season.</b> Source: CollegeFootballData (CFBD); PPA/EPA, success rate &amp; explosiveness are CFBD's public metrics. Player names &amp; stats only. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-stab]").forEach(b=>b.onclick=()=>{ statTab=b.dataset.stab; renderStats(); window.scrollTo(0,0); });
   const body=document.getElementById("statbody");
   try{
@@ -5253,7 +5258,7 @@ async function openPreseason(){
     const rows=await api("external_rankings?select=*&season=eq.2026&order=ranking_type.asc,source.asc,rank.asc");
     renderPreseason(rows);
   }catch(e){ app.innerHTML=backHeader("Preseason")+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=load; }
+    document.querySelector(".back").onclick=navBack; }
 }
 function renderPreseason(rows){
   const aa=rows.filter(r=>r.ranking_type==="all_american");
@@ -5409,7 +5414,7 @@ function renderPreseason(rows){
 
   h+=`<div class="note"><b>Preseason 2026 — third-party.</b> All selections belong to the cited outlets and link to their source; Hashmark compiles a consensus only where 2+ agree and copies facts only, never their analysis. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 
 // ---------- team search (jump to a team's stat page) ----------
@@ -5558,8 +5563,41 @@ const NAV_ROUTES={
   sigboard:p=>openSignatureBoard(p&&p.k),
   teams:()=>openTeams(),
 };
+// ================= U17: THE nav primitives (the 3rd and FINAL back audit) =================
+// POLICY (briefs/audit-U17-nav-enumeration.md): top-level view changes PUSH one entry
+// (the wrapped open* registry below); transient overlays (sheets/modals/interstitials)
+// PUSH one entry so Back CLOSES the overlay, one step; bubble/sub-toggle taps inside a
+// view never push (batch-12 design) — Back from the view returns to the PRIOR view;
+// Home is reached by Back only when Home genuinely is the prior state. The on-screen
+// back arrow is navBack() — one REAL history step — never a hardwired load()/parent.
+let _ovStack=[], _ovConsuming=false;
+function navOverlay(dom, onBack){
+  _ovStack.push({dom, onBack: onBack || (()=>{ try{ dom.remove(); }catch(_e){} })});
+  try{ history.pushState({hm:1, ov:_ovStack.length}, ""); }catch(e){}
+}
+function ovDismiss(){                       // pure UI dismiss (x / backdrop / Esc): consume the entry
+  const en=_ovStack.pop(); if(!en) return;
+  _ovConsuming=true; try{ history.back(); }catch(e){ _ovConsuming=false; }
+  try{ en.onBack(); }catch(_e){}
+}
+function ovClose(dom){                      // action close (a selection was made): overlay leaves,
+  const i=_ovStack.findIndex(en=>en.dom===dom);   // its history entry goes dead and is skipped on Back
+  if(i>=0) _ovStack.splice(i,1);
+  try{ dom.remove(); }catch(_e){}
+}
+function navPurgeOverlays(){                // any real navigation clears whatever overlays remain
+  if(_ovStack.length){ _ovStack.length=0;
+    document.querySelectorAll(".pickov,.authov").forEach(o=>o.remove()); }
+  const om=document.getElementById("omni"); if(om) om.classList.remove("show");
+}
+function navBack(){
+  const st=history.state;
+  if(st && st.hm){ history.back(); return; }
+  load();                                    // no app stack beneath (defensive) — Home fallback
+}
 function navPush(v,p){
   if(typeof simHideFab==="function") simHideFab();   // U2: the sim RUN button never outlives its page
+  navPurgeOverlays();
   if(_navRestoring) return;
   try{
     const cur=history.state;
@@ -5569,7 +5607,14 @@ function navPush(v,p){
 }
 window.addEventListener("popstate", e=>{
   if(typeof simHideFab==="function") simHideFab();   // U2: Back off the sim clears the RUN button
+  if(_ovConsuming){ _ovConsuming=false; return; }     // an ovDismiss consumed this pop
   const st=e.state;
+  const depth=(st&&st.hm&&st.ov)||0;
+  if(_ovStack.length>depth){                          // Back with overlay(s) up: close, view stays
+    while(_ovStack.length>depth){ const en=_ovStack.pop(); try{ en.onBack(); }catch(_e){} }
+    return;
+  }
+  if(st&&st.hm&&st.ov){ try{ history.back(); }catch(_e){} return; }   // dead overlay entry — skip through
   if(!st||!st.hm) return;              // beyond our bottom -> the browser leaves normally
   _navRestoring=true;
   try{ const f=NAV_ROUTES[st.v]; if(f) f(st.p||{}); }catch(_e){}
@@ -5697,8 +5742,9 @@ function plusUpsell(title, body){
     </div></div>`;
   document.body.appendChild(el);
   return new Promise(res=>{
-    el.querySelector('[data-u="cont"]').onclick=()=>{ el.remove(); res(true); };
-    el.querySelector('[data-u="notify"]').onclick=()=>{ el.remove(); setTab("explore"); openExplore(); res(false); };
+    navOverlay(el, ()=>{ try{ el.remove(); }catch(_e){} res(false); });   // U17: Back declines the gate
+    el.querySelector('[data-u="cont"]').onclick=()=>{ ovClose(el); res(true); };
+    el.querySelector('[data-u="notify"]').onclick=()=>{ ovClose(el); setTab("explore"); openExplore(); res(false); };
   });
 }
 const GUEST_FAV_KEY = "hm_fav_team";
@@ -5758,7 +5804,7 @@ async function gatedSimulator(){
   // global run, per-team run, CCG odds run share one counter). Name kept for callers.
   openSimulator();
 }
-const TABS = { home:()=>load(), games:()=>openScores(), picks:()=>openPickem(),
+const TABS = { home:()=>goHome(), games:()=>openScores(), picks:()=>openPickem(),   // U17: the Home tab is a real nav
                stats:()=>openStats(), explore:()=>openExplore() };   // batch 11 B1: Stats replaces the star tab
 document.querySelectorAll("#tabbar [data-tab]").forEach(b=>b.onclick=()=>{ setTab(b.dataset.tab); TABS[b.dataset.tab](); });
 
@@ -5819,7 +5865,7 @@ async function openWhyRating(teamId){
     <div class="sec"><div class="sectitle">${esc(t.school)} — #${rank} <small>${f3(Number(b.overall||0))} · ${phaseLabel()}</small></div>
     ${waterfallSVG(comps, Number(b.overall||0), t)}</div>
     <div class="note"><b>${phaseTitle()} — Hashmark.</b> Each bar is one additive factor of the published rating; green adds, red subtracts, and the amber bar is the final number. Factor definitions are in Methodology. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.getElementById("wrpick").onclick=()=>teamPicker(null, id=>openWhyRating(id));
 }
 // V1 — Power Quadrant: every FBS team on one offense-vs-defense map.
@@ -5868,7 +5914,7 @@ async function openQuadrant(){
     <div class="sec">${s}<div class="secsub" style="padding:2px 2px 0">${axes.vint} · Hashmark</div><div id="quadcard"></div></div>
     <div class="note"><b>Power Quadrant — ${axes.vint}.</b> Rating axes are the opponent-adjusted Hashmark unit ratings; EPA and success-rate axes are official ${SEASON_RESULTS} play-by-play stats. Defensive axes point up when the defense is better. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-qax]").forEach(el=>el.onclick=()=>{ _quadAxis=el.dataset.qax; openQuadrant(); });
   document.querySelectorAll("[data-qconf]").forEach(el=>el.onclick=()=>{ confFilter=el.dataset.qconf||null; openQuadrant(); });
   document.querySelectorAll("[data-qt]").forEach(el=>el.onclick=()=>{
@@ -5886,7 +5932,7 @@ async function openLuckLedger(){
   await ensureTeamMeta();
   const LUCK_SEASON = SEASON_PHASE.started ? SEASON_SCHED : SEASON_RESULTS;   // A7: in-season = live ledger
   const rows=await api(`luck_ledger?select=*&season=eq.${LUCK_SEASON}&order=luck_wins.desc`);
-  if(!rows.length){ app.innerHTML=backHeader("Luck Ledger")+`<div class="list"><div class="err">No ledger yet.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  if(!rows.length){ app.innerHTML=backHeader("Luck Ledger")+`<div class="list"><div class="err">No ledger yet.</div></div>`; document.querySelector(".back").onclick=navBack; return; }
   const fav=favTeamId();
   const maxG=Math.max(...rows.map(r=>r.games));
   const line=r=>{ const t=teamMeta[r.team_id]||{school:"?"};
@@ -5905,7 +5951,7 @@ async function openLuckLedger(){
     <div class="secsub" style="padding:0 2px 8px"><b>Actual record vs deserved record</b> — the deserved number sums each game's win expectancy from the efficiency battle (garbage time removed). Colored dot = actual wins; gray dot = deserved. Sorted luckiest first. <b>${LUCK_SEASON} season</b>${SEASON_PHASE.started?"":" — 2026 fills in as games are played"}.</div>
     ${rows.map(line).join("")}
     <div class="note"><b>Luck Ledger — ${LUCK_SEASON} season.</b> Win expectancy comes from each game's opponent-adjusted efficiency margin, fit on 2015-2024 results. "Banked" wins are results ahead of the underlying play; every call in the Luck Audit is logged and scored. Tap a team for its game-by-game dots (Hashmark+). ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-luck]").forEach(el=>el.onclick=()=>gatedLuckGames(el.dataset.luck));
 }
 async function gatedLuckGames(teamId){
@@ -5926,7 +5972,8 @@ async function gatedLuckGames(teamId){
         <div class="glres ${g.won?"w":"l"}">${g.won?"W":"L"}</div></div>`; }).join("")}
       <div class="secsub" style="padding:8px 2px">${SEASON_RESULTS} season · win expectancy from the game's efficiency margin.</div></div></div>`;
   document.body.appendChild(ov);
-  ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  navOverlay(ov);   // U17
+  ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
 }
 // V4 — Schedule Gauntlet: 12 cells colored by win prob + the record distribution.
 async function gauntletData(teamId){
@@ -6181,7 +6228,7 @@ async function openGauntlet(teamId){
     <div class="sec">${gauntletHTML(teamId, games, wpm)}</div>
     ${stretch}
     <div class="note"><b>Schedule Gauntlet — ${SEASON_SCHED}.</b> Cell color is the model's win probability for that game (venue-aware); the bar chart is the implied record distribution. Probabilities only — no betting lines. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.getElementById("gpick").onclick=()=>teamPicker(null, id=>openGauntlet(id));
   document.getElementById("gwall").onclick=()=>gatedGauntletWall();
 }
@@ -6211,7 +6258,7 @@ async function openGauntletWall(){
       <div class="wallnm">${esc(t.school||"?")}</div><div class="wallcells">${cells}</div></div>`; });
   h+=`<div class="note"><b>Gauntlet wall — ${SEASON_SCHED}.</b> One strip per team, one cell per game, colored by the model's win probability. Tap a row for the full gauntlet. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll(".wallrow").forEach(el=>el.onclick=()=>openGauntlet(el.dataset.team));
 }
 // V5 — Playoff odds over time (weekly MC snapshots) + AP rank layer.
@@ -6255,7 +6302,7 @@ async function openOddsTimeline(teamId){
     <div class="navrow"><button class="navbtn" id="otpick"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Another team</button></div>
     <div class="sec">${chart||`<div class="secsub">No snapshots for this team yet.</div>`}${bump}</div>
     <div class="note"><b>Playoff odds over time — ${SEASON_SCHED}.</b> Each dot is one archived run of the full-season Monte-Carlo (thousands of simulated seasons; probabilities only, capped 1-99). Game-by-game annotations join in season. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.getElementById("otpick").onclick=()=>teamPicker(null, id=>openOddsTimeline(id));
 }
 
@@ -6274,7 +6321,7 @@ async function openNILEconomy(){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the NIL board…</div>`;
   await ensureTeamMeta(); await ensureBoard();
   const tiers=await api(`nil_tiers?select=*&season=eq.${SEASON_SCHED}&order=tier.asc`);
-  if(!tiers.length){ app.innerHTML=backHeader("NIL Economy")+`<div class="list"><div class="err">No tier data yet.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  if(!tiers.length){ app.innerHTML=backHeader("NIL Economy")+`<div class="list"><div class="err">No tier data yet.</div></div>`; document.querySelector(".back").onclick=navBack; return; }
   const byTier={}; tiers.forEach(r=>{ (byTier[r.tier]=byTier[r.tier]||[]).push(r); });
   const confBadge=c=>`<span class="nilconf ${c}">${c==="high"?"on record":c==="medium"?"multiple reports":"single source"}</span>`;
   let h=`<div class="cmp">${backHeader("NIL Economy")}<div class="list" style="padding-top:6px">
@@ -6310,7 +6357,7 @@ async function openNILEconomy(){
   }catch(e){}
   h+=`<div class="note"><b>NIL Economy — ${SEASON_SCHED}.</b> ${NIL_DISCLAIMER} Named sources include The NIL Standard, On3/Pete Nakos, CBS Sports, 247Sports and on-record school statements — see Methodology for every source and why they disagree. Rev-share allocations are the strongest public data class; third-party NIL on top is where reporting goes dark. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.getElementById("nileff").onclick=()=>gatedNILEfficiency();
   document.getElementById("nilperf25").onclick=()=>gatedNILPerformance();
   document.getElementById("nilmeth").onclick=()=>openNILMethodology();
@@ -6328,8 +6375,9 @@ async function openNILEconomy(){
       ${r.sources&&r.sources.confidence_note?`<div class="ha" style="padding:6px 0 0">${esc(r.sources.confidence_note)}</div>`:""}
       <div class="ha" style="padding:8px 0 0">Figure types are never mixed into one number: roster VALUE, reported SPEND, collective estimates and rev-share splits are different measurements — the tier reflects the ensemble.</div></div></div>`;
     document.body.appendChild(ov);
-    ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
-    const tp=ov.querySelector("#nilteampage"); if(tp) tp.onclick=()=>{ ov.remove(); openDetail(r.team_id); };   // U24
+    navOverlay(ov);   // U17
+    ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
+    const tp=ov.querySelector("#nilteampage"); if(tp) tp.onclick=()=>{ ovClose(ov); openDetail(r.team_id); };   // U24
   });
 }
 
@@ -6340,7 +6388,7 @@ async function openNILPerformance(){
   window.scrollTo(0,0); app.innerHTML=skelView(8);
   await ensureTeamMeta();
   const rows=await api(`nil_performance_2025?select=*&order=residual.desc.nullslast`).catch(()=>[]);
-  if(!rows.length){ app.innerHTML=backHeader("NIL 2025 - performance vs the money")+`<div class="list"><div class="err">The 2025 performance board has not been built yet.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  if(!rows.length){ app.innerHTML=backHeader("NIL 2025 - performance vs the money")+`<div class="list"><div class="err">The 2025 performance board has not been built yet.</div></div>`; document.querySelector(".back").onclick=navBack; return; }
   const IND=rows.find(r=>r.school==="Indiana");
   const dollar=rows.filter(r=>r.band!=="tier_context"&&r.est_mid_musd!=null);
   const BANDC={outperformed:"#5BD39A", in_line:"#94A3B8", underperformed:"#E5705C", tier_context:"#7CA8FF"};
@@ -6380,7 +6428,7 @@ async function openNILPerformance(){
     <div class="sectitle" style="padding:10px 2px 4px">Underperformed the estimate</div>
     ${rows.filter(r=>r.band==="underperformed").map(line).join("")}
     <div class="note"><b>NIL 2025 performance vs money.</b> ${NIL_DISCLAIMER} Bands are opinion drawn from the linked figures and the final 2025 Hashmark rating; measurement types are never mixed, tier-only teams are compared within tier, and single-source figures are graded down. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=()=>openNILEconomy();
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-nilp]").forEach(el=>el.onclick=()=>{
     const r=rows.find(x=>String(x.team_id)===String(el.dataset.nilp)); if(!r) return;
     const t=teamMeta[r.team_id]||{school:r.school};
@@ -6392,8 +6440,9 @@ async function openNILPerformance(){
       <div class="picklist">${figs.map(f=>nilFigLine({source:f.source,url:f.url,type:(f.type||"").replace(/_/g," "),range:f.range})+(f.disputed?`<div class="ha" style="color:#E8B657;padding:0 0 6px">Publicly disputed by the program.</div>`:"")).join("")||"<div class='ha'>Tier/rank basis only.</div>"}
       ${(r.sources||{}).confidence_note?`<div class="ha" style="padding-top:6px">${esc(String(r.sources.confidence_note))}</div>`:""}</div></div>`;
     document.body.appendChild(ov);
-    ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
-    const tp2=ov.querySelector("#nilpteampage"); if(tp2) tp2.onclick=()=>{ ov.remove(); openDetail(r.team_id); };   // U24
+    navOverlay(ov);   // U17
+    ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
+    const tp2=ov.querySelector("#nilpteampage"); if(tp2) tp2.onclick=()=>{ ovClose(ov); openDetail(r.team_id); };   // U24
   });
 }
 async function gatedNILPerformance(){
@@ -6435,7 +6484,7 @@ async function openNILEfficiency(){
     <div class="sec">${s}<div class="secsub" style="padding:2px 2px 0">Rating: ${phaseLabel()} · tiers: attributed ${SEASON_SCHED} estimates (see Methodology)</div></div>
     <div class="navrow"><button class="navbtn" id="nilrostecon"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg> Roster Economy (portal flow)</button></div>
     <div class="note"><b>Performance vs resources — ${SEASON_SCHED}.</b> ${NIL_DISCLAIMER} Research on football spend-vs-wins finds a real but MODEST correlation — which is exactly why "who beats their tier" is the interesting question. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.getElementById("nilrostecon").onclick=()=>gatedRosterEconomy();
 }
 function openNILMethodology(){
@@ -6450,7 +6499,7 @@ function openNILMethodology(){
     <div class="sec"><div class="sectitle">Language rules we hold ourselves to</div>
       <div class="secsub" style="padding:4px 2px">Estimates are always labeled "est."; tiers, never point figures; "least efficient per estimated dollar" is an opinion drawn from linked facts — we never state spending judgments as fact, and disputed figures carry the program's pushback visibly.</div></div>
     <div class="note"><b>NIL Economy methodology.</b> ${NIL_DISCLAIMER} ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 // P5 — Roster Economy: portal production flow (value in vs out) + talent-vs-performance.
 async function gatedRosterEconomy(){
@@ -6506,7 +6555,7 @@ async function openRosterEconomy(teamId){
       <div class="secsub">Roster talent across, Hashmark rating up. The dashed line is expectation from talent alone — distance above it is what the STAFF adds (the coaching over-expectation lane).</div>
       ${sc}</div>
     <div class="note"><b>Roster Economy — entering ${SEASON_SCHED}.</b> Portal values are prior-season production (PPA + usage share), position-weighted; never recruiting stars, never dollar figures. Talent is the ${SEASON_RESULTS} composite; the expectation line is a least-squares fit across FBS. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.getElementById("repick").onclick=()=>teamPicker(null, id=>openRosterEconomy(id));
   document.getElementById("renil").onclick=()=>openNILEconomy();
   document.querySelectorAll("[data-rteam]").forEach(el=>el.onclick=()=>openRosterEconomy(el.dataset.rteam));
@@ -6543,7 +6592,7 @@ async function openUpsetRadar(){
         <div class="lknm">${esc(t.school)}<small>consensus #${Math.round(r.avg)} (${r.n} outlets) · Model #${r.model}</small></div>
         <div class="lkv ${r.gap>0?"pos":"neg"}">${r.gap>0?`Model higher by ${Math.round(r.gap)}`:`Model lower by ${Math.round(-r.gap)}`}</div></div>`; }).join("")}
       <div class="note"><b>Crowd vs Model — ${SEASON_SCHED} preseason.</b> Consensus = average rank across the attributed preseason outlets on the Rankings page. In season this becomes the pick'em crowd vs the model's win probabilities, with a running scoreboard once results land. Probabilities and ranks only — no betting framing. ${BRAND_LINE}</div></div></div>`;
-    document.querySelector(".back").onclick=load;
+    document.querySelector(".back").onclick=navBack;
     return;
   }
   // in-season crowd mode (populates from Week 1; per-game crowd % vs model win %)
@@ -6565,7 +6614,7 @@ async function openUpsetRadar(){
   app.innerHTML=`<div class="cmp">${backHeader("Crowd vs Model")}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px">Week ${crowd.slate[0].week}: the pick'em crowd vs the model, game by game.</div>${rows}
     <div class="note"><b>Crowd vs Model — ${SEASON_SCHED}.</b> Crowd = share of pick'em entries on each side; model = matchup win probability. Divergences over 25 points are flagged. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 // P3 — Player percentile cards: value grade + within-position percentile BARS (never
 // radar), team-colored, compare-two mode.
@@ -6606,12 +6655,12 @@ async function openPlayerCard(aid, bid){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading player card…</div>`;
   await ensureTeamMeta();
   const [da, db]=await Promise.all([playerCardData(aid), bid?playerCardData(bid):Promise.resolve(null)]);
-  if(!da){ app.innerHTML=backHeader("Player card")+`<div class="list"><div class="err">No card for this player.</div></div>`; document.querySelector(".back").onclick=load; return; }
+  if(!da){ app.innerHTML=backHeader("Player card")+`<div class="list"><div class="err">No card for this player.</div></div>`; document.querySelector(".back").onclick=navBack; return; }
   app.innerHTML=`<div class="cmp">${backHeader("Player card")}<div class="list" style="padding-top:6px">
     ${playerCardHTML(da)}${db?playerCardHTML(db):""}
     <div class="navrow"><button class="navbtn" id="pccmp"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg> ${db?"Change comparison":"Compare with another player"} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
     <div class="note"><b>Player percentile card — ${SEASON_RESULTS} season.</b> Bars are within-position percentiles (deliberately not a radar chart); the headline number is the published value-in-role grade. OL and defense are served as production leaders elsewhere — public data can't grade them individually, and we say so. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.getElementById("pccmp").onclick=async()=>{
     if(PLUS_GATED.player_compare && !(await plusUpsell("Compare two players",
       "Any two graded players side by side — value grades and percentile bars. Free during preview."))) return;
@@ -6664,7 +6713,7 @@ async function openMatchupGrid(a,b){
     <div class="secsub" style="padding:0 2px 8px">Green = the offense typically beats what this defense allows; red = the defense typically wins the down. ${S} season splits, garbage time filtered.</div>
     <div class="sec">${grid(a,b,ta)}${grid(b,a,tb)}</div>
     <div class="note"><b>Unit heat grid — ${S} season.</b> Each cell compares one offense's output to the opposing defense's typical concession in the same situation (EPA/play raw; success/explosive shown in points of rate). Data: official play-by-play splits. ${BRAND_LINE}</div></div></div>`;
-  document.querySelector(".back").onclick=()=>openMatchup(a,b);
+  document.querySelector(".back").onclick=navBack;
 }
 
 /* ---------------- Landing page (batch 6 C1) ---------------- */
@@ -6767,7 +6816,7 @@ async function openInjuries(){
   h+=`</div>
     <div class="note"><b>Injury updates — reports from cited sources.</b> Headlines and availability listings are attributed to their original publishers and link out; Hashmark adds no medical judgment, and availability never adjusts a published rating without the separately-gated availability engine (currently shadow mode). ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
 }
 
 /* ---------------- Hashmark Model hub (UX batch 4 #1) ---------------- */
@@ -6826,7 +6875,7 @@ async function openModelHub(){
   });
   h+=`<div class="note"><b>Hashmark Model hub.</b> Every view here derives from the published Hashmark ratings and model probabilities — free to browse except where marked. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   const GO=Object.fromEntries(rows.map(r=>[r[0], r[5]]));
   document.querySelectorAll("[data-hub]").forEach(el=>el.onclick=()=>hubGate(GO[el.dataset.hub]));
 }
@@ -6853,9 +6902,19 @@ const OMNI_TOOLS = [
   ["Player rankings","person",()=>openPlayerRankings()],
   ["Methodology","info",()=>openMethodology()],["Notifications","bell",()=>openNotifyPrefs()],
 ];
+function _omniHide(){ const o=document.getElementById("omni"); if(o) o.classList.remove("show"); }
 function openOmni(){ const o=document.getElementById("omni"); o.classList.add("show");
+  navOverlay(o, _omniHide);   // U17: Back closes the omnibox
   const q=document.getElementById("omniq"); q.value=""; omniRun(""); setTimeout(()=>q.focus(),50); }
-function closeOmni(){ document.getElementById("omni").classList.remove("show"); }
+function omniAct(fn){ const o=document.getElementById("omni");
+  const i=_ovStack.findIndex(en=>en.dom===o); if(i>=0) _ovStack.splice(i,1);
+  _omniHide(); fn(); }
+function closeOmni(){ const o=document.getElementById("omni");
+  if(!o || !o.classList.contains("show")) return;
+  const top=_ovStack[_ovStack.length-1];
+  if(top && top.dom===o){ ovDismiss(); return; }
+  const i=_ovStack.findIndex(en=>en.dom===o); if(i>=0) _ovStack.splice(i,1);
+  _omniHide(); }
 document.getElementById("omniclose").onclick=closeOmni;
 let _omniT=null;
 document.getElementById("omniq").oninput=e=>{ clearTimeout(_omniT); _omniT=setTimeout(()=>omniRun(e.target.value.trim()),160); };
@@ -6878,9 +6937,9 @@ async function omniRun(q){
     }catch(e){}
   }
   res.innerHTML=h||`<div class="r-row"><span style="color:var(--text2)">Nothing found</span></div>`;
-  res.querySelectorAll("[data-tool]").forEach(el=>el.onclick=()=>{ closeOmni(); OMNI_TOOLS[+el.dataset.tool][2](); });
-  res.querySelectorAll("[data-team]").forEach(el=>el.onclick=()=>{ closeOmni(); openDetail(+el.dataset.team); });
-  res.querySelectorAll("[data-player]").forEach(el=>el.onclick=()=>{ closeOmni(); openPlayer(+el.dataset.player); });
+  res.querySelectorAll("[data-tool]").forEach(el=>el.onclick=()=>omniAct(OMNI_TOOLS[+el.dataset.tool][2]));
+  res.querySelectorAll("[data-team]").forEach(el=>el.onclick=()=>omniAct(()=>openDetail(+el.dataset.team)));
+  res.querySelectorAll("[data-player]").forEach(el=>el.onclick=()=>omniAct(()=>openPlayer(+el.dataset.player)));
 }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeOmni(); });
 
@@ -6892,7 +6951,7 @@ async function openPlayerRankings(){
     const rows=await api(`player_rankings?select=*&season=eq.${SEASON_SCHED}&order=position.asc,pos_rank.asc`);
     renderPlayerRankings(rows);
   }catch(e){ app.innerHTML=backHeader("Player rankings")+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`;
-    document.querySelector(".back").onclick=load; }
+    document.querySelector(".back").onclick=navBack; }
 }
 function renderPlayerRankings(rows){
   const positions=[...new Set(rows.map(r=>r.position))];
@@ -6924,7 +6983,7 @@ function renderPlayerRankings(rows){
     play, opponent-adjusted, garbage-time down-weighted, shrunk by sample. Returning set audited against the
     transfer portal weekly. Not framed for wagering of any kind. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-prk]").forEach(b=>b.onclick=()=>{ prkPos=b.dataset.prk; prkFull=false; openPlayerRankings(); });
   const fb=document.getElementById("prkfull");
   if(fb) fb.onclick=async()=>{ if(PLUS_GATED.csv_export &&
@@ -7030,7 +7089,7 @@ async function openWhatWins(){
   if(wu) wu.onclick=async()=>{ if(PLUS_GATED.whatwins_full && !(await plusUpsell("The full What-Wins board",
     "All six factors on both axes — what wins the day vs what carries to next season. A Hashmark+ view; free while we're in preview."))) return;
     _wwOpen=true; openWhatWins(); };
-  document.querySelector(".back").onclick=load;
+  document.querySelector(".back").onclick=navBack;
   const WGO={checking:openCheckingWork, signature:openSignature, method:openMethodology};
   document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=WGO[el.dataset.go]; if(f) f(); });
 }
@@ -7103,7 +7162,7 @@ async function openMovers(){
     h+=`</div>`;
   }
   h+=`<div class="note"><b>Official AP poll movement.</b> ${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div></div>`;
-  app.innerHTML=h; document.querySelector(".back").onclick=()=>openExplore();
+  app.innerHTML=h; document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-team]").forEach(el=>el.onclick=()=>openDetail(+el.dataset.team));
 }
 
@@ -7402,7 +7461,7 @@ async function openSignatureBoard(key){
   const tr=(rows[0]||{}).track||{};
   h+=`<div class="note"><b>${esc(meta[0])}.</b> Scored definition: ${esc(meta[2])}.${tr.n?` Record since ${tr.since||2014}: ${tr.hits} of ${tr.n}.`:""} ${esc(String((rows[0]&&rows[0].drivers&&rows[0].drivers.disclaimer)||"No proven edge claimed; every call is logged and scored."))} ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=()=>openSignature();
+  document.querySelector(".back").onclick=navBack;
 }
 async function openSignature(){
   window.scrollTo(0,0);
@@ -7467,7 +7526,7 @@ async function openSignature(){
   }
   h+=`<div class="note">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:""}</div></div>`;
   app.innerHTML=h;
-  document.querySelector(".back").onclick=()=>openExplore();
+  document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-lock]").forEach(el=>el.onclick=()=>openSignatureBoard(el.dataset.lock));
 }
 

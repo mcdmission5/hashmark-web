@@ -176,6 +176,46 @@ def check_nav_registry():
     return 0
 
 
+def check_nav_policy():
+    """U17 (the 3rd/final back audit): the lint covers the NON-open* nav classes too.
+    Policy (briefs/audit-U17-nav-enumeration.md): (1) every on-screen back arrow is
+    navBack — one REAL history step, never a hardwired load()/parent; (2) every overlay
+    creator (.pickov/.authov sheet) registers with navOverlay so Back CLOSES it;
+    (3) U24 delegate rule: no <button> may carry bare data-team — action buttons with
+    their own handlers double-fire through the body [data-team] delegate (the pick'em
+    bug); use a scoped attr (data-pkteam-style) instead."""
+    import re
+    p = os.path.join(ROOT, "hashmark-app.html")
+    html = open(p).read()
+    lines = html.splitlines()
+    fails = []
+    # (1) back arrows route through navBack
+    for i, ln in enumerate(lines, 1):
+        m = re.search(r'querySelector\("\.back"\)\.onclick\s*=\s*(\w+|\(\)=>[^;]{0,60})', ln)
+        if m and m.group(1) != "navBack":
+            fails.append(f"L{i}: .back handler is `{m.group(1)}` — must be navBack")
+    # (2) overlay creators register with navOverlay (within their function body, ~200 lines)
+    for i, ln in enumerate(lines, 1):
+        if 'className="pickov"' in ln or 'className="authov"' in ln:
+            window = "\n".join(lines[i - 1:i + 200])
+            if "navOverlay(" not in window:
+                fails.append(f"L{i}: overlay creator without navOverlay() — Back cannot close it")
+    # (3) no <button ... data-team=  (U24 double-fire class)
+    for i, ln in enumerate(lines, 1):
+        if re.search(r"<button[^>]*\bdata-team=", ln):
+            fails.append(f"L{i}: <button> carries bare data-team — double-fires the body delegate")
+    if fails:
+        print("NAV POLICY LINT FAIL (U17):")
+        for f in fails:
+            print("  " + f)
+        return 1
+    n_back = len(re.findall(r'querySelector\("\.back"\)\.onclick\s*=\s*navBack', html))
+    n_ov = html.count("navOverlay(") - 1   # minus the function definition itself
+    print(f"nav policy OK — {n_back} back arrows on navBack; {n_ov} overlay registrations; "
+          f"no <button data-team>")
+    return 0
+
+
 # Emoji/pictograph blocks — HARD RULE (redesign brief): no emoji anywhere in the app;
 # icons are the monoline SVG set. Arrows/dingbats/geometric glyphs count (they render as
 # emoji on mobile); typographic punctuation (dashes, quotes, middots) stays legal.
@@ -228,7 +268,7 @@ def check():
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
     rc = check_engine()
-    return rc or check_vocab() or check_emoji() or check_nav_registry()
+    return rc or check_vocab() or check_emoji() or check_nav_registry() or check_nav_policy()
 
 
 def main():
