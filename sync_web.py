@@ -268,7 +268,28 @@ def check():
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
     rc = check_engine()
-    return rc or check_vocab() or check_emoji() or check_nav_registry() or check_nav_policy()
+    return (rc or check_vocab() or check_emoji() or check_nav_registry() or check_nav_policy()
+            or check_sim_tests())
+
+
+def check_sim_tests():
+    """U19: the CFP field-selection tests are part of the deploy gate — they had silently
+    rotted twice (stale path after the repo move; stale extraction after batch 9 wired the
+    conference engine into simCompute) and nobody noticed. Never again."""
+    import subprocess
+    try:
+        r = subprocess.run(["node", os.path.join(ROOT, "tests", "test_sim_cfp.mjs")],
+                           capture_output=True, text=True, timeout=60)
+    except FileNotFoundError:
+        print("sim tests SKIPPED — node not on PATH (CI/manual runs must execute "
+              "tests/test_sim_cfp.mjs)")
+        return 0
+    if r.returncode:
+        print("SIM CFP TESTS FAIL:\n" + (r.stdout + r.stderr).strip()[-800:])
+        return 1
+    last = [l for l in r.stdout.splitlines() if l.strip()][-1]
+    print(f"sim CFP tests OK — {last}")
+    return 0
 
 
 def main():

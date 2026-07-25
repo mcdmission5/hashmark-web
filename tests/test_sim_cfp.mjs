@@ -10,9 +10,14 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(join(here, "..", "..", "hashmark-app.html"), "utf8");
-const m = html.match(/function simCompute\(picks\)\{[\s\S]*?\n\}\n(?=function simRecord)/);
-if (!m) { console.error("FAIL: could not extract simCompute from hashmark-app.html"); process.exit(1); }
+// U19 fix: the repo moved to ~/hashmark (TCC) — the canonical lives ONE level up from tests/
+const html = readFileSync(join(here, "..", "hashmark-app.html"), "utf8");
+// U19 fix #2: extract the WHOLE conference-rules engine (batch 9) + simCompute — the
+// old regex grabbed simCompute alone, which has depended on confEngineCtx/confQualify
+// since batch 9, so this guard test had been silently dead. From SB_EAST through the
+// end of simCompute (the line before `function simRecord`).
+const m = html.match(/const SB_EAST=[\s\S]*?\n\}\n(?=function simRecord)/);
+if (!m) { console.error("FAIL: could not extract the sim engine from hashmark-app.html"); process.exit(1); }
 
 // P4 = 3-team conferences, G6 = 2-team; REAL_CONF_MIN lowered to 2 inside the sandbox so the
 // synthetic league is small. Rankings are controlled by stubbing simSOR per team.
@@ -45,9 +50,14 @@ const BASE_SOR = { S1:.98, B1:.96, T1:.94, A1:.92, S2:.90, B2:.88, T2:.86, A2:.8
 
 function run(ndSor, overrides = {}) {
   const SOR = { ...BASE_SOR, ND: ndSor, ...overrides };
-  const sandbox = new Function("sim", "REAL_CONF_MIN", "simSOR", "teamMeta", m[0] + "; return simCompute;");
-  const sim = { fbs: TEAMS, conf: CONFS, games };
-  const simCompute = sandbox(sim, 2, (id) => SOR[id], teamMeta);
+  // U19: the engine block additionally needs simPair (CCG winner draw — stub: the
+  // standings #1 wins, preserving the original champion semantics), board2026 (rating
+  // proxy — empty: round-robin ties all resolve at head-to-head) and shortConf.
+  const sandbox = new Function("sim", "REAL_CONF_MIN", "simSOR", "teamMeta",
+    "simPair", "board2026", "shortConf", m[0] + "; return simCompute;");
+  const sim = { fbs: TEAMS, conf: CONFS, games, fcsBy: {} };
+  const simCompute = sandbox(sim, 2, (id) => SOR[id], teamMeta,
+    () => 1.0, [], (s) => s);
   return simCompute(picks);
 }
 
@@ -73,11 +83,15 @@ const c2 = run(0.59);
 check("Notre Dame ranked #13 → OUT", !c2.field.includes("ND"), `field=${c2.field}`);
 check("#13 scenario still fields 12 with all P4 champs + best G6", c2.field.length === 12 && ["S1","B1","T1","A3","M1"].every(t => c2.field.includes(t)), `field=${c2.field}`);
 
-// W2 = "North Dakota State" (transition team, CFP-ineligible 2026): even ranked top-5 and
-// the best G6 team, it must be excluded — the G6 autobid flows to the next G6 team (M1)
+// W2 = "North Dakota State" (transition team). U19 UPDATE: the NCAA's Jun 24 2026 vote
+// made transition teams bowl/CFP-ELIGIBLE (INELIGIBLE_2026 is empty by design — the old
+// exclusion assert was stale), but the MOUNTAIN WEST's own rule still bars NDSU from the
+// CCG until 2028 (MW_INELIGIBLE). So: CFP autobid YES as the top-ranked G6 TEAM; league
+// champion NO.
 const c3 = run(0.76, { W2: 0.95 });
-check("ineligible transition team excluded even at a top-5 ranking", !c3.field.includes("W2"), `field=${c3.field}`);
-check("G6 autobid flows past the ineligible team to M1", c3.field.includes("M1") && c3.field.length === 12, `field=${c3.field}`);
+check("transition team IS CFP-eligible (NCAA Jun 24 2026) — takes the G6 autobid at a top-5 rank", c3.field.includes("W2"), `field=${c3.field}`);
+check("but the MW CCG rule still holds: W2 is never the conference champion", !c3.champions.includes("W2") && c3.champions.includes("W1"), `champions=${c3.champions}`);
+check("eligible-team scenario still fields 12", c3.field.length === 12, `got ${c3.field.length}`);
 
 console.log(failures ? `\n${failures} FAILURE(S)` : "\nall 2026-CFP-format tests pass");
 process.exit(failures ? 1 : 0);

@@ -3127,6 +3127,14 @@ function simSOR(teamId, wins){
 // FBS-over-FCS tiered base rates (batch 6 B1; 2015-2025, n=1180): P4 hosts .968,
 // G5 hosts .911. Chalk resolves FCS games as wins; the Monte Carlo draws them.
 const P_FCS={p4:0.968, g5:0.911, all:0.937};
+// U18: ONE shared label for "how many games does this team actually play" — the count
+// always comes from the schedule data itself (games, season_type=regular); the ~9 legit
+// non-12 teams (8 unfilled-slot programs + San José State via the Hawai'i exemption)
+// render their TRUE count with this tag instead of reading like a bug.
+const schedCountTag = n => n===12 ? "" :
+  n===13 ? "13-game schedule (Hawai’i-trip exemption)" :
+  n<12 ? `${n}-game schedule — ${12-n} slot${12-n>1?"s":""} still unfilled` :
+  `${n}-game schedule`;
 const P4_FCS=new Set(["SEC","Big Ten","Big 12","ACC","Pac-12"]);
 const pFcsFor=(tid, confMap)=>P4_FCS.has((confMap||sim.conf)[String(tid)])?P_FCS.p4:P_FCS.g5;
 // Locked (completed) games ALWAYS win: favorites < user picks < actual results (B1)
@@ -3444,7 +3452,7 @@ function renderSim(){
     <div class="lbtoggle" style="margin:0 0 10px">
       <button data-simview="ccg" class="${sim.view==="ccg"?"on":""}">Conference championships</button>
       <button data-simview="cfp" class="${sim.view==="cfp"?"on":""}">CFP simulator</button></div>
-    <div class="secsub" style="padding:0 2px 8px">Pick ${SEASON_SCHED} winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> tap <b>RUN</b> <svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> to rebuild the standings, conference championships and the <b>12-team Playoff (2026 CFP format)</b>. ${nLocked?`<b>${nLocked}</b> completed game${nLocked>1?"s are":" is"} locked to the real result. `:""}${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; the odds come from the Monte-Carlo run.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Records count all 12 games — FCS opponents resolve at the historical FBS win rate. Hypothetical — no ratings or betting lines.</div>
+    <div class="secsub" style="padding:0 2px 8px">Pick ${SEASON_SCHED} winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> tap <b>RUN</b> <svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> to rebuild the standings, conference championships and the <b>12-team Playoff (2026 CFP format)</b>. ${nLocked?`<b>${nLocked}</b> completed game${nLocked>1?"s are":" is"} locked to the real result. `:""}${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; the odds come from the Monte-Carlo run.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Records count every scheduled game — 12 for most teams, 11 where a slot is still unfilled, 13 with the Hawai&#8217;i-trip exemption — plus a reached title game; FCS opponents resolve at the historical FBS win rate. Hypothetical — no ratings or betting lines.</div>
     <div class="navrow"><button class="navbtn primary" id="simpick"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg> Pick a team's games</button>
       <button class="navbtn" id="simbrowse"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg> Pick any game</button>
       <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button></div>
@@ -3794,8 +3802,9 @@ function simTeamSheet(teamId){
       <div class="stopp"><div><div class="on">vs ${esc(g.opp)} <small>(FCS)</small></div>
         <div class="ha">Wk ${g.week} · ${g.done!=null?(g.done?"Final W":"Final L"):`counts at ${Math.round(g.p*100)} of 100 (FBS-over-FCS rate)`}</div></div></div>
       <div class="stlock">${g.done!=null?(g.done?"W":"L"):"W"}</div></div>`; });
+    const nSched=tgames.length+fcsList.length;   // U18: true scheduled count, labeled when not 12
     document.getElementById("stsheet").innerHTML=
-      `<div class="strec">Record: <b>${w}–${l}</b> <small>your scenario · all games incl. FCS</small></div>`+teamOdds()+html;
+      `<div class="strec">Record: <b>${w}–${l}</b> <small>your scenario · all games incl. FCS${schedCountTag(nSched)?` · ${schedCountTag(nSched)}`:""}</small></div>`+teamOdds()+html;
     document.querySelectorAll("#stsheet .stb").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gid]=b.dataset.pick; draw();
       simMarkDirty(teamId); });   // U2: team flow — RUN may ask the CCG-winner interstitial for this team
     const rb=document.getElementById("strun");
@@ -6026,7 +6035,7 @@ function gauntletHTML(teamId, games, wpm, compact){
     <i style="height:${Math.max(2,d/dmax*34)}px"></i><small>${w}</small></div>`).join("");
   return `<div class="gauntlet">${cells}</div>
     <div class="rdist"><div class="rdbars">${bars}</div>
-    <div class="secsub" style="padding:2px 2px 0">Projected: <b>${probs.reduce((a,b)=>a+b,0).toFixed(1)} wins</b> (${SEASON_SCHED}, model win probabilities). The single most common record, ${dist.indexOf(dmax)}-${games.length-dist.indexOf(dmax)}, lands in ${Math.round(dmax*100)} of 100 seasons — every other total splits the rest.</div></div>`;
+    <div class="secsub" style="padding:2px 2px 0">Projected: <b>${probs.reduce((a,b)=>a+b,0).toFixed(1)} wins</b> (${SEASON_SCHED}, model win probabilities). The single most common record, ${dist.indexOf(dmax)}-${games.length-dist.indexOf(dmax)}, lands in ${Math.round(dmax*100)} of 100 seasons — every other total splits the rest.${schedCountTag(games.length)?` <b>${schedCountTag(games.length)}.</b>`:""}</div></div>`;
 }
 
 // ============ Batch 11 PART C intelligence, batch 12 #3 bubble panels ============
