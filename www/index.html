@@ -681,6 +681,11 @@
   .lkv{font-size:10.5px;font-weight:800;color:var(--text2);text-align:right;white-space:nowrap}
   .lkv.pos{color:#5BD39A} .lkv.neg{color:#E5705C}
   .gauntlet{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:5px;padding:2px 0}
+  /* U25: the three stretch-leg rows under each gauntlet-board team */
+  .glegs{flex-basis:100%;display:flex;flex-direction:column;gap:2px;padding:4px 0 2px 40px}
+  .gleg{display:flex;align-items:baseline;gap:8px;font-size:11.5px;color:var(--text2)}
+  .gleg .glw{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text3);flex:none;width:38px}
+  .gleg .glp{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--amber)}
   .gcell{border:1px solid var(--line);border-radius:9px;padding:6px 4px;text-align:center;cursor:pointer}
   .gcell.hard{border-color:#E5705C;border-width:2px}
   .gwk{font-size:8px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
@@ -6120,11 +6125,34 @@ async function openGauntlet(teamId){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading the gauntlet…</div>`;
   const t=teamMeta[teamId]||{school:"?"};
   const {games, wpm}=await gauntletData(teamId);
+  // U25: when this team is on the Gauntlet signature board, its toughest 3-game stretch
+  // renders as a labeled block under the strip — all three legs (opponent, venue, win prob).
+  let stretch="";
+  try{
+    const sig=await api(`signature_stats?select=rank,value,drivers&stat_key=eq.gauntlet&team_id=eq.${teamId}&order=season.desc&limit=1`);
+    const d=(sig[0]||{}).drivers;
+    if(d && (d.weeks||[]).length){
+      const legLines=d.weeks.map((wk,i)=>{
+        const g=games.find(x=>x.week===wk);
+        if(!g) return `<div class="gleg"><span class="glw">Wk ${wk}</span><span>${esc(String((d.drivers||[])[i]||""))}</span></div>`;
+        const home=String(g.home_team_id)===String(teamId);
+        const opp=home?g.away_team_id:g.home_team_id;
+        const on=(teamMeta[opp]||{}).school||(home?g.away_team:g.home_team)||"TBD";
+        const p=gauntletP(teamId, g, wpm);
+        return `<div class="gleg" data-team="${opp}"><span class="glw">Wk ${g.week}</span>
+          <span>${home||g.neutral_site?"vs":"at"} <b>${esc(on)}</b> · ${g.neutral_site?"neutral site":home?"home":"road"}</span>
+          <span class="glp">${p!=null?`model ${Math.round(p*100)}%`:"no line yet"}</span></div>`; }).join("");
+      stretch=`<div class="sec"><div class="sectitle">The Gauntlet <small>the sport's #${sig[0].rank} toughest 3-game stretch</small></div>
+        <div class="secsub">${esc(String(d.basis||""))} — a signature stat, descriptive only.</div>
+        <div class="glegs" style="padding-left:2px">${legLines}</div></div>`;
+    }
+  }catch(e){}
   app.innerHTML=`<div class="cmp">${backHeader("Schedule Gauntlet")}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px"><b>${esc(t.school)}</b>'s ${SEASON_SCHED} slate, one cell per game, colored by the model's win odds.</div>
     <div class="navrow"><button class="navbtn" id="gpick"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Another team</button>
       <button class="navbtn" id="gwall"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> All-138 wall <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>
     <div class="sec">${gauntletHTML(teamId, games, wpm)}</div>
+    ${stretch}
     <div class="note"><b>Schedule Gauntlet — ${SEASON_SCHED}.</b> Cell color is the model's win probability for that game (venue-aware); the bar chart is the implied record distribution. Probabilities only — no betting lines. ${BRAND_LINE}</div></div></div>`;
   document.querySelector(".back").onclick=load;
   document.getElementById("gpick").onclick=()=>teamPicker(null, id=>openGauntlet(id));
@@ -7289,11 +7317,53 @@ async function openSignatureBoard(key){
   if(PLUS_GATED.signature_full && key!=="collapse_index" &&
      !(await plusUpsell(meta[0], meta[1]+" The full board is a Hashmark+ view; free while we're in preview."))){ openSignature(); return; }
   const rows=await api(`signature_stats?select=*&stat_key=eq.${key}&order=rank.asc`).catch(()=>[]);
+  // U25: the gauntlet board's stretch is THREE games — the generic 2-driver crop was
+  // hiding the third leg. Look the legs up (games by drivers.weeks + the model win prob
+  // per pairing) so each highlighted team renders all three: opponent, venue, win odds.
+  let gLegs=null, gWpm=new Map();
+  if(key==="gauntlet" && rows.length){
+    try{
+      const ids=[...new Set(rows.map(r=>r.team_id))];
+      const wks=[...new Set(rows.flatMap(r=>((r.drivers||{}).weeks)||[]))];
+      const season=rows[0].season||SEASON_SCHED;
+      const lg=await api(`games?select=week,home_team_id,away_team_id,home_team,away_team,neutral_site&season=eq.${season}&season_type=eq.regular&week=in.(${wks.join(",")})&or=(home_team_id.in.(${ids.join(",")}),away_team_id.in.(${ids.join(",")}))`);
+      const pairs=[...new Set(lg.filter(g=>g.home_team_id&&g.away_team_id).map(g=>{ const lo=Math.min(g.home_team_id,g.away_team_id), hi=Math.max(g.home_team_id,g.away_team_id); return `and(team_a.eq.${lo},team_b.eq.${hi})`; }))];
+      if(SHOW_PREDICTIONS && pairs.length){
+        const wp=await api(`matchup_winprob?select=team_a,team_b,win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${season}&or=(${pairs.join(",")})`);
+        wp.forEach(x=>gWpm.set(x.team_a+"-"+x.team_b, x));
+      }
+      gLegs=r=>(((r.drivers||{}).weeks)||[]).map(wk=>lg.find(g=>g.week===wk &&
+        (String(g.home_team_id)===String(r.team_id)||String(g.away_team_id)===String(r.team_id)))||null);
+    }catch(e){ gLegs=null; }
+  }
   let h=`<div class="cmp">${backHeader(meta[0])}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px">${esc(meta[1])} Every call is logged and scored — misses stay up.${rows[0]?` ${rows[0].season} season.`:""}</div>`;
   if(!rows.length) h+=`<div class="sec"><div class="secsub">This board publishes with the preseason build.</div></div>`;
   rows.forEach(r=>{ const t=teamMeta[r.team_id]||{school:"?"};
-    const d=r.drivers||{}; const drv=(d.top_drivers||d.drivers||[]).slice(0,2);
+    const d=r.drivers||{};
+    if(key==="gauntlet"){
+      const drv=(d.drivers||[]);            // ALL three legs — never cropped (U25)
+      const legs=gLegs?gLegs(r):null;
+      const legLines=drv.map((txt,i)=>{
+        const g=legs&&legs[i];
+        const wk=(d.weeks||[])[i];
+        if(!g) return `<div class="gleg"><span class="glw">Wk ${wk??"—"}</span><span>${esc(String(txt))}</span></div>`;
+        const home=String(g.home_team_id)===String(r.team_id);
+        const opp=home?g.away_team_id:g.home_team_id;
+        const on=(teamMeta[opp]||{}).school||(home?g.away_team:g.home_team)||"TBD";
+        const venue=g.neutral_site?"neutral site":(home?"home":"road");
+        const p=gauntletP(r.team_id, g, gWpm);
+        return `<div class="gleg" data-team="${opp}"><span class="glw">Wk ${g.week}</span>
+          <span>${g.neutral_site?"vs":home?"vs":"at"} <b>${esc(on)}</b> · ${venue}</span>
+          <span class="glp">${p!=null?`model ${Math.round(p*100)}%`:"no line yet"}</span></div>`;
+      }).join("");
+      h+=`<div class="nilrow" data-team="${r.team_id}" style="flex-wrap:wrap">${crestEl("glcr",t.school,hx(t.color))}
+        <div class="lknm">#${r.rank} ${esc(t.school)}<small>toughest 3-game stretch · ${esc(String(d.basis||""))}</small></div>
+        <div class="lkv">${r.value!=null?Number(r.value).toFixed(1):""}</div>
+        <div class="glegs">${legLines}</div></div>`;
+      return;
+    }
+    const drv=(d.top_drivers||d.drivers||[]).slice(0,2);
     h+=`<div class="nilrow" data-team="${r.team_id}">${crestEl("glcr",t.school,hx(t.color))}
       <div class="lknm">#${r.rank} ${esc(t.school)}<small>${drv.map(x=>esc(String(x)).slice(0,60)).join(" · ")||esc(String(d.basis||d.season_label||""))}</small></div>
       <div class="lkv">${r.value!=null?(key==="collapse_index"?Math.round(Number(r.value)*100)+" of 100":Number(r.value).toFixed(2)):""}</div></div>`; });
