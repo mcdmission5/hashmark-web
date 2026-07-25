@@ -685,6 +685,25 @@
   .landrow{display:flex;gap:12px;align-items:flex-start;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;padding:13px;margin:7px 2px}
   .landrow b{font-size:13.5px} .landrow small{display:block;color:var(--text2);font-size:11.5px;padding-top:2px;line-height:1.5}
+  /* U2 (B2): simulator run-flow — the floating RUN button (above pick overlays, z 80),
+     the full-page simulating state, and the CCG-winner interstitial buttons */
+  #simfab{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:120;
+    background:var(--amber);color:#0b1120;border:0;border-radius:999px;padding:14px 36px;
+    display:flex;align-items:center;gap:8px;font-family:"Barlow Condensed",sans-serif;
+    font-weight:800;font-size:16px;letter-spacing:.08em;cursor:pointer;
+    box-shadow:0 10px 28px rgba(0,0,0,.55), 0 0 0 1px rgba(255,190,61,.35)}
+  #simfab .ic{width:15px;height:15px}
+  .simload{display:flex;flex-direction:column;align-items:center;gap:12px;padding:80px 20px 60px;text-align:center}
+  .simspin{width:46px;height:46px;color:var(--amber);animation:simspin .9s linear infinite}
+  @keyframes simspin{to{transform:rotate(360deg)}}
+  .simloadtitle{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:20px;letter-spacing:.05em;text-transform:uppercase}
+  .ccgpick{display:flex;gap:10px;padding:6px 0 4px}
+  .ccgpick button{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;
+    background:linear-gradient(165deg,#151f36,#101828);border:1px solid var(--line2);border-radius:14px;
+    padding:14px 8px;color:var(--text);font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:14.5px;
+    letter-spacing:.03em;cursor:pointer;min-height:88px}
+  .ccgpick button small{font-family:"Barlow",sans-serif;font-weight:600;font-size:10.5px;color:var(--text2);letter-spacing:0}
+  .ccgpick button:active{border-color:var(--amber)}
   #statsfab{position:fixed;right:14px;bottom:92px;z-index:55;background:var(--amber);color:#10130c;
     border:0;border-radius:999px;padding:12px 18px;font-family:"Barlow Condensed",sans-serif;
     font-weight:800;font-size:13px;letter-spacing:.06em;cursor:pointer;
@@ -3006,7 +3025,8 @@ async function openSimulator(){
         done=hF?(g.home_points>g.away_points):(g.away_points>g.home_points);
       (fcsBy[t]=fcsBy[t]||[]).push({opp:oppName, p, done, week:g.week});
     });
-    sim={games:fgames, conf, fbs, wp:wpmap, fcsBy, probField:pf||[], userPicks:{}, fav:{}, locked:{}, final:{}, ranked:[], lastRun:null};
+    sim={games:fgames, conf, fbs, wp:wpmap, fcsBy, probField:pf||[], userPicks:{}, fav:{}, locked:{}, final:{}, ranked:[], lastRun:null,
+      view:"cfp", runSig:null, fabFocus:null};   // U2 (B2): active toggle + picks-signature at the last accepted RUN
     // B1: completed games are LOCKED to their actual result — never re-picked, never
     // re-randomized. The bracket is "actual results + your picks + model favorites".
     fgames.forEach(g=>{ if(g.completed && g.home_points!=null && g.away_points!=null && g.home_points!==g.away_points){
@@ -3020,8 +3040,9 @@ async function openSimulator(){
       hi=Math.max(+g.home_team_id,+g.away_team_id); return !wpmap.get(lo+"-"+hi); }).length : 0;
     sim.hasSOR = SHOW_PREDICTIONS && sim.wp.size>0;
     if(sim.hasSOR) precomputeSOR();
+    sim.runSig=simPicksSig(); simHideFab();   // U2: fresh page = nothing pending
     renderSim();
-    if(SHOW_PREDICTIONS) simAutoOdds();   // B7: MC odds are the primary lens — auto-run on open (free)
+    if(SHOW_PREDICTIONS) simAutoOdds();   // B7 (kept per B2): the initial chalk-default MC on open — after this, recomputes come only via RUN
   }catch(e){ app.innerHTML=backHeader("Simulator")+`<div class="list"><div class="err">Couldn't load simulator: ${e.message}</div></div>`;
     document.querySelector(".back").onclick=load; }
 }
@@ -3081,6 +3102,83 @@ const pFcsFor=(tid, confMap)=>P4_FCS.has((confMap||sim.conf)[String(tid)])?P_FCS
 // Locked (completed) games ALWAYS win: favorites < user picks < actual results (B1)
 const simEffective = ()=> Object.assign({}, sim.fav, sim.userPicks, sim.locked);
 const simPicksSig = ()=> JSON.stringify(sim.userPicks)+"|"+Object.keys(sim.locked).length;
+
+// ================= U2 (B2): the RUN flow =================
+// Any pick change surfaces a floating RUN button (above the pick overlays). RUN closes
+// the pick surface, optionally asks the CCG-winner interstitial (team flow), plays the
+// full-page simulating animation while the chunked Monte Carlo runs, then renders the
+// updated projection. The reveal is the gated moment (simResultsGate; PREVIEW passes).
+function simMarkDirty(focusTeam){
+  if(!sim) return;
+  if(focusTeam!==undefined) sim.fabFocus=focusTeam;
+  if(simPicksSig()===sim.runSig){ simHideFab(); return; }   // picked back to the run state
+  let f=document.getElementById("simfab");
+  if(!f){ f=document.createElement("button"); f.id="simfab";
+    f.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> RUN`;
+    f.onclick=()=>simRunFlow();
+    document.body.appendChild(f); }
+}
+function simHideFab(){ const f=document.getElementById("simfab"); if(f) f.remove(); }
+// "Your picks put {Team} in the {Conference} Championship — pick the winner."
+// Resolves to the chosen team id, or null on dismiss (the engine's favorite then decides).
+function ccgInterstitial(focus, cg, conf){
+  return new Promise(res=>{
+    const nm=id=>(teamMeta[id]||{}).school||id;
+    const neutral=CCG_NEUTRAL.has(conf);
+    const ov=document.createElement("div"); ov.className="pickov";
+    const btn=id=>{
+      const host = !neutral && String(id)===String(cg.pair[0]);   // campus leagues: No. 1 seed hosts
+      const p=SHOW_PREDICTIONS?Math.round(100*simPair(id, cg.pair.find(x=>String(x)!==String(id)),
+        neutral?"neutral":(host?"home":"away"))):null;
+      return `<button data-ccgi="${id}">${crestEl("glcr",nm(id),oppColor(id))}${esc(nm(id))}
+        <small>${host?"No. 1 seed · hosts":neutral?"neutral site":"on the road"}${p!=null?` · model ${p}%`:""}</small></button>`; };
+    ov.innerHTML=`<div class="picksheet"><div class="pickhd">
+      <div style="font-weight:800;font-size:15px;flex:1">${esc(shortConf(conf))} Championship</div>
+      <button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="picklist">
+      <div class="secsub" style="padding:2px 2px 8px">Your picks put <b>${esc(nm(focus))}</b> in the <b>${esc(conf)}</b> Championship game${neutral?" (neutral site)":""} — pick the winner:</div>
+      <div class="ccgpick">${btn(cg.pair[0])}${btn(cg.pair[1])}</div>
+      <div class="ha" style="padding:4px 2px 6px">Close to let the model favorite decide it instead. Probabilities only — hypothetical.</div>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const done=v=>{ ov.remove(); res(v); };
+    ov.querySelectorAll("[data-ccgi]").forEach(b=>b.onclick=()=>done(b.dataset.ccgi));
+    ov.querySelector(".pickx").onclick=()=>done(null);
+    ov.onclick=e=>{ if(e.target===ov) done(null); };
+  });
+}
+function renderSimLoading(){
+  app.innerHTML=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
+    <div class="simload"><svg class="simspin" aria-hidden="true"><use href="#i-dice"/></svg>
+      <div class="simloadtitle">Simulating…</div>
+      <div class="secsub" id="simprog">Spinning up ${SIM_MC_N.toLocaleString()} seasons — completed games locked, your picks fixed, the rest drawn from the model's win probabilities.</div>
+    </div></div></div>`;
+  document.querySelector(".back").onclick=load;
+}
+async function simRunFlow(){
+  if(!sim) return;
+  simHideFab();
+  document.querySelectorAll(".pickov").forEach(o=>o.remove());   // pick surfaces close on RUN
+  // team flow: picks that put the focus team into its CCG ask for the CCG winner first
+  const focus=sim.fabFocus; sim.fabFocus=null;
+  if(focus){
+    const cf=sim.conf[String(focus)];
+    const cg=cf && simCompute(simEffective()).ccg[cf];
+    if(cg && cg.pair.some(x=>String(x)===String(focus)) && !sim.userPicks["ccg|"+cf]){
+      const w=await ccgInterstitial(String(focus), cg, cf);
+      if(w) sim.userPicks["ccg|"+cf]=String(w);
+    }
+  }
+  renderSimLoading();
+  simMonteCarlo(SIM_MC_N,
+    async ()=>{
+      if(await simResultsGate()) sim.runSig=simPicksSig();   // accepted reveal — FAB stays hidden
+      renderSim(); window.scrollTo(0,0);
+      if(simPicksSig()!==sim.runSig) simMarkDirty();          // declined: page keeps its stale flags + RUN
+    },
+    (done,N)=>{ const el=document.getElementById("simprog");
+      if(el) el.textContent=`Simulating… ${done.toLocaleString()} of ${N.toLocaleString()} seasons`; });
+}
 
 // ================= Batch 9 3a: REAL 2026 conference championship rules =================
 // Ported from conference-rules-2026.md (verified Jul 19 2026). Champion = CCG WINNER.
@@ -3310,18 +3408,50 @@ function renderSim(){
   const nPicked=Object.keys(sim.userPicks).length;
   const nLocked=Object.keys(sim.locked).length;
   const tnm=id=>{ const t=teamMeta[id]; return t?t.school:id; };
+  // U2 (B2): two toggles drive the page — the CCG simulator and the CFP simulator share
+  // one scenario/pick state and one Monte-Carlo run; the floating RUN button recomputes.
   let h=`<div class="cmp">${backHeader("Simulator")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 8px">Pick ${SEASON_SCHED} winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> see the standings, conference champions and the <b>12-team Playoff (2026 CFP format)</b>. ${nLocked?`<b>${nLocked}</b> completed game${nLocked>1?"s are":" is"} locked to the real result. `:""}${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; the odds come from the Monte-Carlo run.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Records count all 12 games — FCS opponents resolve at the historical FBS win rate. Hypothetical — no ratings or betting lines.</div>
+    <div class="lbtoggle" style="margin:0 0 10px">
+      <button data-simview="ccg" class="${sim.view==="ccg"?"on":""}">Conference championships</button>
+      <button data-simview="cfp" class="${sim.view==="cfp"?"on":""}">CFP simulator</button></div>
+    <div class="secsub" style="padding:0 2px 8px">Pick ${SEASON_SCHED} winners <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg> tap <b>RUN</b> <svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> to rebuild the standings, conference championships and the <b>12-team Playoff (2026 CFP format)</b>. ${nLocked?`<b>${nLocked}</b> completed game${nLocked>1?"s are":" is"} locked to the real result. `:""}${SHOW_PREDICTIONS?"Unpicked games default to the model favorite; the odds come from the Monte-Carlo run.":"Unpicked games default to the home team."} Field is seeded by <b>Strength of Record</b> (resume), like the CFP committee. Records count all 12 games — FCS opponents resolve at the historical FBS win rate. Hypothetical — no ratings or betting lines.</div>
     <div class="navrow"><button class="navbtn primary" id="simpick"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg> Pick a team's games</button>
       <button class="navbtn" id="simbrowse"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg> Pick any game</button>
-      <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button>
-      ${SHOW_PREDICTIONS?`<button class="navbtn" id="simrun"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Simulate ${SIM_MC_N.toLocaleString()}×</button>`:""}</div>
+      <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button></div>
     <div id="simteamchips" class="simchips" style="padding:2px 2px 4px"></div>
     <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · ${nLocked?`${nLocked} final${nLocked>1?"s":""} locked · `:""}the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:(nLocked?`${nLocked} final${nLocked>1?"s":""} locked to real results · no picks yet — the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game")}</div>`;
+  if(sim.view==="ccg"){
+    // ---- U2: the Conference Championship simulator — every race, full page ----
+    // The existing ccgSheet content generalized: projected pairing per the REAL
+    // qualification rules, the winner pickable inline, the deep-dive sheet per race.
+    h+=`<div class="sec"><div class="sectitle">Every title race — under your scenario</div>
+      <div class="secsub">Each league's projected championship pairing from the current picks, qualified by the <b>real 2026 conference rules</b> (records + official tiebreaks). Tap a side to pick that title game's winner — champions feed straight into the CFP simulator — or open the race to flip individual games.</div>`;
+    const P4C2=["SEC","Big Ten","Big 12","ACC"];
+    const fresh=sim.lastRun && sim.lastRun.sig===simPicksSig();
+    Object.keys(c.confSorted).sort((a,b)=>(P4C2.includes(b)?1:0)-(P4C2.includes(a)?1:0)||a.localeCompare(b)).forEach(cf=>{
+      const cg=c.ccg&&c.ccg[cf]; if(!cg) return;
+      const [t1,t2]=cg.pair;
+      const oddsLine=fresh&&SHOW_PREDICTIONS
+        ? [t1,t2].map(id=>`${esc(tnm(id))} ${Math.round(100*((sim.lastRun.tally[id]||{ct:0}).ct)/sim.lastRun.N)}%`).join(" · ")
+        : null;
+      h+=`<div class="stgame"><div class="stopp" data-ccg="${esc(cf)}" style="cursor:pointer"><div>
+          <div class="on">${esc(shortConf(cf))} Championship <small>${CCG_NEUTRAL.has(cf)?"neutral site":"No. 1 seed hosts"}</small></div>
+          <div class="ha">${esc(tnm(t1))} (${c.rec[t1].cw}–${c.rec[t1].cl}) vs ${esc(tnm(t2))} (${c.rec[t2].cw}–${c.rec[t2].cl}) · champion: <b>${esc(tnm(cg.winner))}</b>${sim.userPicks["ccg|"+cf]?" · your pick":""}</div>
+          ${oddsLine?`<div class="ha">Title odds (${sim.lastRun.N.toLocaleString()} seasons): ${oddsLine}</div>`:""}
+          ${cg.flag?`<div class="ha" style="color:#E8B657">Provisional: ${esc(cg.flag)}</div>`:""}
+          <div class="ha" style="color:var(--text3)">Open the race ›</div></div></div>
+        <div class="stbtns"><button class="stb ${cg.winner===t1?"w":""}" data-mccg="${esc(cf)}" data-mpick="${t1}" title="${esc(tnm(t1))} wins">${esc(monogram(tnm(t1)))}</button>
+          <button class="stb ${cg.winner===t2?"w":""}" data-mccg="${esc(cf)}" data-mpick="${t2}" title="${esc(tnm(t2))} wins">${esc(monogram(tnm(t2)))}</button></div></div>`;
+    });
+    h+=`</div>`;
+    h+=`<div class="sec"><div class="sectitle">Projected conference champions</div><div class="simchips">`;
+    c.champSorted.forEach(id=>{ h+=`<div class="simchip" data-team="${id}">${esc(tnm(id))} <small>${esc(shortConf(sim.conf[id]||""))} · ${simRecord(id,c)}</small></div>`; });
+    h+=`</div></div>`;
+  }
   // B2 (the Iowa fix): the PRIMARY field is PROBABILITY-ORDERED — ranked by Make-CFP
   // from the model's full-season Monte Carlo (playoff_odds, 4,000 simulated seasons,
   // refreshed weekly). The single-scenario chalk bracket demotes to a labeled sandbox.
-  if(sim.probField.length){
+  if(sim.view==="cfp" && sim.probField.length){
     h+=`<div class="sec"><div class="sectitle">Projected 12-team field — by probability</div>
       <div class="secsub">The 12 <b>most likely</b> Playoff teams, ranked by how often each makes the field across <b>4,000 simulated seasons</b> (refreshed weekly). This is the primary lens — a team can look great in one specific scenario yet rarely make it across many.</div>`;
     sim.probField.forEach((r,i)=>{ const t=teamMeta[r.team_id]||{school:"?"};
@@ -3331,9 +3461,10 @@ function renderSim(){
         <div class="ssr">${Math.round(Number(r.make_cfp)*100)}%<small>MAKE CFP · exp ${Number(r.exp_wins).toFixed(1)} wins</small></div></div>`; });
     h+=`</div>`;
   }
-  // the chalk sandbox (secondary, clearly labeled single scenario)
+  // the chalk sandbox (secondary, clearly labeled single scenario) — CFP view only
   const sorTip="Strength of Record (resume): how hard it would be for an average top-tier team to match this team's record against this exact schedule — rewards tough schedules and quality wins, not just wins. Built from matchup win probabilities, not the hidden ratings.";
-  h+=`<div class="sec"><div class="sectitle">The chalk sandbox — if every game goes to the model favorite</div>
+  if(sim.view==="cfp"){
+  h+=`<div class="sec"><div class="sectitle">${nPicked?"Your scenario":"The chalk sandbox"} — ${nPicked?"your picks + model favorites for the rest":"if every game goes to the model favorite"}</div>
     <div class="secsub" data-tip="${esc(sorTip)}"><b>One specific scenario</b> — every unpicked game is handed to the model favorite, then the field is seeded by <b>Strength of Record</b> (resume) <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>. A team can look great in this single chalk world yet make the Playoff rarely across many seasons — the <b>MC %</b> on each row (Monte-Carlo Make-CFP odds) is the probability lens. <b>2026 CFP format:</b> all four Power Four champions are guaranteed in (any ranking), Notre Dame is in if ranked top 12, and the highest-ranked Group of Six team is in — a conference title is no longer required. Seeds 1–4 get first-round byes.</div>`;
   const seedRow=(id,seed,bye)=>{ const t=teamMeta[id]||{school:tnm(id)}, ch=c.champions.includes(id);
     const sorTxt=(sim.hasSOR&&c.sor[id]!=null)?`SOR ${Math.round(c.sor[id]*100)}`:"";
@@ -3347,27 +3478,9 @@ function renderSim(){
     h+=`<div class="simbrk">First round: (12) ${esc(tnm(c.field[11]))} @ (5) ${esc(tnm(c.field[4]))} · (11) ${esc(tnm(c.field[10]))} @ (6) ${esc(tnm(c.field[5]))} · (10) ${esc(tnm(c.field[9]))} @ (7) ${esc(tnm(c.field[6]))} · (9) ${esc(tnm(c.field[8]))} @ (8) ${esc(tnm(c.field[7]))}</div>`;
   }
   h+=`</div>`;
-  // conference champions
-  h+=`<div class="sec"><div class="sectitle">Projected conference champions</div><div class="simchips">`;
-  c.champSorted.forEach(id=>{ h+=`<div class="simchip" data-team="${id}">${esc(tnm(id))} <small>${esc(shortConf(sim.conf[id]||""))} · ${simRecord(id,c)}</small></div>`; });
-  h+=`</div></div>`;
-  // SIM2: conference title races — the what-if sandbox
-  h+=`<div class="sec"><div class="sectitle">Conference title games — what-if</div>
-    <div class="secsub">The projected championship matchup in every race, from the current picks. Open one to flip
-    outcomes game by game and watch the standings, the title matchup and the CFP seeds move live.</div>`;
-  const P4C=["SEC","Big Ten","Big 12","ACC"];
-  Object.keys(c.confSorted).sort((a,b)=>(P4C.includes(b)?1:0)-(P4C.includes(a)?1:0)||a.localeCompare(b)).forEach(cf=>{
-    const ids=c.confSorted[cf]; if(!ids||ids.length<2) return;
-    const [t1,t2]=ids;
-    h+=`<div class="ccgrow" data-ccg="${esc(cf)}">
-      <div class="ccgconf">${esc(shortConf(cf))}</div>
-      <div class="ccgm">${crestEl("glcr",tnm(t1),oppColor(t1))}<b>${esc(tnm(t1))}</b><small>${c.rec[t1].cw}–${c.rec[t1].cl}</small>
-        <span class="ccgvs">vs</span>
-        ${crestEl("glcr",tnm(t2),oppColor(t2))}<b>${esc(tnm(t2))}</b><small>${c.rec[t2].cw}–${c.rec[t2].cl}</small></div>
-      <div class="more">Open ›</div></div>`; });
-  h+=`</div>`;
   h+=`<div id="simodds">${sim.lastRun?simOddsPanel(sim.lastRun):""}</div>`;
-  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: completed games are locked to their real results; your picks and model favorites fill in the rest to determine standings, conference champions and the 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Simplifications, stated plainly: FCS opponents are counted at the historical FBS-over-FCS rate (97 of 100 for Power Four hosts, 91 of 100 for Group of Six, 2015-2025) — a win in the chalk view, drawn at that rate in the Monte-Carlo — and each <b>conference champion is the standings #1</b> — conference title games are not simulated. Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?`The Monte-Carlo runs ${SIM_MC_N.toLocaleString()} seasons of the unpicked games from the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.`:""}${sim.wpMissing>sim.games.length*0.03?` <b>Data gap:</b> ${sim.wpMissing} matchups are missing a model win probability and fall back to a coin flip.`:""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
+  }   // end CFP view
+  h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: completed games are locked to their real results; your picks and model favorites fill in the rest to determine standings, conference champions and the 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Simplifications, stated plainly: FCS opponents are counted at the historical FBS-over-FCS rate (97 of 100 for Power Four hosts, 91 of 100 for Group of Six, 2015-2025) — a win in the chalk view, drawn at that rate in the Monte-Carlo — and each <b>conference champion is its title game's winner</b> — the championship pairings come from the real 2026 qualification rules and the CCG is a pickable game (your pick, or the model favorite/Monte-Carlo draw when unpicked). Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?`The Monte-Carlo runs ${SIM_MC_N.toLocaleString()} seasons of the unpicked games from the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.`:""}${sim.wpMissing>sim.games.length*0.03?` <b>Data gap:</b> ${sim.wpMissing} matchups are missing a model win probability and fall back to a coin flip.`:""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=load;
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
@@ -3382,13 +3495,21 @@ function renderSim(){
     chipHost.innerHTML=mine.length?mine.map(t=>`<span class="simchip" data-teamchip="${t}">${esc((teamMeta[t]||{}).school||t)} <b data-chipx="${t}" style="cursor:pointer;padding-left:4px">x</b></span>`).join("")
       +`<span class="simchip" id="addteam" style="border-style:dashed">+ add another team</span>`:"";
     chipHost.querySelectorAll("[data-teamchip]").forEach(el=>el.onclick=e=>{
-      if(e.target.dataset.chipx){ sim.games.forEach(g=>{ if(String(g.home_team_id)===e.target.dataset.chipx||String(g.away_team_id)===e.target.dataset.chipx) delete sim.userPicks[g.id]; }); renderSim(); return; }
+      if(e.target.dataset.chipx){ sim.games.forEach(g=>{ if(String(g.home_team_id)===e.target.dataset.chipx||String(g.away_team_id)===e.target.dataset.chipx) delete sim.userPicks[g.id]; }); renderSim(); simMarkDirty(); return; }
       simTeamSheet(el.dataset.teamchip); });
     const at=document.getElementById("addteam"); if(at) at.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
   }
   const gb=document.getElementById("simbrowse"); if(gb) gb.onclick=()=>simGameBrowser();
-  const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={}; renderSim(); if(SHOW_PREDICTIONS) simAutoOdds(); };
-  const run=document.getElementById("simrun"); if(run) run.onclick=async()=>{ if(await simRunGate()) simRunOdds(); };
+  const reset=document.getElementById("simreset"); if(reset) reset.onclick=()=>{ sim.userPicks={};
+    sim.runSig=simPicksSig(); simHideFab(); renderSim(); if(SHOW_PREDICTIONS) simAutoOdds(); };
+  // U2: the view toggles — one shared scenario + one MC run feed both; switching never recomputes
+  document.querySelectorAll("[data-simview]").forEach(b=>b.onclick=()=>{
+    if(sim.view!==b.dataset.simview){ sim.view=b.dataset.simview; renderSim(); window.scrollTo(0,0); } });
+  // U2: inline CCG-winner picks on the championships page (gated like every reveal)
+  document.querySelectorAll("[data-mccg]").forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    if(!(await simResultsGate())) return;
+    sim.userPicks["ccg|"+b.dataset.mccg]=b.dataset.mpick; renderSim(); simMarkDirty(); });
   document.querySelectorAll("[data-ccg]").forEach(el=>el.onclick=()=>ccgSheet(el.dataset.ccg));
   if(sim.lastRun) simSeedMC(sim.lastRun);
 }
@@ -3465,10 +3586,10 @@ async function ccgSheet(conf){
       // batch 5 #2: the seed-shift/what-if REVEAL is the gated moment, not the tap
       if(!(await simResultsGate("Conference what-ifs",
         "Flipping outcomes is free to try — watching the title game and CFP seeds SHIFT with them is Hashmark+. Free while we're in preview."))) return;
-      sim.userPicks[b.dataset.cg]=b.dataset.cpick; draw(); });
+      sim.userPicks[b.dataset.cg]=b.dataset.cpick; draw(); simMarkDirty(null); });   // U2
     document.querySelectorAll("#ccgsheet [data-ccgpick]").forEach(b=>b.onclick=async()=>{
       if(!(await simResultsGate())) return;
-      sim.userPicks["ccg|"+b.dataset.ccgconf]=b.dataset.ccgpick; draw(); });
+      sim.userPicks["ccg|"+b.dataset.ccgconf]=b.dataset.ccgpick; draw(); simMarkDirty(null); });
     document.querySelectorAll("#ccgsheet [data-simteam]").forEach(r=>r.onclick=()=>{ ov.remove(); simTeamSheet(r.dataset.simteam); });
     const cr=document.getElementById("ccgrun");
     if(cr) cr.onclick=async()=>{
@@ -3518,10 +3639,10 @@ function simGameBrowser(){
     }
     document.getElementById("gbsheet").innerHTML=html;
     document.querySelectorAll("[data-gbwk]").forEach(b=>b.onclick=()=>{ wk=b.dataset.gbwk==="ccg"?"ccg":+b.dataset.gbwk; draw(); });
-    document.querySelectorAll("[data-gbg]").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gbg]=b.dataset.gbpick; draw(); });
+    document.querySelectorAll("[data-gbg]").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gbg]=b.dataset.gbpick; draw(); simMarkDirty(null); });   // U2: picks surface the RUN button
     document.querySelectorAll("[data-gbccg]").forEach(b=>b.onclick=async()=>{
       if(!(await simResultsGate())) return;
-      sim.userPicks["ccg|"+b.dataset.gbccg]=b.dataset.gbpick; draw(); });
+      sim.userPicks["ccg|"+b.dataset.gbccg]=b.dataset.gbpick; draw(); simMarkDirty(null); });
   };
   draw();
   const openSig=simPicksSig();
@@ -3644,7 +3765,8 @@ function simTeamSheet(teamId){
       <div class="stlock">${g.done!=null?(g.done?"W":"L"):"W"}</div></div>`; });
     document.getElementById("stsheet").innerHTML=
       `<div class="strec">Record: <b>${w}–${l}</b> <small>your scenario · all games incl. FCS</small></div>`+teamOdds()+html;
-    document.querySelectorAll("#stsheet .stb").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gid]=b.dataset.pick; draw(); });
+    document.querySelectorAll("#stsheet .stb").forEach(b=>b.onclick=()=>{ sim.userPicks[b.dataset.gid]=b.dataset.pick; draw();
+      simMarkDirty(teamId); });   // U2: team flow — RUN may ask the CCG-winner interstitial for this team
     const rb=document.getElementById("strun");
     if(rb) rb.onclick=async()=>{
       if(!(await simRunGate())) return;
@@ -3668,7 +3790,7 @@ function simTeamSheet(teamId){
   const openSig=simPicksSig();
   const close=async()=>{ ov.remove();
     if(simPicksSig()!==openSig && !(await simResultsGate())) return;
-    renderSim(); if(SHOW_PREDICTIONS&&!sim.lastRun) simAutoOdds(); };
+    renderSim(); };   // U2: no silent auto-MC on close — the Monte Carlo reruns only via RUN
   ov.querySelector(".pickx").onclick=close; ov.onclick=e=>{ if(e.target===ov) close(); };
   document.getElementById("stteampage").onclick=()=>{ ov.remove(); openDetail(+teamId); };
 }
@@ -3747,13 +3869,8 @@ function simSeedMC(run){
     const v=Math.round(100*t.po/run.N);
     const slot=el.querySelector(".ssmc"); if(slot) slot.textContent=`MC ${v}%`; });
 }
-function simRunOdds(){
-  const odds=document.getElementById("simodds");
-  if(!odds) return;
-  simMonteCarlo(SIM_MC_N,
-    run=>{ odds.innerHTML=simOddsPanel(run); simSeedMC(run); },
-    (done,N)=>{ odds.innerHTML=`<div class="loading">Simulating… ${done.toLocaleString()} of ${N.toLocaleString()} seasons</div>`; });
-}
+// U2 (B2): simRunOdds (the main-page "Simulate N×" trigger) is GONE — the floating RUN
+// button (simRunFlow) is the only full recompute path.
 function simAutoOdds(){
   // Background chalk-world MC on open (free — part of the view). Skipped if a run
   // already exists for the current picks.
@@ -5392,6 +5509,7 @@ const NAV_ROUTES={
   teams:()=>openTeams(),
 };
 function navPush(v,p){
+  if(typeof simHideFab==="function") simHideFab();   // U2: the sim RUN button never outlives its page
   if(_navRestoring) return;
   try{
     const cur=history.state;
@@ -5400,6 +5518,7 @@ function navPush(v,p){
   }catch(e){}
 }
 window.addEventListener("popstate", e=>{
+  if(typeof simHideFab==="function") simHideFab();   // U2: Back off the sim clears the RUN button
   const st=e.state;
   if(!st||!st.hm) return;              // beyond our bottom -> the browser leaves normally
   _navRestoring=true;
