@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v44";   // v44: U23 - persistent header search icon on every view (observer-mounted, teamPicker reuse, safe-area header padding)
+const VERSION = "hashmark-v45";   // v45: U24 - global team-mention tap sweep (data-team adds, NIL sheet team-page buttons, portal/injury/radar/luck links, pickem double-fire + null-guard + sim CCG-view exception fixes)
 const SHELL = [
   "./",
   "./index.html",

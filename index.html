@@ -2820,9 +2820,9 @@ function renderPickem(){
       <div class="secsub" style="padding:0 0 6px">${new Date(g.kickoff).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})}
         ${locked?' · <svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked':""}${crowd}${upset}${res}</div>
       <div class="navrow">
-        <button class="navbtn ${my===g.away_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.away_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.away_team)}</button>
+        <button class="navbtn ${my===g.away_team_id?"primary":""}" data-pk="${g.game_id}" data-pkteam="${g.away_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.away_team)}</button>
         <span style="align-self:center;color:var(--text2)">@</span>
-        <button class="navbtn ${my===g.home_team_id?"primary":""}" data-pk="${g.game_id}" data-team="${g.home_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.home_team)}</button>
+        <button class="navbtn ${my===g.home_team_id?"primary":""}" data-pk="${g.game_id}" data-pkteam="${g.home_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.home_team)}</button>
         <div data-pkconf="${g.game_id}" data-pklocked="${locked||!signedIn?1:""}"></div></div>
       ${pkStatStrip(g)}
       ${model100?`<div class="secsub" style="padding:4px 0 0">Model: ${model100}</div>`:""}
@@ -2849,7 +2849,9 @@ function renderPickem(){
     the week's badge. For entertainment only. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick=load;
-  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.team); renderPickem(); });
+  // U24: pick buttons carry data-pkteam (NOT data-team) — with data-team the click also
+  // bubbled to the body delegate and yanked the picker onto the team page mid-pick.
+  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.pkteam); renderPickem(); });
   const um=document.getElementById("usemodel");
   if(um) um.onclick=()=>{ pk.slate.forEach(g=>{ if(!pkLocked(g)&&g.model_pick_team){ pk.picks[g.game_id]=g.model_pick_team; pk.conf[g.game_id]=g.model_conf; } }); renderPickem(); };
   document.querySelectorAll("[data-pkconf]").forEach(hostEl=>{
@@ -5511,11 +5513,13 @@ document.body.addEventListener("click", e=>{
     ah.setAttribute("aria-expanded", String(!open));
     if(body) body.hidden=open; return; }
   const row=e.target.closest("[data-team]");
-  if(row && row.dataset.team && row.dataset.team!=="undefined"){
-    // B3: inside the simulator, tapping a team (bracket seed, champ chip, odds row)
-    // opens its PICK SHEET — adjust the scenario in place. The team page stays
-    // reachable via the sheet's explicit "Team page" button.
-    if(sim && document.getElementById("simodds") && row.closest(".simseed,.simchip,.oddrow")){
+  if(row && row.dataset.team && row.dataset.team!=="undefined" && row.dataset.team!=="null"){   // U24: FCS/TBD opponents template a literal "null"
+    // B3 (PRESERVED by U24): inside the simulator, tapping a team (bracket seed, champ
+    // chip, odds row) opens its PICK SHEET — never the team page; that stays reachable
+    // only via the sheet's explicit "Team page" button. U24 hardening: the old guard
+    // keyed on #simodds, which the U2 CCG view doesn't render — key on the sim page's
+    // view-toggle marker instead so BOTH sim views keep the exception.
+    if(sim && document.querySelector("[data-simview]") && row.closest(".simseed,.simchip,.oddrow")){
       simTeamSheet(row.dataset.team); return; }
     openDetail(row.dataset.team);
   }
@@ -5931,7 +5935,7 @@ async function gatedLuckGames(teamId){
     <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — luck, game by game</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="picklist">${gs.map(g=>{ const o=teamMeta[g.opp_id]||{school:"opp"};
       const we=Math.round(Number(g.win_exp)*100);
-      return `<div class="stgame"><div class="stopp">${crestEl("glcr",o.school,hx(o.color))}
+      return `<div class="stgame" data-team="${g.opp_id}"><div class="stopp">${crestEl("glcr",o.school,hx(o.color))}
         <div><div class="on">Wk ${g.week} · ${esc(o.school)}</div>
         <div class="ha">deserved: won ${we} of 100 times on the play</div></div></div>
         <div class="glres ${g.won?"w":"l"}">${g.won?"W":"L"}</div></div>`; }).join("")}
@@ -6061,7 +6065,9 @@ async function teamIntelData(teamId, t){
       const chip=chipFor(p);
       return `<div class="stgame"><div class="stopp"><div>
         <div class="on">${esc(p.player)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}</small>${chip}</div>
-        <div class="ha">${inc?`from ${esc(p.origin_school||"?")}`:`to ${esc(p.dest_school||"uncommitted")}`}${p.transfer_date?` · ${new Date(p.transfer_date).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`:""}</div></div></div>
+        <div class="ha">${inc
+          ?(p.origin_id?`from <span data-team="${p.origin_id}" style="cursor:pointer;text-decoration:underline dotted">${esc(p.origin_school||"?")}</span>`:`from ${esc(p.origin_school||"?")}`)
+          :(p.dest_id?`to <span data-team="${p.dest_id}" style="cursor:pointer;text-decoration:underline dotted">${esc(p.dest_school||"?")}</span>`:`to ${esc(p.dest_school||"uncommitted")}`)}${p.transfer_date?` · ${new Date(p.transfer_date).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`:""}</div></div></div>
         <div class="glres ${inc?"w":"l"}">${inc?"IN":"OUT"}</div></div>`; };
     const inc=portal.filter(p=>String(p.dest_id)===String(teamId));
     const out=portal.filter(p=>String(p.origin_id)===String(teamId)&&String(p.dest_id)!==String(teamId));
@@ -6328,7 +6334,9 @@ async function openNILEconomy(){
     const t=teamMeta[r.team_id]||{school:r.school};
     const ov=document.createElement("div"); ov.className="pickov";
     ov.innerHTML=`<div class="picksheet"><div class="pickhd">
-      <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — every figure on file</div><button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — every figure on file</div>
+      <button class="navbtn" id="nilteampage" style="min-height:34px;font-size:11.5px;padding:4px 10px">Team page</button>
+      <button class="pickx"><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
       <div class="picklist">
       <div class="secsub" style="padding:2px 0 8px">Tier ${r.tier} (${esc(r.tier_label||"")}) · confidence: ${esc(r.confidence)}. Every underlying figure, attributed:</div>
       ${nilSrcs(r).map(s=>nilFigLine({source:s.source, url:s.url, type:(s.type||"").replace(/_/g," "), range:s.range})+(s.disputed?`<div class="ha" style="padding:0 0 6px;color:#E8B657">This figure was publicly disputed by the program.</div>`:"")).join("")||"<div class='ha'>No stored figures.</div>"}
@@ -6336,6 +6344,7 @@ async function openNILEconomy(){
       <div class="ha" style="padding:8px 0 0">Figure types are never mixed into one number: roster VALUE, reported SPEND, collective estimates and rev-share splits are different measurements — the tier reflects the ensemble.</div></div></div>`;
     document.body.appendChild(ov);
     ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    const tp=ov.querySelector("#nilteampage"); if(tp) tp.onclick=()=>{ ov.remove(); openDetail(r.team_id); };   // U24
   });
 }
 
@@ -6392,11 +6401,14 @@ async function openNILPerformance(){
     const t=teamMeta[r.team_id]||{school:r.school};
     const figs=((r.sources||{}).figures)||[];
     const ov=document.createElement("div"); ov.className="pickov";
-    ov.innerHTML=`<div class="picksheet"><div class="pickhd"><div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — 2025 figures</div><button class="pickx"><svg class="ic"><use href="#i-close"/></svg></button></div>
+    ov.innerHTML=`<div class="picksheet"><div class="pickhd"><div style="font-weight:800;font-size:15px;flex:1">${esc(t.school)} — 2025 figures</div>
+      <button class="navbtn" id="nilpteampage" style="min-height:34px;font-size:11.5px;padding:4px 10px">Team page</button>
+      <button class="pickx"><svg class="ic"><use href="#i-close"/></svg></button></div>
       <div class="picklist">${figs.map(f=>nilFigLine({source:f.source,url:f.url,type:(f.type||"").replace(/_/g," "),range:f.range})+(f.disputed?`<div class="ha" style="color:#E8B657;padding:0 0 6px">Publicly disputed by the program.</div>`:"")).join("")||"<div class='ha'>Tier/rank basis only.</div>"}
       ${(r.sources||{}).confidence_note?`<div class="ha" style="padding-top:6px">${esc(String(r.sources.confidence_note))}</div>`:""}</div></div>`;
     document.body.appendChild(ov);
     ov.querySelector(".pickx").onclick=()=>ov.remove(); ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+    const tp2=ov.querySelector("#nilpteampage"); if(tp2) tp2.onclick=()=>{ ov.remove(); openDetail(r.team_id); };   // U24
   });
 }
 async function gatedNILPerformance(){
@@ -6562,7 +6574,7 @@ async function openUpsetRadar(){
     const th=teamMeta[g.home_team_id]||{}, ta=teamMeta[g.away_team_id]||{};
     const div=modelH==null?0:Math.abs(crowdH-modelH);
     rows+=`<div class="nilrow${div>0.25?" hot":""}">${crestEl("glcr",th.school||"?",hx(th.color))}
-      <div class="lknm">${esc(ta.school||"?")} @ ${esc(th.school||"?")}<small>crowd ${Math.round(crowdH*100)}% home · model ${modelH==null?"—":Math.round(modelH*100)+"%"}</small></div>
+      <div class="lknm"><span data-team="${g.away_team_id}" style="cursor:pointer">${esc(ta.school||"?")}</span> @ <span data-team="${g.home_team_id}" style="cursor:pointer">${esc(th.school||"?")}</span><small>crowd ${Math.round(crowdH*100)}% home · model ${modelH==null?"—":Math.round(modelH*100)+"%"}</small></div>
       ${div>0.25?`<div class="lkv neg">crowd walking into a trap?</div>`:""}</div>`;
   }
   app.innerHTML=`<div class="cmp">${backHeader("Crowd vs Model")}<div class="list" style="padding-top:6px">
@@ -6757,7 +6769,7 @@ async function openInjuries(){
     let lastTeam=null;
     avail.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.team_raw||"?"};
       if(r.team_id!==lastTeam){ lastTeam=r.team_id;
-        h+=`<div class="glseason" style="display:flex;align-items:center;gap:7px">${crestEl("glcr",t.school,hx(t.color))}${esc(t.school)}</div>`; }
+        h+=`<div class="glseason" style="display:flex;align-items:center;gap:7px;cursor:pointer" data-team="${r.team_id}">${crestEl("glcr",t.school,hx(t.color))}${esc(t.school)}</div>`; }
       h+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(r.player||"?")}${r.position?` <small>${esc(r.position)}</small>`:""}</div>
         <div class="ha">${esc(r.status||"listed")} · ${esc(r.source||"report")} · ${new Date(r.fetch_ts).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div></div></div></div>`; });
     h+=`</div>`;
@@ -7246,7 +7258,7 @@ async function liveTick(){
     }catch(e){} }
     h+=`<div class="card" style="margin:6px 2px;padding:12px">
       <div style="display:flex;justify-content:space-between;font-size:13px">
-        <b>${esc(at.school||"Away")} ${r.away_points} @ ${esc(ht.school||"Home")} ${r.home_points}</b>
+        <b>${g.away_team_id?`<span data-team="${g.away_team_id}" style="cursor:pointer">${esc(at.school||"Away")}</span>`:esc(at.school||"Away")} ${r.away_points} @ ${g.home_team_id?`<span data-team="${g.home_team_id}" style="cursor:pointer">${esc(ht.school||"Home")}</span>`:esc(ht.school||"Home")} ${r.home_points}</b>
         <span class="eyebrow">Q${r.period} ${esc(r.clock||"")}</span></div>`;
     if(isOT || wp==null){
       h+=`<div style="margin-top:6px;font-size:12px;color:var(--text2)">Overtime — too close to call. We don't guess in OT.</div>`;
