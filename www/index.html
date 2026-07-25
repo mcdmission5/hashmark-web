@@ -4634,7 +4634,8 @@ function statExample(d, school, v, base){
 }
 let statTab = "explorer", exploreStat = "points_per_game", exploreConf = null;
 let _catalog = null; const _statCache = {};
-const normName = s => String(s||"").toLowerCase().replace(/\b(jr|sr|iii|ii|iv)\b/g,"").replace(/[^a-z]/g,"");
+// U3 (B4) Rule 3: kept in exact parity with the model's shared seed_honors.norm_player
+const normName = s => String(s||"").toLowerCase().replace(/\b(jr|sr|iii|ii|iv|v)\b/g,"").replace(/[^a-z]/g,"");
 const STAT_GROUPS = ["Scoring","Offense","Defense","Efficiency/Advanced","Special teams","Discipline","Schedule"];
 // preseason stats live on their own season row (e.g. 2026 preseason SOS) — everything else is STAT_SEASON
 const STAT_SEASON_OVERRIDE = {sos_pre_2026: 2026};
@@ -6001,9 +6002,22 @@ async function teamIntelData(teamId, t){
   // ---- C3 portal (FREE) ----
   let por="";
   if(portal.length){
-    const val=new Set([...(((pe[0]||{}).top_in)||[]),...(((pe[0]||{}).top_out)||[])].map(x=>String(x.player||"").toLowerCase().replace(/[^a-z]/g,"")));
+    // U3 (B4): the "valued mover" chip is SUBSTANTIATED — it renders only on an INCOMING
+    // row whose player matches this team's top_in portal-economy entry (shared-normalizer
+    // name + position agreement) AND whose value came from MEASURED prior production
+    // (q=true: PPA/usage on file — the existing _player_value floor, not the
+    // unknown-incoming recruiting-flyer fallback). Tooltip carries the substance.
+    const tin=(((pe[0]||{}).top_in)||[]);
+    const chipFor=p=>{
+      if(String(p.dest_id)!==String(teamId)) return "";          // arrivals only
+      const nm=normName(p.player);
+      const e=tin.find(x=>normName(x.player)===nm && (!x.pos || !p.position || x.pos===String(p.position).toUpperCase()));
+      if(!e || e.q===false) return "";                            // no entry, or below the measured-production floor
+      const tip=`Valued mover — arrived from ${e.from||p.origin_school||"?"} (${e.pos||p.position||""}). `+
+        `Prior-season production value ${Number(e.v).toFixed(2)} in role, from opponent-adjusted PPA + usage share — measured production, not stars.`;
+      return ` <span class="chip-plus" style="display:inline-flex" data-tip="${esc(tip)}">valued mover</span>`; };
     const row=p=>{ const inc=String(p.dest_id)===String(teamId);
-      const chip=val.has(String(p.player||"").toLowerCase().replace(/[^a-z]/g,""))?` <span class="chip-plus" style="display:inline-flex" data-tip="carries measurable prior-season production value (value in role, not stars)">valued mover</span>`:"";
+      const chip=chipFor(p);
       return `<div class="stgame"><div class="stopp"><div>
         <div class="on">${esc(p.player)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}</small>${chip}</div>
         <div class="ha">${inc?`from ${esc(p.origin_school||"?")}`:`to ${esc(p.dest_school||"uncommitted")}`}${p.transfer_date?` · ${new Date(p.transfer_date).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`:""}</div></div></div>
