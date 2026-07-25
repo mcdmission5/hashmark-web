@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v39";   // v39: batch 12 - mascots in search, wordmark=home, team-page BUBBLE NAV (accordions removed, per-team NIL panel), preseason honors expansion (all-conference/all-america/watch lists + team Honors chips)
+const VERSION = "hashmark-v40";   // v40: U1 (B1) - home bubble nav (4 groups, inline stat explorer), team Stats 2026/2025 sub-toggle, sticky home search under the header, clearer two-helmet matchup icon
 const SHELL = [
   "./",
   "./index.html",

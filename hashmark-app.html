@@ -401,7 +401,13 @@
   .navbtn .nic{font-size:15px}
   .navbtn.primary{background:linear-gradient(180deg,#1d2735,#141c27);border-color:#3a4a5e}
   .navbtn:hover{border-color:var(--amber)}
+  /* U1 (B1 #3): the HOME search sticks right under the (already-sticky) header and
+     follows the scroll — top = the measured header height (--hdrh, set by setHdrH() on
+     every home render, so mode/subtitle changes can't desync it). The --bg ring masks
+     content sliding beneath the rounded input. Scoped to .list so the pick-your-team
+     search under the .cmptop header keeps its normal flow. */
   .searchwrap{position:relative;margin:0 0 12px}
+  .list .searchwrap{position:sticky;top:var(--hdrh,0px);z-index:40;box-shadow:0 0 0 10px var(--bg)}
   .searchwrap input{width:100%;padding:13px 14px 13px 40px;border-radius:13px;border:1px solid var(--line);
     background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;font-size:14px;outline:none}
   .searchwrap input:focus{border-color:var(--amber)}
@@ -748,7 +754,7 @@
   .oddrow .ov{font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:center}
   .oddrow .ov:first-of-type{color:var(--amber);font-weight:700}
   /* ---- stats HOME dashboard ---- */
-  .homesearch{position:relative;display:flex;align-items:center;gap:10px;background:var(--surface);
+  .homesearch{position:sticky;top:var(--hdrh,0px);z-index:40;box-shadow:0 0 0 10px var(--bg);display:flex;align-items:center;gap:10px;background:var(--surface);
     border:1.5px solid var(--line);border-radius:14px;padding:14px 15px;margin:8px 0 6px}
   .homesearch:focus-within{border-color:var(--amber)}
   .homesearch .si{font-size:17px;color:var(--text2)}
@@ -1032,7 +1038,7 @@
 <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4m0 0L8 8m4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v6h14v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
 <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 8h13m0 0-4-4m4 4-4 4M17 16H4m0 0 4 4m-4-4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-vs" viewBox="0 0 24 24"><!-- two football helmets nose-to-nose (batch 10 #2) --><path d="M10.2 8.2a4 4 0 0 0-6.4 3.1c0 1.2.4 2 .9 2.6l-.5 1.9 2.2-.4c.5.2 1.2.4 1.9.4M10 12.6h-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.8 8.2a4 4 0 0 1 6.4 3.1c0 1.2-.4 2-.9 2.6l.5 1.9-2.2-.4c-.5.2-1.2.4-1.9.4M14 12.6h2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-vs" viewBox="0 0 24 24"><!-- U1 (B1 #4): two side-profile football helmets nose-to-nose — closed shell dome with a jaw hook, sloped face edge and a two-bar facemask cage each, small gap at center; picked from 8 candidates screenshot-tested at 18/28/44px (18 = the in-app size) --><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.9 10.9A4.6 4.6 0 0 0 1.8 12.1c0 2.4 2 4.4 4.4 4.4h2.2v-1.9"/><path d="M10.9 10.9l.3 1.5"/><path d="M11.8 12.4H7.3M11.4 14.6H8.4"/><path d="M13.1 10.9a4.6 4.6 0 0 1 9.1 1.2c0 2.4-2 4.4-4.4 4.4h-2.2v-1.9"/><path d="M13.1 10.9l-.3 1.5"/><path d="M12.2 12.4h4.5M12.6 14.6h3"/></g></symbol>
 <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1" fill="currentColor"/></symbol>
 <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6m0 0-5 5m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13m0 0-5-5m5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -1839,6 +1845,7 @@ async function openAccuracy(){
   document.querySelector(".back").onclick=load;
 }
 function wireHome(){
+  setHdrH();   // U1 (B1 #3): sticky search offset on the 2025 home too
   document.querySelectorAll(".toggle button").forEach(b=>{ b.onclick=()=>{ if(b.dataset.v!==view){ view=b.dataset.v; load(); } }; });
   document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
   document.querySelectorAll(".ncard[data-stat]").forEach(el=>el.onclick=()=>{ exploreStat=el.dataset.stat; statTab="explorer"; openStats("explorer"); window.scrollTo(0,0); });
@@ -1968,8 +1975,9 @@ function renderLeaderboard(){
   const confRankOf = {}; RANKABLE.forEach((c,i)=>confRankOf[c.conf]=i+1);
   const cmax = Math.max(0.0001, ...RANKABLE.map(c=>Math.abs(c.avg)));
 
-  // UX batch 4 #7 home order: your-team, Latest (2 + rotating bar), feature tiles, board
-  let h = header() + listTop() + `<div id="ytm"></div><div class="hsec" id="cs-newshost"></div><div id="home-tiles"></div>`;
+  // UX batch 4 #7 home order: your-team, Latest (2 + rotating bar), then U1 (B1): the
+  // home BUBBLE NAV (batch-12 component) in place of the flat feature-tile grid, board
+  let h = header() + listTop() + `<div id="ytm"></div><div class="hsec" id="cs-newshost"></div>` + homeBubblesHTML();
   // board-type nav (C4: named header, season label rides the phase logic)
   h += `<div class="cstrtitle" style="margin:4px 2px 2px;font-size:13px">HASHMARK RATINGS <small style="font-weight:600;color:var(--text2)">${phaseLabel()}</small></div>`;
   h += `<div class="bnav">`;
@@ -2027,7 +2035,7 @@ function renderLeaderboard(){
   app.innerHTML = h; wireToggle();
   injectSeasonExtras();   // preseason signal teasers + news under the live board (brief #5 kept)
   injectYourTeam();
-  injectHomeTiles();
+  wireHomeBubbles();
 }
 // Batch 8 #5: ONE tile config renders both the home feature row and the Explore grid
 // (Explore additionally appends Methodology, Checking Our Work, Notifications + About).
@@ -2060,16 +2068,75 @@ function wireTiles(host, tiles){
   const GO=Object.fromEntries(tiles.map(t=>[t[0], t[6]]));
   host.querySelectorAll("[data-tile]").forEach(el=>el.onclick=()=>GO[el.dataset.tile]());
 }
-// UX batch 4 #7: the Explore feature tiles surfaced on home, right under the news block
-// (with the consolidated Hashmark Model tile up front).
-function injectHomeTiles(){
-  const host=document.getElementById("home-tiles");
-  if(!host) return;
-  host.innerHTML=`<div class="xgrid" style="padding:2px 2px 8px">${FEATURE_TILES.map(tileHTML).join("")}</div>`;
-  wireTiles(host, FEATURE_TILES);
+// U1 (B1 #1): the home feature layout is a BUBBLE NAV — the batch-12 team-page component
+// reused: four owner-specified groups, one swappable panel, lazy render, NO history push
+// per bubble tap (Back from home exits the app as before). Explore keeps its superset
+// grid (batch-8 parity note); both render from the same FEATURE_TILES config.
+// Weekly Movers rides in Updates (my call — it's the "updated Sundays" surface; owner can veto).
+const HOME_BUBS=[
+  ["hashstats","Hashmark stats",["modelhub","signature","whatwins"]],
+  ["statstand","Stats & standings",null],            // sub-toggle panel, not tiles
+  ["features","Hashmark features",["sim","matchup","nil"]],
+  ["updates","Updates",["aateam","injuries","movers"]],
+];
+let _homeBub={active:"hashstats"};   // survives board re-renders (mode/conference pills)
+function homeBubblesHTML(){
+  return `<div class="bubwrap" id="home-bubbles"><div class="bubrow" id="home-bubrow" role="tablist" aria-label="Home sections">
+    ${HOME_BUBS.map(([k,l])=>`<button class="bub${_homeBub.active===k?" on":""}" role="tab" aria-selected="${_homeBub.active===k}" data-hbub="${k}">${l}</button>`).join("")}
+  </div></div><div id="home-panel"></div>`;
+}
+async function homeStatsSeg(panel){
+  // "Stats & standings" sub-toggles: General stats renders INLINE (the stat explorer is
+  // a body-renderer); Rankings / Standings / SoS are full monolithic views, so those
+  // buttons OPEN them — history-pushing navs, Back returns to home with this bubble kept.
+  panel.innerHTML=`<div class="lbtoggle" style="margin:2px 2px 10px">
+      <button data-hseg="explorer" class="on">General stats</button>
+      <button data-hseg="rankings">Rankings</button>
+      <button data-hseg="standings">Standings</button>
+      <button data-hseg="sos">SoS</button></div>
+    <div id="home-segbody"><div class="loading">Loading stats…</div></div>`;
+  panel.querySelectorAll("[data-hseg]").forEach(b=>b.onclick=()=>{
+    const s=b.dataset.hseg;
+    if(s==="rankings") return openPreseason();
+    if(s==="standings"){ standingsMode="conf"; return openStandings(); }
+    if(s==="sos"){ standingsMode="sos"; sosSeason=SEASON_SCHED; return openStandings(); }
+  });
+  try{
+    await Promise.all([ensureTeamMeta(), ensureCatalog()]);
+    const body=document.getElementById("home-segbody");
+    if(body) await renderExplorer(body, ()=>homeStatsSeg(panel));
+  }catch(e){ const body=document.getElementById("home-segbody");
+    if(body) body.innerHTML=`<div class="err">Couldn't load stats: ${e.message}</div>`; }
+}
+async function showHomeBubble(k){
+  _homeBub.active=k;
+  const row=document.getElementById("home-bubrow"), panel=document.getElementById("home-panel");
+  if(!row||!panel) return;
+  row.querySelectorAll(".bub").forEach(b=>{ const on=b.dataset.hbub===k;
+    b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); });
+  const grp=HOME_BUBS.find(x=>x[0]===k);
+  if(grp[2]){
+    const tiles=grp[2].map(key=>FEATURE_TILES.find(t=>t[0]===key)).filter(Boolean);
+    panel.innerHTML=`<div class="xgrid" style="padding:2px 2px 8px">${tiles.map(tileHTML).join("")}</div>`;
+    wireTiles(panel, tiles);
+  } else await homeStatsSeg(panel);
+}
+function wireHomeBubbles(){
+  const row=document.getElementById("home-bubrow");
+  if(!row) return;
+  row.onclick=e=>{ const b=e.target.closest("[data-hbub]"); if(b) showHomeBubble(b.dataset.hbub); };
+  showHomeBubble(_homeBub.active);
 }
 
+// U1 (B1 #3): the sticky home search pins right under the sticky header — measure the
+// header each render (its height shifts with mode/subtitle) into the --hdrh CSS var.
+function setHdrH(){
+  const hd=document.querySelector("header");
+  document.documentElement.style.setProperty("--hdrh",(hd?hd.offsetHeight:0)+"px");
+}
+window.addEventListener("resize", setHdrH);
 function wireToggle(){
+  setHdrH();
   document.querySelectorAll(".toggle button").forEach(b=>{
     b.onclick = ()=>{ if(b.dataset.v!==view){ view=b.dataset.v; load(); } };
   });
@@ -3895,16 +3962,26 @@ function wireTeamPanels(teamId, t, games, e, swap26){
         J(`nil_disclosure_status?select=status,note&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}`),
         J(`nil_performance_2025?select=band,wins,losses,est_low_musd,est_high_musd,confidence,disputed&team_id=eq.${teamId}`)]);
       C.data.nil={tier:tier[0], ds:ds[0], perf:perf[0]}; } return C.data.nil; };
+  // U1 (B1 #2): the Stats panel body for one season — behind the 2026/2025 sub-toggle.
+  // The separate "2025 Stats" bubble stays as the explicit archive; this is the in-panel
+  // convenience. Season labels ride statProfile's own titles.
+  const tpStatsBody=async yr=>{
+    if(yr===SEASON_SCHED && !swap26)
+      return `<div class="sec"><div class="sectitle">${SEASON_SCHED} stats</div>
+        <div class="secsub">${SEASON_SCHED} stats populate as games are played — once ${esc(t.school)} has 3 completed games, this panel carries the current-season profile (ranks + percentiles). Until then, flip the toggle above to <b>${SEASON_RESULTS}</b> for the final ${SEASON_RESULTS} profile.</div></div>`;
+    const s=await loadStats();
+    const rows=statsFor(s.rows, yr);
+    if(yr===SEASON_SCHED && !rows.some(r=>Number(r.season)===SEASON_SCHED))
+      return emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`);
+    return statProfile(s.cat, rows, t.school, yr) || emptyNote(`No ${yr} stat profile on file.`);
+  };
   const BUILD={
     sched: async()=> scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
       || emptyNote(`No ${SEASON_SCHED} schedule on file yet.`),
-    stats: async()=>{
-      if(!swap26) return `<div class="sec"><div class="sectitle">${SEASON_SCHED} stats</div>
-        <div class="secsub">${SEASON_SCHED} stats populate as games are played — once ${esc(t.school)} has 3 completed games, this panel carries the current-season profile (ranks + percentiles). Until then the <b>${SEASON_RESULTS} Stats</b> bubble holds the final ${SEASON_RESULTS} profile.</div>
-        <div class="navrow"><button class="navbtn" data-bubgo="stats25">Open ${SEASON_RESULTS} Stats</button></div></div>`;
-      const s=await loadStats(); const cur=statsFor(s.rows, SEASON_SCHED);
-      return cur.some(r=>Number(r.season)===SEASON_SCHED) ? statProfile(s.cat, cur, t.school, SEASON_SCHED)
-        : emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`); },
+    stats: async()=>`<div class="lbtoggle" style="margin:2px 2px 8px">
+        <button data-stseg="${SEASON_SCHED}" class="on">${SEASON_SCHED}</button>
+        <button data-stseg="${SEASON_RESULTS}">${SEASON_RESULTS}</button></div>
+      <div id="tp-statsbody">${await tpStatsBody(SEASON_SCHED)}</div>`,
     splits: async()=>{ const sp=await loadSplits();
       return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_SCHED), t.school, SEASON_SCHED)
         || emptyNote(`${SEASON_SCHED} situational splits are still processing.`); },
@@ -3935,9 +4012,16 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     // batch 7 #4: schedule rows open the matchup pre-set to this pairing + venue
     panel.querySelectorAll("[data-mopp]").forEach(el=>el.onclick=ev=>{
       ev.stopPropagation(); openMatchup(teamId, el.dataset.mopp, el.dataset.mven); });
-    panel.querySelectorAll("[data-bubgo]").forEach(el=>el.onclick=()=>show(el.dataset.bubgo));
     if(k==="avail") wireInjGate(panel, C.data.intel);
     if(k==="nil") wireNILPanel(panel, C.data.nil, t);
+    // U1 (B1 #2): the Stats panel's 2026/2025 sub-toggle — in-panel swap, no history push
+    if(k==="stats") panel.querySelectorAll("[data-stseg]").forEach(b=>b.onclick=async()=>{
+      panel.querySelectorAll("[data-stseg]").forEach(x=>x.classList.toggle("on",x===b));
+      const body=panel.querySelector("#tp-statsbody");
+      if(!body) return;
+      body.innerHTML=`<div class="loading">Loading…</div>`;
+      body.innerHTML=await tpStatsBody(Number(b.dataset.stseg));
+    });
   };
   const show=async k=>{
     if(!BUILD[k]) return;
@@ -4842,7 +4926,11 @@ function mountAppSelect(host, items, value, onChange, opts={}){
   };
   render();
 }
-async function renderExplorer(body){
+async function renderExplorer(body, rerender){
+  // U1 (B1): optional `rerender` lets the explorer live inline in a host panel (the home
+  // "Stats & standings" bubble) — its stat/conference controls re-render THAT panel
+  // instead of blowing away the host with the full Stats view. Default unchanged.
+  const again = rerender || renderStats;
   const d=_catalog.by[exploreStat];
   const ddItems=[];
   STAT_GROUPS.forEach(g=>{ const ds=_catalog.groups[g]||[]; if(!ds.length) return;
@@ -4864,8 +4952,8 @@ async function renderExplorer(body){
   if(!rows.length) h+=`<div class="loading">No teams.</div>`;
   body.innerHTML=h;
   mountAppSelect(document.getElementById("statsel"), ddItems, exploreStat,
-    v=>{ exploreStat=v; renderStats(); }, {ariaLabel:"Choose a stat"});
-  body.querySelectorAll("[data-econf]").forEach(b=>b.onclick=()=>{ exploreConf=b.dataset.econf||null; renderStats(); });
+    v=>{ exploreStat=v; again(); }, {ariaLabel:"Choose a stat"});
+  body.querySelectorAll("[data-econf]").forEach(b=>b.onclick=()=>{ exploreConf=b.dataset.econf||null; again(); });
 }
 const STAT_LEADERS=["points_per_game","opp_points_per_game","total_yards_pg","total_yards_allowed_pg",
   "off_ppa","def_ppa","off_success_rate","off_explosiveness","def_havoc","third_down_pct",
@@ -5218,7 +5306,9 @@ document.addEventListener("scroll", hideTip, {passive:true, capture:true});   //
 // detail .dtop, compare .cmptop, landing) — pushes a history state like any nav.
 function goHome(){
   const st=history.state;
-  if(st && st.hm && st.v==="home"){ window.scrollTo(0,0); return; }   // already home: just scroll up
+  // "already home" needs BOTH the state and the actual home DOM — at boot the landing can
+  // render before the nav-wrap installs, leaving state.v="home" while landing shows (U1 fix)
+  if(st && st.hm && st.v==="home" && !document.querySelector(".landing")){ window.scrollTo(0,0); return; }
   navPush("home",{view});
   load(); window.scrollTo(0,0);
 }
