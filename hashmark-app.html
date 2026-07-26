@@ -679,8 +679,17 @@
     border:1px solid var(--line);border-radius:11px;margin:6px 0}
   /* U39: news rows — whole headlines (no clamp/ellipsis anywhere), attribution as the
      muted "SOURCE · 2H AGO" suffix under the title (batch 8's 2-line clamp is gone) */
-  .newsline{padding:8px 4px;border-bottom:1px solid rgba(42,53,66,.5)}
-  .newsline a{display:block;font-size:14px;font-weight:700;line-height:1.35;
+  .newsline{display:flex;gap:10px;align-items:flex-start;padding:8px 4px;border-bottom:1px solid rgba(42,53,66,.5)}
+  /* U30: fixed-aspect visual box (identical for photo + branded card = no CLS) */
+  .newsthumb{flex:none;display:block;width:78px;height:44px;border-radius:8px;overflow:hidden;
+    position:relative;background:var(--surface)}
+  .newsthumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .newsfb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:16px}
+  .newsfb.src{color:var(--text2);background:linear-gradient(135deg,var(--surface),#141c28);
+    font-size:11px;letter-spacing:.06em}
+  .newsbody{flex:1;min-width:0}
+  .newsbody a{display:block;font-size:14px;font-weight:700;line-height:1.35;
     color:var(--text);text-decoration:none;overflow-wrap:anywhere}
   .newsattr{font-size:9.5px;color:var(--text3);font-weight:600;
     text-transform:uppercase;letter-spacing:.03em;padding-top:2px}
@@ -3082,19 +3091,34 @@ const _entEl = document.createElement("textarea");
 function decodeEnt(x){ _entEl.innerHTML = String(x||""); return _entEl.value; }
 // U39: the ENTIRE headline, multi-line, never clamped — attribution stays (safe-harbor
 // discipline) but demotes from a side column to the muted inline suffix under the title.
+// U30: every news row leads with a FIXED-ASPECT visual (identical box whether
+// photo or card — zero CLS): a real thumbnail ONLY when the pipeline stored one
+// (NCAA.com/Heartland — publisher-owned pixels, HOTLINKED, never proxied or
+// cached by us), else the branded card — team monogram when the item is
+// team-tagged and team meta is loaded, source-initials chip otherwise. The
+// image credit (Heartland's CC display requirement) rides the attribution
+// line; a failed hotlink falls back to the card via onerror.
+const srcInitials=s=>{ s=String(s||"").replace(/\(.*?\)/g,"").trim();
+  const w=s.split(/\s+/).filter(Boolean);
+  return (w.length>1?w.map(x=>x[0]).join(""):(w[0]||"").slice(0,4)).toUpperCase().slice(0,4); };
 function newsRow(n){
   const age = Math.round((Date.now()-new Date(n.published_at))/36e5);
   const rel = age<1?"just now":age<24?`${age}h ago`:`${Math.round(age/24)}d ago`;
-  return `<div class="newsline"><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${esc(decodeEnt(n.headline))}</a>
-    <div class="newsattr">${esc(n.source)} · ${rel}</div></div>`;
+  const t0=(n.team_tags||[])[0], tm=(t0!=null&&teamMeta)?teamMeta[t0]:null;
+  const fb = tm?`<span class="newsfb" style="background:${hx(tm.color)};color:${textOn(tm.color)}">${esc(monogram(tm.school))}</span>`
+             :`<span class="newsfb src">${esc(srcInitials(n.source))}</span>`;
+  const img = n.image_url?`<img src="${esc(n.image_url)}" alt="${esc(n.image_credit||decodeEnt(n.headline))}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:"";
+  return `<div class="newsline"><a class="newsthumb" href="${esc(n.url)}" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">${fb}${img}</a>
+    <div class="newsbody"><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${esc(decodeEnt(n.headline))}</a>
+    <div class="newsattr">${esc(n.source)} · ${rel}${n.image_credit?` · ${esc(n.image_credit)}`:""}</div></div></div>`;
 }
-// UX batch 4 #7: Latest = 2 free stories; below them the rotating fire bar cycles the
-// 10 most recent headlines with the yellow HASHMARK+ chip — tapping it hits the news
-// paywall (opens the full feed for subscribers / free during preview).
+// U30 (supersedes UX batch 4 #7's tease): news is FREE — Latest shows 6 stories,
+// and the rotating fire bar cycles the rest as an entry to the full archive
+// (no paywall, no plus chip).
 let _stripT=null;
 async function injectNews(){
   try{
-    const items = await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=25`);   // batch 5 #5: bar rotates the 25 most recent
+    const items = await api(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&order=published_at.desc&limit=25`);   // batch 5 #5: bar rotates the 25 most recent
     if(!items.length) return;
     const host = document.getElementById("cs-newshost");
     let div;
@@ -3103,13 +3127,13 @@ async function injectNews(){
       div = document.createElement("div"); div.className = "hsec";
       anchor.parentNode.insertBefore(div, anchor.nextSibling); }
     div.innerHTML = `<div class="hsectitle">Latest <small>around college football</small></div>`
-      + items.slice(0,2).map(newsRow).join("")   // 2 free; the rest ride the gated bar
-      + `<div class="newsstrip" id="nsbar" role="button" tabindex="0" aria-label="More headlines — Hashmark Plus">
+      + items.slice(0,6).map(newsRow).join("")   // U30: 6 stories free, bar cycles the rest
+      + `<div class="newsstrip" id="nsbar" role="button" tabindex="0" aria-label="More headlines — open the news archive">
           <svg class="ic" style="flex:none;color:var(--amber)"><use href="#i-flame"/></svg>
           <span class="nsline" id="nsline"></span>
-          <span class="chip-plus" style="display:inline-flex;flex:none">HASHMARK+</span></div>
+          <span style="flex:none;font-size:9.5px;font-weight:800;letter-spacing:.05em;color:var(--text2)">ALL NEWS &rsaquo;</span></div>
       <div class="secsub" style="padding:4px 2px 0">Headlines link to the original source.</div>`;
-    let i=2;
+    let i=6;
     const line=document.getElementById("nsline");
     line.style.transition="opacity .25s";
     const show=()=>{ const it=items[i%items.length];
@@ -3124,8 +3148,9 @@ async function injectNews(){
   }catch(_e){}
 }
 async function gatedNewsArchive(teamId){
-  if(PLUS_GATED.news_full && !(await plusUpsell("See all news",
-    "The full feed and the archive — every headline we've tracked, browsable by month, with team filters. Free during preview."))) return;
+  // U30: news is FREE (owner reversal of the batch-5/8 tease-paywall) — this
+  // shim survives only as the shared entry point for the [data-newsall]
+  // delegate + the home strip. No gate, no upsell.
   openNewsArchive(typeof teamId==="string"||typeof teamId==="number"?teamId:null);
 }
 // N2: archive browser (paged by month, grouped by day). Rows are headline/source/url/date
@@ -3143,7 +3168,7 @@ async function openNewsArchive(teamId){
     const from=new Date(Date.UTC(y,m-1,1)).toISOString(), to=new Date(Date.UTC(y,m,1)).toISOString();
     const teamF=teamId?`&team_tags=cs.{${teamId}}`:"";
     let items=[];
-    try{ items=await api(`news_items?select=headline,url,source,published_at&published_at=gte.${from}&published_at=lt.${to}${teamF}&order=published_at.desc&limit=500`); }catch(e){}
+    try{ items=await api(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&published_at=gte.${from}&published_at=lt.${to}${teamF}&order=published_at.desc&limit=500`); }catch(e){}
     let h=`<div class="cmp">${backHeader("News archive")}<div class="list" style="padding-top:6px">
       <div id="newsmonth"></div>`;
     let lastDay=null;
@@ -3162,18 +3187,18 @@ async function openNewsArchive(teamId){
 }
 async function teamNewsHTML(teamId){
   try{
-    const items = await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=8`);
+    const items = await api(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&team_tags=cs.{${teamId}}&order=published_at.desc&limit=8`);
     // Part 0.4: "N new" chip since last visit (localStorage last-seen per team)
     const seenKey=`hm_news_seen_${teamId}`;
     const seen=localStorage.getItem(seenKey);
     const nNew=seen? items.filter(it=>it.published_at>seen).length : 0;
     if(items.length) localStorage.setItem(seenKey, items[0].published_at);
     if(items.length)
-      return `<div class="sec"><div class="sectitle">Team news${nNew?` <span class="chip-new">${nNew} new</span>`:""}</div>`+items.slice(0,2).map(newsRow).join("")
+      return `<div class="sec"><div class="sectitle">Team news${nNew?` <span class="chip-new">${nNew} new</span>`:""}</div>`+items.map(newsRow).join("")
         +`<div id="tpnews-more"></div>
         <div class="navrow" style="padding-top:6px">
-          <button class="navbtn" data-newsmore="${teamId}" data-oldest="${esc(items[1]?items[1].published_at:items[0].published_at)}">More headlines</button>
-          <button class="navbtn" data-newsall="${teamId}">Archive <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
+          <button class="navbtn" data-newsmore="${teamId}" data-oldest="${esc(items[items.length-1].published_at)}">More headlines</button>
+          <button class="navbtn" data-newsall="${teamId}">Archive</button></div></div>`;
     const t = teamMeta && teamMeta[teamId];
     return `<div class="sec"><div class="sectitle">Team news</div>
       <div class="secsub">No recent headlines${t&&t.conference?` — see ${esc(t.conference)} coverage on the home page`:""}.</div></div>`;
@@ -6315,7 +6340,7 @@ document.body.addEventListener("click", e=>{
     const tid=nm.dataset.newsmore, oldest=nm.dataset.oldest;
     const floor=new Date(Date.now()-183*864e5).toISOString();
     nm.disabled=true; nm.textContent="Loading…";
-    const more=await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${tid}}&published_at=lt.${encodeURIComponent(oldest)}&published_at=gte.${encodeURIComponent(floor)}&order=published_at.desc&limit=20`).catch(()=>[]);
+    const more=await api(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&team_tags=cs.{${tid}}&published_at=lt.${encodeURIComponent(oldest)}&published_at=gte.${encodeURIComponent(floor)}&order=published_at.desc&limit=20`).catch(()=>[]);
     const host=document.getElementById("tpnews-more");
     if(host&&more.length){ host.insertAdjacentHTML("beforeend", more.map(newsRow).join(""));
       nm.dataset.oldest=more[more.length-1].published_at;
@@ -6543,7 +6568,8 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   ask_plus:true,              // batch 9 #2: Ask Hashmark is Hashmark+ (edge free-quota dormant)
   signature_full:true,        // Collapse Index teaser free; full boards Hashmark+
   grade_history:true, scenario_sandbox:true, big_groups:true, csv_export:true,
-  news_full:true,              // N1: home/team pages tease 3-4 free; full feed + archive gated
+  // news_full RETIRED (U30 owner reversal): news is FREE everywhere — feed,
+  // team lists, archive. Ad-supported per the U34 plan; do not re-gate.
   pace_player_box:true,        // on-track-pace: team pace free; full player pace board gated
   luck_games:true,             // V3: ledger board free; per-game deserved-win dots gated
   gauntlet_wall:true,          // V4: per-team gauntlet free; the all-138 wall gated
@@ -6944,7 +6970,7 @@ async function teamIntelData(teamId, t){
     J(`portal_economy?select=top_in,top_out&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`),
     J(`coaching_staff?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}&order=role.asc`),
     J(`availability_report?select=fetch_ts,source,player,position,status&team_id=eq.${teamId}&order=fetch_ts.desc&limit=40`),
-    J(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=60`),
+    J(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&team_tags=cs.{${teamId}}&order=published_at.desc&limit=60`),
     // U31: this team's prospect-evidence rows (90-day window enforced below)
     J(`prospect_news?select=recruit_id,class_year,url,matched_at&team_id=eq.${teamId}&order=matched_at.desc&limit=40`),
     // U31: the national top-uncommitted board + committed-elsewhere candidates
@@ -6984,7 +7010,7 @@ async function teamIntelData(teamId, t){
   const evByRid={};
   liveEv.forEach(v=>{ (evByRid[v.recruit_id]=evByRid[v.recruit_id]||[]).push(v); });
   const evUrls=[...new Set(liveEv.map(v=>v.url))];
-  const evNews=evUrls.length?await J(`news_items?select=url,headline,source,published_at&url=in.(${evUrls.map(encodeURIComponent).join(",")})`):[];
+  const evNews=evUrls.length?await J(`news_items?select=url,headline,source,published_at,team_tags,image_url,image_credit&url=in.(${evUrls.map(encodeURIComponent).join(",")})`):[];
   const evNewsBy={}; evNews.forEach(n=>evNewsBy[n.url]=n);
   let rail="";
   Object.keys(evByRid).slice(0,12).forEach(rid=>{
@@ -7958,7 +7984,7 @@ async function openLanding(){
     ${row("star","Built around your team","Pick your team once — your record, rank, next kickoff and headlines lead every visit.")}
     <div class="card card-hero-amber" style="margin:12px 2px;padding:14px">
       <div class="eyebrow">Hashmark+</div>
-      <div style="font-size:12.5px;color:var(--text2);margin-top:4px">The full model boards, unlimited simulations, complete news and player depth. Founding members: the <b>first 500</b> lock a <b>$99.99 lifetime</b> rate — for life, before public pricing lands.</div></div>
+      <div style="font-size:12.5px;color:var(--text2);margin-top:4px">The full model boards, unlimited simulations, and full player depth. Founding members: the <b>first 500</b> lock a <b>$99.99 lifetime</b> rate — for life, before public pricing lands.</div></div>
     <div class="navrow" style="padding:8px 2px 20px">
       <button class="navbtn primary" id="landgo" style="flex:1;min-height:48px">Explore free</button>
       <button class="navbtn" id="landpick" style="flex:1;min-height:48px"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> Pick your team</button></div>
@@ -7978,7 +8004,7 @@ async function openInjuries(){
   const KW=["injur","surgery","questionable","doubtful","concussion","hamstring","sidelined","carted","out%20indefinitely","season-ending"];
   const [avail, news]=await Promise.all([
     api(`availability_report?select=fetch_ts,source,team_id,player,position,status&order=fetch_ts.desc&limit=120`).catch(()=>[]),
-    api(`news_items?select=headline,url,source,published_at,team_tags&or=(${KW.map(k=>`headline.ilike.*${k}*`).join(",")})&order=published_at.desc&limit=40`).catch(()=>[]) ]);
+    api(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&or=(${KW.map(k=>`headline.ilike.*${k}*`).join(",")})&order=published_at.desc&limit=40`).catch(()=>[]) ]);
   let h=`<div class="cmp">${backHeader("Injury updates")}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px"><b>Reports from cited sources — not Hashmark medical information.</b> Official availability/injury reports where schools publish them, plus injury-tagged headlines from the news feed. Nothing here feeds the model.</div>`;
   if(avail.length){
