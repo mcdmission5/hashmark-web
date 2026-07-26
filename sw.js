@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v61";   // v61: U28 - bubbles up + News & Standings bubbles   // v60: U27 - honest lookahead watch (board + scores strip)   // v56: U11+U31 - recruiting Commits/Prospects/News sub-tabs + portal News (ungated)
+const VERSION = "hashmark-v61b";   // v61b: U28 - division-TBD group for unassigned new members   // v60: U27 - honest lookahead watch (board + scores strip)   // v56: U11+U31 - recruiting Commits/Prospects/News sub-tabs + portal News (ungated)
 const SHELL = [
   "./",
   "./index.html",

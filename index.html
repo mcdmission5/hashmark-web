@@ -4608,10 +4608,12 @@ async function teamStandingsPanel(teamId, t){
   const divOf={}; divs.forEach(d=>{ if(d.division) divOf[d.id]=d.division; });
   const groups={};
   rows.forEach(r=>{ (groups[divOf[r.team_id]||""]=groups[divOf[r.team_id]||""]||[]).push(r); });
-  const gkeys=Object.keys(groups).sort();
+  const gkeys=Object.keys(groups).sort((a,b)=>(a===""?1:b===""?-1:a.localeCompare(b)));
+  const hasDivs=gkeys.some(k=>k!=="");
   let h=`<div class="sec" style="padding-top:2px"><div class="sectitle">${esc(conf)} — ${SEASON_RESULTS} standings</div>`;
   gkeys.forEach(gk=>{
     if(gk) h+=`<div class="stconf">${esc(gk)}</div>`;
+    else if(hasDivs) h+=`<div class="stconf">Division TBD — new member, alignment not yet published</div>`;
     h+=`<div class="sthead"><div></div><div></div><div></div><div>Overall</div><div>Conf</div><div>Strk</div></div>`;
     groups[gk].forEach((r,i)=>{ const tm=teamMeta[r.team_id]||{school:r.school};
       h+=`<div class="strow${String(r.team_id)===String(teamId)?" me":""}" data-team="${r.team_id}">
