@@ -6681,6 +6681,12 @@ const HM_REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-moti
 let _revealIO = null;
 function markReveals(){
   if(HM_REDUCED) return;
+  // A HIDDEN document never hides content. Chrome pauses CSS transitions while
+  // document.hidden is true (the transition sits at currentTime 0, playState
+  // "running"), so a view rendered in a background tab would keep every section at
+  // opacity 0 until the tab came forward. Rendering opaque costs nothing there --
+  // nobody is looking -- and removes the whole failure class.
+  if(document.hidden){ app.querySelectorAll(".reveal").forEach(el=>el.classList.add("on")); return; }
   if(!_revealIO) _revealIO = new IntersectionObserver(es=>{
     es.forEach(x=>{ if(x.isIntersecting){ x.target.classList.add("on"); _revealIO.unobserve(x.target); } });
   }, {rootMargin:"0px 0px -4% 0px", threshold:0.01});
@@ -6699,6 +6705,11 @@ function markReveals(){
 }
 new MutationObserver(()=>{ try{ markReveals(); }catch(_e){} }).observe(app, {childList:true});
 setTimeout(()=>{ try{ markReveals(); }catch(_e){} }, 0);
+// coming back to a tab that was backgrounded mid-fade: finish every pending reveal
+// outright rather than resuming a half-run transition
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden) app.querySelectorAll(".reveal").forEach(el=>el.classList.add("on"));
+});
 
 // batch 12 #2: the HASHMARK. wordmark is a home link from every header variant (main,
 // detail .dtop, compare .cmptop, landing) — pushes a history state like any nav.
