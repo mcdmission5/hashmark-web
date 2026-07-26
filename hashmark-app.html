@@ -1355,7 +1355,10 @@ function initAuth(){
 }
 async function applySession(session){
   authUser = session ? session.user : null;
-  if(authUser){ await ensureProfile(); refreshPushSub(); } else { authProfile=null; }
+  if(authUser){ await ensureProfile(); refreshPushSub();
+    try{ const k2="hm_ev_signup_"+authUser.id;
+      if(!localStorage.getItem(k2)){ localStorage.setItem(k2,"1"); track("signup"); } }catch(_e){}
+  } else { authProfile=null; }
   syncAccountUI();
   const uid = authUser ? authUser.id : null;
   if(uid !== _authUid){ _authUid = uid; if(app.querySelector(".hsec")) load(); }
@@ -1373,6 +1376,50 @@ async function authFetch(method, path, body){
   const json = res.status===204 ? null : await res.json().catch(()=>null);
   return { data: json };
 }
+// ============ U16 — privacy-respecting product events ============
+// NO PII, NO IP, no user agent, no free text beyond an 80-char label. One random
+// session key (localStorage, identity-free); uid rides ONLY on signed-in flushes
+// through the user's own JWT (RLS rejects any forged uid). Batched; failures are
+// dropped silently — analytics must never break or slow the app. Reads are
+// admin-RLS-locked server-side (see analytics.py — never a client email check).
+let _sessKey=null;
+try{ _sessKey=localStorage.getItem("hm_sess_key");
+  if(!_sessKey){ _sessKey=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,"0")).join("");
+    localStorage.setItem("hm_sess_key",_sessKey); } }catch(_e){}
+let _evq=[], _evBusy=false;
+function track(event, prop){
+  if(!_sessKey) return;
+  try{ _evq.push({session_key:_sessKey, event,
+    prop: prop==null?null:String(prop).slice(0,80)}); }catch(_e){}
+  if(_evq.length>=12) flushEvents();
+}
+async function flushEvents(){
+  if(_evBusy || !_evq.length) return;
+  _evBusy=true;
+  const batch=_evq.splice(0,40);
+  try{
+    let tok=null;
+    if(typeof authUser!=="undefined" && authUser && sb){
+      try{ const {data}=await sb.auth.getSession(); tok=data&&data.session&&data.session.access_token; }catch(_e){}
+    }
+    if(tok) batch.forEach(b=>b.uid=authUser.id);   // auth.uid() must match (RLS)
+    await fetch(`${SUPABASE_URL}/rest/v1/events`,{method:"POST",keepalive:true,
+      headers:{apikey:KEY, Authorization:"Bearer "+(tok||KEY),
+               "Content-Type":"application/json", Prefer:"return=minimal"},
+      body:JSON.stringify(batch)}).catch(()=>{});
+  }catch(_e){}
+  _evBusy=false;
+}
+setInterval(()=>{ try{ flushEvents(); }catch(_e){} }, 20000);
+window.addEventListener("pagehide", ()=>{ try{ flushEvents(); }catch(_e){} });
+try{
+  if(!sessionStorage.getItem("hm_sess_started")){
+    sessionStorage.setItem("hm_sess_started","1"); track("session_start");
+    if(location.search.includes("np=1")){ track("notification_open");
+      history.replaceState(null,"",location.pathname+location.hash); }
+  }
+}catch(_e){}
+
 async function ensureProfile(){
   try{
     const sel = `profiles?select=id,display_name,favorite_team_id,sim_runs&id=eq.${authUser.id}`;
@@ -2401,6 +2448,7 @@ async function ensureUnits(){
 // #4: the your-team module / unmissable picker — first thing on home, every viewport,
 // signed-in or not (guest picks live in localStorage and sync to the profile on sign-in).
 function pickFavAny(id){
+  try{ track("favorite_set", id); }catch(_e){}
   if(authUser){ setFavoriteTeam(id); }
   else { localStorage.setItem(GUEST_FAV_KEY, String(id)); }
   load();
@@ -2562,6 +2610,7 @@ const EXPLORE_EXTRA=[
   ["accuracy","check","Checking Our Work","amber",false,"Every call logged before kickoff. Misses stay up.",()=>openCheckingWork()],
   ["notify","bell","Notifications",null,false,"Picks reminders and results.",()=>openNotifyPrefs()],
   ["about","info","About Hashmark",null,false,"What this is, and what Hashmark+ gets you.",()=>openLanding()],
+  ["admin","chart","Owner console",null,false,"Admin-only product analytics (server-gated).",()=>openAdmin()],
 ];
 function tileHTML([key,ic,title,color,chip,desc]){
   return `<div class="xcard" data-tile="${key}"><svg class="ic"><use href="#i-${ic}"/></svg>
@@ -2569,7 +2618,7 @@ function tileHTML([key,ic,title,color,chip,desc]){
 }
 function wireTiles(host, tiles){
   const GO=Object.fromEntries(tiles.map(t=>[t[0], t[6]]));
-  host.querySelectorAll("[data-tile]").forEach(el=>el.onclick=()=>GO[el.dataset.tile]());
+  host.querySelectorAll("[data-tile]").forEach(el=>el.onclick=()=>{ try{ track("feature_open", el.dataset.tile); }catch(_e){} GO[el.dataset.tile](); });
 }
 // U1 (B1 #1): the home feature layout is a BUBBLE NAV — the batch-12 team-page component
 // reused: four owner-specified groups, one swappable panel, lazy render, NO history push
@@ -2812,7 +2861,9 @@ function teamPicker(excludeId, cb){
   navOverlay(ov);   // U17: Back closes the picker
   ov.querySelector(".pickx").onclick=ovDismiss; ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
   search.oninput=()=>draw(search.value);
-  list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it||it.classList.contains("dis")) return; ovClose(ov); cb(it.dataset.id); };
+  list.onclick=e=>{ const it=e.target.closest(".pitem"); if(!it||it.classList.contains("dis")) return;
+    try{ track("search", (search.value||"").trim()||((teamMeta[it.dataset.id]||{}).school||"")); }catch(_e){}
+    ovClose(ov); cb(it.dataset.id); };
 }
 async function openMatchup(aId,bId,venue){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading matchup…</div>`;
@@ -3113,6 +3164,7 @@ async function openAsk(teamId){
   document.body.appendChild(ov); navOverlay(ov); ov.onclick=e=>{ if(e.target===ov) closeAuth(); };   // U17
   ov.querySelector("#askgo").onclick=async()=>{
     const q=ov.querySelector("#askq").value.trim(); if(!q) return;
+    try{ track("ask_question", teamId||null); }catch(_e){}   // U16: never the question text
     const out=ov.querySelector("#askout"); out.textContent="…";
     const { data } = await sb.auth.getSession();
     const r = await fetch(ASK_URL, {method:"POST", headers:{"Content-Type":"application/json",
@@ -3417,7 +3469,8 @@ function renderPickem(){
   document.querySelector(".back").onclick=navBack;
   // U24: pick buttons carry data-pkteam (NOT data-team) — with data-team the click also
   // bubbled to the body delegate and yanked the picker onto the team page mid-pick.
-  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.pkteam); renderPickem(); });
+  document.querySelectorAll("[data-pk]").forEach(b=>b.onclick=()=>{ pk.picks[Number(b.dataset.pk)]=Number(b.dataset.pkteam);
+    try{ track("pickem_pick", b.dataset.pk); }catch(_e){} renderPickem(); });
   const um=document.getElementById("usemodel");
   if(um) um.onclick=()=>{ pk.slate.forEach(g=>{ if(!pkLocked(g)&&g.model_pick_team){ pk.picks[g.game_id]=g.model_pick_team; pk.conf[g.game_id]=g.model_conf; } }); renderPickem(); };
   document.querySelectorAll("[data-pkconf]").forEach(hostEl=>{
@@ -3773,6 +3826,7 @@ function renderSimLoading(){
   document.querySelector(".back").onclick=navBack;
 }
 async function simRunFlow(){
+  try{ track("sim_run"); }catch(_e){}
   if(!sim) return;
   simHideFab();
   navPurgeOverlays();   // U17: pick surfaces close on RUN; their history entries go dead + get skipped
@@ -6487,6 +6541,7 @@ const NAV_ROUTES={
   pickem:()=>openPickem(),
   method:()=>openMethodology(),
   history:()=>openHistory(),
+  admin:()=>openAdmin(),
   checking:()=>openCheckingWork(),
   accuracy:()=>openAccuracy(),
   signature:()=>openSignature(),
@@ -6566,6 +6621,11 @@ function navPush(v,p){
     history.pushState({hm:1, v, p:p||{}}, "");
   }catch(e){}
   try{ syncTabbar(); }catch(_e){}   // U38: the bar swap follows the nav — never IS the nav
+  // U16: view_open on every navigation (team views carry the team id so the
+  // rollup's top-teams board works); the three named surfaces also log their event
+  try{ track("view_open", (v==="team"&&p&&p.id!=null)?String(p.id):v);
+    const NAMED={filmroom:"filmroom_open", reportcard:"gradereport_open", game:"game_page_open"};
+    if(NAMED[v]) track(NAMED[v]); }catch(_e){}
 }
 window.addEventListener("popstate", e=>{
   if(typeof simHideFab==="function") simHideFab();   // U2: Back off the sim clears the RUN button
@@ -6608,7 +6668,7 @@ setTimeout(()=>{
  ["openBox","box",(id,team)=>({id,team})],["openGame","game",id=>({id})],["openPickemBoard","pickemboard"],
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
- ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],["openHistory","history"],
+ ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],["openHistory","history"],["openAdmin","admin"],
  ["openFilmRoom","filmroom",wk=>({wk})],["openReportCard","reportcard",wk=>({wk})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
@@ -6693,7 +6753,9 @@ function showPreviewPill(){
     document.body.appendChild(p); }
 }
 function plusUpsell(title, body){
+  try{ track("gate_hit", title); }catch(_e){}   // U16 funnel
   if(PREVIEW_UNLOCK){ showPreviewPill(); return Promise.resolve(true); }
+  try{ track("upsell_shown", title); }catch(_e){}
   const el=document.createElement("div");
   el.className="omni show"; el.style.justifyContent="center";
   el.innerHTML=`<div class="card card-hero-amber" style="max-width:420px;margin:0 auto;padding:18px">
@@ -6706,7 +6768,7 @@ function plusUpsell(title, body){
   document.body.appendChild(el);
   return new Promise(res=>{
     navOverlay(el, ()=>{ try{ el.remove(); }catch(_e){} res(false); });   // U17: Back declines the gate
-    el.querySelector('[data-u="cont"]').onclick=()=>{ ovClose(el); res(true); };
+    el.querySelector('[data-u="cont"]').onclick=()=>{ try{ track("upsell_continued", title); }catch(_e){} ovClose(el); res(true); };
     el.querySelector('[data-u="notify"]').onclick=()=>{ ovClose(el); setTab("explore"); openExplore(); res(false); };
   });
 }
@@ -6755,6 +6817,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   nileff:"stats", nilperf:"stats", nilmethod:"stats", modelhub:"stats", injuries:"stats",
   whyrating:"stats", rosterecon:"stats", filmroom:"stats", reportcard:"stats",
   history:"stats",   // U13 (U38 rule: every new view maps a section)
+  admin:"explore",   // U16 owner console
   explore:"explore", teams:"explore", newsarchive:"explore", method:"explore",
   checking:"explore", accuracy:"explore" };
   // team/player/playercard are reachable from every section, so they are STICKY (keep the current set)
@@ -8518,6 +8581,77 @@ function teamHistoryPanel(d, t, teamId){
     h+=`<div class="navrow" style="padding-top:6px"><button class="navbtn" data-go="historyview">All history &amp; records</button></div></div>`;
   }
   return h;
+}
+
+// ============ U16 — the owner console (admin-only analytics) ============
+// The SERVER decides everything: the client probes admin_users for ITS OWN row
+// (self-select RLS policy), and every metrics fetch rides the signed-in JWT —
+// non-admins get denied by is_admin() in the database. No client email check
+// exists anywhere; this view is just honest about what the server returned.
+async function openAdmin(){
+  window.scrollTo(0,0); app.innerHTML=skelView(6);
+  await ensureTeamMeta();
+  let isAdmin=false;
+  if(authUser && sb){
+    const pr=await authFetch("GET","admin_users?select=uid&limit=1");
+    isAdmin=!!(pr.data&&pr.data.length);
+  }
+  if(!isAdmin){
+    app.innerHTML=`<div class="cmp">${backHeader("Owner console")}<div class="list" style="padding-top:6px">
+      <div class="sec"><div class="sectitle">Admin only</div>
+      <div class="secsub">${authUser?"This account isn't on the admin list. Access is enforced server-side (row-level security on the analytics tables) &mdash; there is nothing to fetch even over the wire.":"Sign in with the owner account to open the console. Access is enforced server-side (RLS), never by the app."}</div></div></div></div>`;
+    document.querySelector(".back").onclick=navBack; return;
+  }
+  const md=await authFetch("GET","metrics_daily?select=day,k,v&order=day.desc&limit=500");
+  const rows=md.data||[];
+  const by={}; rows.forEach(r=>{(by[r.k]=by[r.k]||{})[r.day]=r.v;});
+  const days=[...new Set(rows.map(r=>r.day))].sort();
+  const last=days[days.length-1];
+  const g=(k,d)=>((by[k]||{})[d])||null;
+  const sum7=k=>{ const out={}; days.slice(-7).forEach(d=>{ const v=g(k,d)||{};
+    Object.keys(v).forEach(x=>{ if(typeof v[x]==="number") out[x]=(out[x]||0)+v[x]; }); }); return out; };
+  const dau14=days.slice(-14).map(d=>({d, n:((g("dau",d)||{}).n)||0}));
+  const mx=Math.max(1,...dau14.map(x=>x.n));
+  const act=g("activation",last)||{}, tok=g("token_budget",last)||g("token_budget",days[days.length-1])||{};
+  const feats=sum7("features"), fun=sum7("funnel"), use=sum7("usage");
+  const tops=g("top_teams",last)||{}, srch=g("top_searches",last)||{};
+  let h=`<div class="cmp">${backHeader("Owner console")}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">Owner-only product analytics. Events carry no PII and no IP; reads are RLS-locked to admin_users server-side. Nightly rollup.</div>
+    <div class="sec"><div class="sectitle">Actives <small>${last||"no data yet"}</small></div>
+      <div class="infocard"><div class="infocell"><div class="ik">DAU</div><div class="iv">${(g("dau",last)||{}).n??"&mdash;"}</div></div>
+        <div class="infocell"><div class="ik">WAU</div><div class="iv">${(g("wau",last)||{}).n??"&mdash;"}</div></div>
+        <div class="infocell"><div class="ik">MAU</div><div class="iv">${(g("mau",last)||{}).n??"&mdash;"}</div></div></div>
+      <div class="rdist" style="padding-top:8px"><div class="rdbars">${dau14.map(x=>`<div class="rdcol" data-tip="${x.d}: ${x.n} active"><i style="height:${Math.max(2,x.n/mx*34)}px"></i><small>${x.d.slice(8)}</small></div>`).join("")}</div>
+      <div class="secsub" style="padding:2px 2px 0">Daily actives, last ${dau14.length} days (signed-in uid or anonymous session key &mdash; one person, one count).</div></div></div>
+    <div class="sec"><div class="sectitle">Activation <small>${last||""}</small></div>
+      <div class="secsub">New visitors: <b>${act.new??0}</b> · set a favorite: <b>${act.favorite_pct??"&mdash;"}%</b> · returned for a 2nd session within 7 days: <b>${act.second_session_pct??"&mdash;"}%</b></div></div>
+    <div class="sec"><div class="sectitle">Retention cohorts <small>D1 / D7 / D30</small></div>
+      <div class="sthead"><div></div><div></div><div></div><div>n</div><div>D1</div><div>D7/30</div></div>
+      ${days.slice(-8).map(d=>{ const r=g("retention",d)||{};
+        return `<div class="strow"><div class="srk" style="width:74px">${d.slice(5)}</div><div></div><div></div>
+          <div class="srec">${r.cohort_n??"&mdash;"}</div><div class="srec">${r.d1==null?"&mdash;":r.d1+"%"}</div>
+          <div class="srec">${r.d7==null?"&mdash;":r.d7+"%"} / ${r.d30==null?"&mdash;":r.d30+"%"}</div></div>`; }).join("")}
+      <div class="secsub">Cohort = first-seen day; a dash means that horizon hasn't arrived yet.</div></div>
+    <div class="sec"><div class="sectitle">Feature engagement <small>7-day event counts</small></div>
+      ${Object.entries(feats).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k2,n])=>`<div class="histrow"><div style="flex:1">${esc(k2)}</div><div class="bva">${n}</div></div>`).join("")||`<div class="secsub">No events yet.</div>`}</div>
+    <div class="sec"><div class="sectitle">Gate funnel <small>7 days</small></div>
+      <div class="secsub">gate_hit <b>${fun.gate_hit||0}</b> &rarr; upsell_shown <b>${fun.upsell_shown||0}</b> &rarr; continued <b>${fun.upsell_continued||0}</b> (preview mode passes gates silently &mdash; shown/continued populate when payments flip)</div></div>
+    <div class="sec"><div class="sectitle">Top teams + searches <small>${last||""}</small></div>
+      <div class="secsub"><b>Teams:</b> ${Object.entries(tops).slice(0,8).map(([id,n])=>`${esc((teamMeta[id]||{}).school||("#"+id))} (${n})`).join(" · ")||"&mdash;"}</div>
+      <div class="secsub"><b>Searches:</b> ${Object.entries(srch).slice(0,8).map(([q,n])=>`${esc(q)} (${n})`).join(" · ")||"&mdash;"}</div>
+      <div class="secsub"><b>Usage (7d):</b> Ask questions ${use.ask_questions||0} · pick'em picks ${use.pickem_picks||0}</div></div>
+    <div class="sec"><div class="sectitle">Token budgets <small>this month</small></div>
+      ${["film","grade"].map(k2=>{ const t2=tok[k2]||{};
+        return `<div class="histrow"><div style="flex:1">${k2==="film"?"Film Room":"Grade notes"} <small>${t2.cap?`cap ${(t2.cap/1e6).toFixed(2)}M`:""}</small></div>
+          <div class="bva">${t2.used!=null?(t2.used/1e3).toFixed(0)+"k":"&mdash;"}</div></div>`; }).join("")}
+      <div class="secsub">From the narration tables' own token ledgers; caps degrade to templates, never overspend.</div></div>
+    <div class="sec"><div class="sectitle">Subscriptions <small>placeholder</small></div>
+      <div class="secsub">Payments are parked &mdash; subs by tier, MRR, churn, founding-500 and trial&rarr;paid land here when Stripe ships.</div></div>
+    <div class="sec"><div class="sectitle">Audit health <small>placeholder</small></div>
+      <div class="secsub">The S1 audit system (U15) reports here when it ships: inbox counts, last run per category, deterministic-fix log.</div></div>
+    <div class="note"><b>Owner console.</b> Privacy-respecting by construction: no PII, no IP, no user agent stored; anonymous visitors are a random key. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
 }
 
 async function openExplore(){
