@@ -1651,12 +1651,27 @@ async function drawScores(){
     <div class="list" style="padding-top:4px">
     <div class="confbar">`;
   keys.forEach(k=>{ h+=`<button class="confpill ${scoresWeek===k.key?"on":""}" data-wk="${k.key}">${k.label}</button>`; });
-  h += `</div>
+  h += `</div>${lookStrip}
     <div class="secsub" style="padding:0 2px 4px">${scoresSeason===SEASON_RESULTS
       ? "Official final scores — winner marked. Tap a team to open it."
       : "Official 2026 schedule — dates, kickoff times &amp; TV shown as they're announced. Tap a team to open it."}</div>`;
   list.forEach(g=>h+=scGameRow(g));
   if(!list.length) h+=`<div class="loading" style="padding:30px">No games.</div>`;
+  // U27: lookahead-watch strip — spots flagged in the ACTIVE week get a compact
+  // honesty card linking the board (free; never an upset call)
+  let lookStrip="";
+  if(scoresSeason===SEASON_SCHED){
+    try{
+      const lw=await api(`signature_stats?select=team_id,drivers&stat_key=eq.lookahead_watch&order=rank.asc&limit=14`);
+      const wkNum=Number(String(scoresWeek).replace("R",""));
+      const here=lw.filter(r=>r.drivers&&Number(r.drivers.week)===wkNum);
+      if(here.length){ await ensureTeamMeta();
+        const names=here.slice(0,3).map(r=>(teamMeta[r.team_id]||{}).school).filter(Boolean).join(", ");
+        lookStrip=`<div class="sec" data-go-sig="lookahead_watch" style="cursor:pointer;padding:10px 12px;margin:2px 2px 8px">
+          <div class="sectitle" style="padding:0">Lookahead watch <small>· ${here.length} spot${here.length>1?"s":""} this week</small></div>
+          <div class="secsub" style="padding:2px 0 0">${esc(names)} in classic sandwich spots — but top-10 teams still won about 91 of 100 of these (2014-2024). Watch, not bank.</div></div>`; }
+    }catch(e){}
+  }
   const hasMkt = scoresSeason===SEASON_SCHED && list.some(g=>!g.completed && marketMap && marketMap[g.id]);
   h += `<div class="note"><b>Official ${scoresSeason} ${scoresSeason===SEASON_RESULTS?"results":"schedule"}.</b> Source: CFBD game data. ${hasMkt?MKT_NOTE+" ":""}${BRAND_LINE}</div></div></div>`;
   app.innerHTML = h;
@@ -1665,6 +1680,8 @@ async function drawScores(){
     if(s!==scoresSeason){ scoresSeason=s; scoresWeek=null; drawScores(); window.scrollTo(0,0); } });
   document.querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>{ if(b.dataset.wk!==scoresWeek){
     scoresWeek=b.dataset.wk; drawScores(); window.scrollTo(0,0); } });
+  const ls=document.querySelector("[data-go-sig]");
+  if(ls) ls.onclick=()=>openSignatureBoard(ls.dataset.goSig);
 }
 
 // ---------- U37: GAME DETAIL PAGE — one view, pre / live / post off game status ----------
@@ -8305,7 +8322,8 @@ const SIG_META={
   talent_bomb:["Talent Bomb","Top-25 talent coming off a bottom-60% scoring-margin season — the talent usually shows up.","flagged team's win rate rises the following season"],
   model_vs_poll:["Model vs Poll","Where we rank furthest from the voters.","final poll closer to the model than the poll's preseason rank"],
   gauntlet:["The Gauntlet","The toughest three-game stretch in football.","descriptive — no hit rate"],
-  collapse_index:["The Collapse Index","The preseason top-10 regression watch-list.","flagged team finishes outside the final AP Top 25"]};
+  collapse_index:["The Collapse Index","The preseason top-10 regression watch-list.","flagged team finishes outside the final AP Top 25"],
+  lookahead_watch:["Lookahead Watch","Scheduling spots where a top-10 team meets an unranked opponent next to a ranked one — history says watch, not bank.","verified history — no hit rate; never an upset call"]};
 async function openSignatureBoard(key){
   window.scrollTo(0,0); app.innerHTML=skelView(6);
   await ensureTeamMeta();
@@ -8417,7 +8435,8 @@ async function openSignature(){
     ["hidden_riser","Hidden Riser","The breakout the underlying numbers already see coming."],
     ["model_vs_poll","Model vs Poll","The teams we rank furthest from the voters — tracked to a verdict."],
     ["gauntlet","The Gauntlet","The single toughest three-game stretch in football this season."],
-    ["talent_bomb","Talent Bomb","Top-25 talent coming off a bottom-60% scoring-margin season — the usual bounce-back list."]];
+    ["talent_bomb","Talent Bomb","Top-25 talent coming off a bottom-60% scoring-margin season — the usual bounce-back list."],
+    ["lookahead_watch","Lookahead Watch","The remaining-schedule sandwich spots — with the honest 91-of-100 history attached."]];
   h+=`<div class="sect-h">The full set</div><div class="xgrid" style="padding:0 2px">`;
   LOCKED.forEach(([key,t2,p])=>{ h+=`<div class="xcard" data-lock="${key}"><svg class="ic" style="color:var(--amber)"><use href="#i-flame"/></svg>
     <h4>${t2} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>${p}</p></div>`; });
