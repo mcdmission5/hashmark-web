@@ -8604,6 +8604,11 @@ async function openAdmin(){
   }
   const md=await authFetch("GET","metrics_daily?select=day,k,v&order=day.desc&limit=500");
   const rows=md.data||[];
+  // U15: the audit-health inputs (audit_log + open audit_inbox rows) — both
+  // admin-RLS-locked server-side, same is_admin() gate as the analytics tables
+  const [alog, ainbox] = await Promise.all([
+    authFetch("GET","audit_log?select=ran_at,lane,category,status,detail,rows_affected&order=ran_at.desc&limit=200"),
+    authFetch("GET","audit_inbox?select=id,category,kind,confidence,status,note,sources,table_name,current_value,proposed_value&status=eq.open&order=confidence.asc,created_at.desc&limit=60") ]);
   const by={}; rows.forEach(r=>{(by[r.k]=by[r.k]||{})[r.day]=r.v;});
   const days=[...new Set(rows.map(r=>r.day))].sort();
   const last=days[days.length-1];
@@ -8647,8 +8652,32 @@ async function openAdmin(){
       <div class="secsub">From the narration tables' own token ledgers; caps degrade to templates, never overspend.</div></div>
     <div class="sec"><div class="sectitle">Subscriptions <small>placeholder</small></div>
       <div class="secsub">Payments are parked &mdash; subs by tier, MRR, churn, founding-500 and trial&rarr;paid land here when Stripe ships.</div></div>
-    <div class="sec"><div class="sectitle">Audit health <small>placeholder</small></div>
-      <div class="secsub">The S1 audit system (U15) reports here when it ships: inbox counts, last run per category, deterministic-fix log.</div></div>
+    ${(()=>{ const L=alog.data||[], IB=ainbox.data||[];
+      // last run per category (log rows are newest-first)
+      const seen={}, lastPer=[]; L.forEach(r=>{ if(!seen[r.category]){ seen[r.category]=1; lastPer.push(r); } });
+      const stCol={ok:"var(--text2)",fixed:"var(--teal)",alert:"var(--amber)",skipped:"var(--text3)"};
+      const fixes=L.filter(r=>r.status==="fixed" && r.lane!=="apply").slice(0,8);
+      const alerts=L.filter(r=>r.status==="alert").slice(0,6);
+      const rel=L.find(r=>r.lane==="accuracy");
+      const byConf={high:0,medium:0,low:0,info:0}; IB.forEach(r=>{ byConf[r.confidence]=(byConf[r.confidence]||0)+1; });
+      return `<div class="sec"><div class="sectitle">Audit health <small>self-healing data system</small></div>
+      <div class="secsub">Deterministic lane auto-fixes + logs daily; the web lane (rotating category) files proposals to the inbox and <b>never</b> auto-applies; the accuracy lane reports only.</div>
+      <div class="infocard"><div class="infocell"><div class="ik">Open inbox</div><div class="iv">${IB.length}</div></div>
+        <div class="infocell"><div class="ik">High-conf</div><div class="iv">${byConf.high||0}</div></div>
+        <div class="infocell"><div class="ik">Alerts</div><div class="iv">${alerts.length}</div></div></div>
+      ${rel?`<div class="secsub" style="padding-top:6px"><b>Model accuracy:</b> ${esc(rel.detail||"")} <small>(${rel.status})</small></div>`:""}
+      <div class="ha" style="padding:8px 2px 2px"><b>Last run per category</b></div>
+      ${lastPer.map(r=>`<div class="histrow"><div style="flex:1">${esc(r.lane)} / ${esc(r.category)} <small>${new Date(r.ran_at).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</small></div>
+        <div class="bva" style="color:${stCol[r.status]||"var(--text2)"}">${esc(r.status)}${r.rows_affected?` ${r.rows_affected}`:""}</div></div>`).join("")||`<div class="secsub">No audit runs logged yet.</div>`}
+      ${alerts.length?`<div class="ha" style="padding:8px 2px 2px"><b>Open alerts</b></div>
+        ${alerts.map(r=>`<div class="rivnote" style="color:var(--amber)">${esc(r.category)}: ${esc(r.detail||"")}</div>`).join("")}`:""}
+      ${fixes.length?`<div class="ha" style="padding:8px 2px 2px"><b>Recent auto-fixes</b></div>
+        ${fixes.map(r=>`<div class="rivnote">${esc(r.category)} (${r.rows_affected||0}): ${esc((r.detail||"").slice(0,120))}</div>`).join("")}`:""}
+      ${IB.length?`<div class="ha" style="padding:8px 2px 2px"><b>Inbox &mdash; awaiting your review</b> <small>approve/dismiss from the DB; the loop applies approved rows on the patch allowlist</small></div>
+        ${IB.slice(0,12).map(r=>`<div class="rivrow"><div class="rivhd">#${r.id} · ${esc(r.category)}/${esc(r.kind)} · <span class="titchip${r.confidence==="high"?"":""}">${esc(r.confidence)}</span></div>
+          <div class="rivnote">${esc(r.note||"")}${r.proposed_value?` — proposes ${esc(String(r.current_value))} &rarr; ${esc(String(r.proposed_value))}`:""}</div>
+          <div class="rivnote" style="color:var(--text3)">${(r.sources||[]).map(s=>esc(s)).join(" · ")}</div></div>`).join("")}`:""}
+      <div class="secsub" style="padding-top:6px">Cite-or-drop is structural: an inbox row cannot exist without a source URL (DB constraint). Approvals patch only the allowlisted (table, column) pairs.</div></div>`; })()}
     <div class="note"><b>Owner console.</b> Privacy-respecting by construction: no PII, no IP, no user agent stored; anonymous visitors are a random key. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=navBack;
