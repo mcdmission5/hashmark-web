@@ -5,11 +5,11 @@
 # (the batch-10 v37 build failed on a GitHub 503 and nobody noticed until the owner
 # saw stale UI). Run: ./verify_live.sh [timeout_seconds]
 set -u
-LOCAL=$(grep -o 'hashmark-v[0-9]*' sw.js | head -1)
+LOCAL=$(grep -o 'hashmark-v[0-9]*[a-z]*' sw.js | head -1)
 TIMEOUT=${1:-600}
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
-  LIVE=$(curl -s -m 10 https://hash-mark.com/sw.js | grep -o 'hashmark-v[0-9]*' | head -1)
+  LIVE=$(curl -s -m 10 "https://hash-mark.com/sw.js?nc=$(date +%s)" | grep -o 'hashmark-v[0-9]*[a-z]*' | head -1)
   if [ "$LIVE" = "$LOCAL" ]; then
     echo "LIVE OK: hash-mark.com serves $LIVE"
     exit 0
