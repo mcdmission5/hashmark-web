@@ -8211,7 +8211,7 @@ drawScores=async function(){
 const SIG_META={
   luck_audit:["Luck Audit","Teams whose records ran ahead of their play — flagged to step back.","flagged team's win rate drops the following season"],
   hidden_riser:["Hidden Riser","The breakout the underlying numbers already see.","flagged team's win rate rises the following season"],
-  talent_bomb:["Talent Bomb","Elite rosters that underperformed their talent.","flagged team's win rate rises the following season"],
+  talent_bomb:["Talent Bomb","Top-25 talent coming off a bottom-60% scoring-margin season — the talent usually shows up.","flagged team's win rate rises the following season"],
   model_vs_poll:["Model vs Poll","Where we rank furthest from the voters.","final poll closer to the model than the poll's preseason rank"],
   gauntlet:["The Gauntlet","The toughest three-game stretch in football.","descriptive — no hit rate"],
   collapse_index:["The Collapse Index","The preseason top-10 regression watch-list.","flagged team finishes outside the final AP Top 25"]};
@@ -8326,7 +8326,7 @@ async function openSignature(){
     ["hidden_riser","Hidden Riser","The breakout the underlying numbers already see coming."],
     ["model_vs_poll","Model vs Poll","The teams we rank furthest from the voters — tracked to a verdict."],
     ["gauntlet","The Gauntlet","The single toughest three-game stretch in football this season."],
-    ["talent_bomb","Talent Bomb","Elite rosters that underperformed their talent — the usual bounce-back list."]];
+    ["talent_bomb","Talent Bomb","Top-25 talent coming off a bottom-60% scoring-margin season — the usual bounce-back list."]];
   h+=`<div class="sect-h">The full set</div><div class="xgrid" style="padding:0 2px">`;
   LOCKED.forEach(([key,t2,p])=>{ h+=`<div class="xcard" data-lock="${key}"><svg class="ic" style="color:var(--amber)"><use href="#i-flame"/></svg>
     <h4>${t2} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>${p}</p></div>`; });
