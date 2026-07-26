@@ -4600,6 +4600,13 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     panel.querySelectorAll("[data-mopp]").forEach(el=>el.onclick=ev=>{
       ev.stopPropagation(); openMatchup(teamId, el.dataset.mopp, el.dataset.mven); });
     if(k==="avail") wireInjGate(panel, C.data.intel);
+    // U11+U31: in-panel sub-tabs (Commits/Prospects/News, Moves/News) — swap only,
+    // no history push (U17 policy: bubbles are content panels, not destinations)
+    if(k==="recruit"||k==="portal") panel.querySelectorAll("[data-rectab]").forEach(b=>b.onclick=()=>{
+      const grp=b.dataset.rectab.split("-")[0];
+      panel.querySelectorAll(`[data-rectab^="${grp}-"]`).forEach(x=>x.classList.toggle("on",x===b));
+      panel.querySelectorAll(`[data-recbody^="${grp}-"]`).forEach(x=>x.hidden=(x.dataset.recbody!==b.dataset.rectab));
+    });
     if(k==="nil") wireNILPanel(panel, C.data.nil, t);
     // U1 (B1 #2): the Stats panel's 2026/2025 sub-toggle — in-panel swap, no history push
     if(k==="stats") panel.querySelectorAll("[data-stseg]").forEach(b=>b.onclick=async()=>{
@@ -6585,29 +6592,90 @@ function gauntletHTML(teamId, games, wpm, compact){
 async function teamIntelData(teamId, t){
   t=t||teamMeta[teamId]||{school:"?"};
   const J=(q)=>api(q).catch(()=>[]);
-  const [cls, commits, portal, pe, staff, avail, news]=await Promise.all([
+  const [cls, commits, portal, pe, staff, avail, news, pnews, board]=await Promise.all([
     J(`recruiting_class?select=*&team_id=eq.${teamId}&order=class_year.asc`),
     J(`recruiting_commits?select=*&team_id=eq.${teamId}&order=class_year.asc,rating.desc.nullslast`),
     J(`portal_moves?select=*&cycle_year=eq.${SEASON_SCHED}&or=(origin_id.eq.${teamId},dest_id.eq.${teamId})&order=transfer_date.desc.nullslast`),
     J(`portal_economy?select=top_in,top_out&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`),
     J(`coaching_staff?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}&order=role.asc`),
     J(`availability_report?select=fetch_ts,source,player,position,status&team_id=eq.${teamId}&order=fetch_ts.desc&limit=40`),
-    J(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=40`)]);
-  // ---- C1 recruiting (FREE) ----
-  let rec="";
+    J(`news_items?select=headline,url,source,published_at&team_tags=cs.{${teamId}}&order=published_at.desc&limit=60`),
+    // U31: this team's prospect-evidence rows (90-day window enforced below)
+    J(`prospect_news?select=recruit_id,class_year,url,matched_at&team_id=eq.${teamId}&order=matched_at.desc&limit=40`),
+    // U31: the national top-uncommitted board + committed-elsewhere candidates
+    J(`recruiting_prospects?select=*&order=national_rank.asc.nullslast&limit=200`)]);
+  // ---- U11+U31: recruiting bubble = Commits / Prospects / News sub-tabs (UNGATED —
+  //      the U11 tease-paywall is superseded by the owner's news-is-free decision) ----
+  let recCommits="";
   [SEASON_SCHED, SEASON_SCHED+1].forEach(yr=>{
     const c=cls.find(x=>Number(x.class_year)===yr);
     const list=commits.filter(x=>Number(x.class_year)===yr);
     if(!c && !list.length) return;
-    rec+=`<div class="glseason">Class of ${yr}${c?` — ${c.n_commits||list.length} commits · avg ${Number(c.avg_stars||0).toFixed(1)} stars${c.rank?` · class #${c.rank}`:""}`:""}</div>`;
-    list.slice(0,25).forEach(p=>{ rec+=`<div class="stgame"><div class="stopp"><div>
+    recCommits+=`<div class="glseason">Class of ${yr}${c?` — ${c.n_commits||list.length} commits · avg ${Number(c.avg_stars||0).toFixed(1)} stars${c.rank?` · class #${c.rank}`:""}`:""}</div>`;
+    list.slice(0,25).forEach(p=>{ recCommits+=`<div class="stgame"><div class="stopp"><div>
       <div class="on">${esc(p.player)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}</small></div>
       <div class="ha">${p.rating?`rating ${Number(p.rating).toFixed(4)}`:""}${p.national_rank?` · natl #${p.national_rank}`:""}${p.commit_date?` · ${new Date(p.commit_date).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`:""}</div></div></div></div>`; });
   });
-  const intelRx=/visit|official visit|decommit|target|finalist|top schools|crystal ball|commit/i;
-  const recNews=news.filter(n=>intelRx.test(n.headline)).slice(0,4);
-  if(recNews.length) rec+=`<div class="ha" style="padding:8px 2px 2px"><b>Recruiting intel — from cited sources.</b> Headlines link out; we report cited facts, never predictions of our own.</div>`+recNews.map(newsRow).join("");
-  if(!rec) rec=`<div class="secsub" style="padding:6px 2px">No ${SEASON_SCHED}/${SEASON_SCHED+1} commits on file yet — the class builds through the year.</div>`;
+  if(!recCommits) recCommits=`<div class="secsub" style="padding:6px 2px">No ${SEASON_SCHED}/${SEASON_SCHED+1} commits on file yet — the class builds through the year.</div>`;
+  // Prospects tab: (a) evidence rail, (b) national board, (c) both honest empty states
+  const byRid={}; (board||[]).forEach(p=>byRid[p.recruit_id]=p);
+  const now90=Date.now()-90*864e5;
+  const liveEv=(pnews||[]).filter(v=>new Date(v.matched_at).getTime()>now90 && byRid[v.recruit_id]);
+  const evByRid={};
+  liveEv.forEach(v=>{ (evByRid[v.recruit_id]=evByRid[v.recruit_id]||[]).push(v); });
+  const evUrls=[...new Set(liveEv.map(v=>v.url))];
+  const evNews=evUrls.length?await J(`news_items?select=url,headline,source,published_at&url=in.(${evUrls.map(encodeURIComponent).join(",")})`):[];
+  const evNewsBy={}; evNews.forEach(n=>evNewsBy[n.url]=n);
+  let rail="";
+  Object.keys(evByRid).slice(0,12).forEach(rid=>{
+    const p=byRid[rid];
+    const committedHere=p.committed_to && p.committed_to===t.school;
+    if(committedHere) return;                 // lives in the Commits tab now
+    const elsewhere=p.committed_to && p.committed_to!==t.school;
+    if(elsewhere){
+      const seen=p.committed_seen_at?new Date(p.committed_seen_at).getTime():0;
+      if(!seen || Date.now()-seen > 7*864e5) return;   // 7-day chip window, then drop
+    }
+    const ev=evByRid[rid].map(v=>evNewsBy[v.url]).filter(Boolean)
+      .sort((a,b)=>(b.published_at||"").localeCompare(a.published_at||""))[0];
+    if(!ev) return;
+    rail+=`<div class="stgame"><div class="stopp"><div>
+      <div class="on">${esc(p.name)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}${p.national_rank?` · natl #${p.national_rank}`:""}</small>
+        ${elsewhere?`<span class="chip-new" style="background:var(--line2)">Committed elsewhere &rarr; ${esc(p.committed_to)}</span>`:""}</div>
+      <div class="ha">${esc(p.hometown||"")}${p.rating?` · rating ${Number(p.rating).toFixed(4)}`:""}</div>
+      ${newsRow(ev)}</div></div></div>`;
+  });
+  let recProspects=`<div class="ha" style="padding:2px 2px 6px"><b>Reported interest — compiled from attributed news coverage. Not a prediction service.</b></div>`;
+  recProspects += rail ||
+    `<div class="secsub" style="padding:2px 2px 8px">No uncommitted top prospects have appeared in ${esc(t.school)}-tagged coverage in the last 90 days.</div>`;
+  const classes=[...new Set((board||[]).map(p=>Number(p.class_year)))].sort((a,b)=>b-a);
+  const newest=classes[0];
+  const activeClass=SEASON_SCHED+1;         // the cycle generating news right now
+  if(!classes.includes(activeClass))
+    recProspects+=`<div class="secsub" style="padding:6px 2px 4px">The Class of ${activeClass} board hasn't been published by our data source yet — it appears here automatically once CollegeFootballData loads the class (we check daily). Until then: ${esc(t.school)} recruiting headlines are in the News tab.</div>`;
+  const open=(board||[]).filter(p=>Number(p.class_year)===newest && !p.committed_to).slice(0,20);
+  if(newest){
+    recProspects+=`<div class="glseason">Top uncommitted — national board · Class of ${newest}</div>`;
+    recProspects+= open.length
+      ? open.map(p=>`<div class="stgame"><div class="stopp"><div>
+          <div class="on">${p.national_rank?`#${p.national_rank} `:""}${esc(p.name)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}</small></div>
+          <div class="ha">${esc(p.hometown||p.state||"")} · still on the board</div></div></div></div>`).join("")
+      : `<div class="secsub" style="padding:2px 2px">Every top-300/4-star recruit in the Class of ${newest} has committed.</div>`;
+    recProspects+=`<div class="secsub" style="padding:6px 2px">Rankings via CollegeFootballData (industry composite). Updated daily.</div>`;
+  }
+  // News tab: recruiting-flavored team headlines only (the U10 tagged pipeline; FREE)
+  const intelRx=/recruit|visit|official visit|decommit|target|finalist|top schools|commit|signee|signing|flip|[45][- ]star|class of 20\d\d/i;
+  const recNews=news.filter(n=>intelRx.test(n.headline)).slice(0,12);
+  let recNewsBody = recNews.length
+    ? `<div class="ha" style="padding:2px 2px 2px"><b>Recruiting headlines — cited sources.</b> We report cited facts, never predictions of our own.</div>`+recNews.map(newsRow).join("")
+    : `<div class="secsub" style="padding:6px 2px">No recruiting-tagged ${esc(t.school)} headlines in the current window.</div>`;
+  const rec=`<div class="toggle" style="margin:0 0 8px">
+      <button data-rectab="rc-commits" class="on">Commits</button>
+      <button data-rectab="rc-prospects">Prospects</button>
+      <button data-rectab="rc-news">News</button></div>
+    <div data-recbody="rc-commits">${recCommits}</div>
+    <div data-recbody="rc-prospects" hidden>${recProspects}</div>
+    <div data-recbody="rc-news" hidden>${recNewsBody}</div>`;
   // ---- C2 injuries / availability (counts free, detail Hashmark+) ----
   const BUCKET=st=>{ st=(st||"").toLowerCase();
     if(/out|season/.test(st)) return "out"; if(/doubt/.test(st)) return "doubtful";
@@ -6656,6 +6724,18 @@ async function teamIntelData(teamId, t){
     if(inc.length) por+=`<div class="glseason">Incoming</div>`+inc.slice(0,15).map(row).join("");
     if(out.length) por+=`<div class="glseason">Outgoing</div>`+out.slice(0,15).map(row).join("");
   } else por=`<div class="secsub" style="padding:6px 2px">No ${SEASON_SCHED}-cycle portal moves on file for ${esc(t.school)}.</div>`;
+  // U11: portal News sub-tab — portal-flavored team headlines (same pipeline +
+  // .newsline renderer, FREE per the U30 owner decision); move lists untouched
+  const porRx=/portal|transfer|waiver|eligib|enters? the|commits? to|lands (at|with)/i;
+  const porNews=news.filter(n=>porRx.test(n.headline)).slice(0,12);
+  const porNewsBody=porNews.length
+    ? `<div class="ha" style="padding:2px 2px 2px"><b>Portal headlines — cited sources.</b></div>`+porNews.map(newsRow).join("")
+    : `<div class="secsub" style="padding:6px 2px">No portal-tagged ${esc(t.school)} headlines in the current window.</div>`;
+  por=`<div class="toggle" style="margin:0 0 8px">
+      <button data-rectab="po-moves" class="on">Moves</button>
+      <button data-rectab="po-news">News</button></div>
+    <div data-recbody="po-moves">${por}</div>
+    <div data-recbody="po-news" hidden>${porNewsBody}</div>`;
   // ---- C4 coaching (FREE) ----
   let coa="";
   if(staff.length){
@@ -6667,9 +6747,9 @@ async function teamIntelData(teamId, t){
   if(coaNews.length) coa+=`<div class="ha" style="padding:8px 2px 2px">Coaching headlines — cited sources.</div>`+coaNews.map(newsRow).join("");
   const sec=(title,sub,inner)=>`<div class="sec"><div class="sectitle">${title} <small>${sub||""}</small></div>${inner}</div>`;
   return {
-    rec: sec(`Recruiting — classes of ${SEASON_SCHED} + ${SEASON_SCHED+1}`, "commits + cited intel", rec),
+    rec: sec(`Recruiting — classes of ${SEASON_SCHED} + ${SEASON_SCHED+1}`, "commits · prospects · news", rec),
     inj: sec("Injuries and availability", avail.length?"counts free · detail Hashmark+":"in-season", inj),
-    por: sec(`Transfer portal — ${SEASON_SCHED} cycle`, "incoming and outgoing", por),
+    por: sec(`Transfer portal — ${SEASON_SCHED} cycle`, "moves · news", por),
     coa: sec(`Coaching staff — ${SEASON_SCHED}`, "who runs the show", coa),
     avail, BUCKET,
   };
