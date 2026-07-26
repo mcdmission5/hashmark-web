@@ -1377,6 +1377,119 @@
   .simmeta .u-you{color:var(--user);font-weight:700}       /* sim: your scenario ... */
   .simmeta .u-model{color:var(--model);font-weight:700}    /* ... vs the model default */
   /* ══════════════════════════ end U49 remap ══════════════════════════ */
+
+  /* ══════════════ U47 HOME BAND GRAMMAR ══════════════
+     The home page recomposed as a stack of full-bleed bands. Every band follows the U46
+     grammar (eyebrow / display H2 / count-freshness chips / ALL pill) and every accent
+     obeys the U49 contract (teal = the Model, amber = you and the crowd).
+     Bands alternate --bg against a slightly raised tone, separated by a 2px amber-to-teal
+     hairline: the human side of the rule flows into the model side. */
+  .band{position:relative;padding:18px 12px 20px;margin:0 -12px}
+  .band + .band{border-top:1px solid var(--line)}
+  .band.raised{background:var(--band)}
+  .band.rule::before{content:"";position:absolute;left:0;right:0;top:-1px;height:2px;
+    background:linear-gradient(90deg,var(--user),var(--model));opacity:.55}
+  .band > .bandin{max-width:100%}
+
+  /* ---- Band 1: the hero. A static layer stack today - base gradient, hash/yard texture,
+     veil, copy. U48 swaps the middle layer for the self-drawing win-probability canvas;
+     the layers below are already in their final order so that lands as one insertion. */
+  .hero47{position:relative;overflow:hidden;border-radius:18px;margin:2px 0 4px;
+    padding:26px 16px 18px;isolation:isolate;
+    background:radial-gradient(120% 90% at 50% -20%,#17233f,#0d1526 55%,#0a1120)}
+  .hero47::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:var(--tex-yard),var(--tex-hash)}
+  .hero47::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:var(--veil)}
+  .hero47 > *{position:relative;z-index:1}
+  .hero47 h1{font-family:var(--display);font-weight:800;font-size:32px;line-height:.94;
+    letter-spacing:-.02em;color:var(--textw);margin:10px 0 0;text-transform:uppercase}
+  .hero47 h1 .l2{display:block;color:var(--model);font-style:italic}
+  .hero47 .hsub{color:var(--text2);font-size:12.5px;line-height:1.5;margin:9px 0 0;max-width:34em}
+  .heropill{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;
+    font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);
+    border:1px solid var(--line2);border-radius:999px;padding:4px 10px;background:rgba(11,17,32,.5)}
+  .heropill::before{content:"";width:5px;height:5px;border-radius:999px;background:var(--model);
+    animation:hmPulse 2.4s infinite}
+  .herolive{display:flex;align-items:center;gap:8px;margin-top:13px;padding:10px 12px;cursor:pointer;
+    background:rgba(11,17,32,.55);border:1px solid var(--line2);border-radius:12px;min-height:44px}
+  .herolive .hl-k{font-family:"IBM Plex Mono",monospace;font-size:8.5px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--text3);flex:none}
+  .herolive .hl-v{flex:1;min-width:0;font-size:12.5px;font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .herocta{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .herocta button{flex:1 1 46%;min-height:44px;border-radius:999px;cursor:pointer;
+    font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13px;letter-spacing:.04em;
+    text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .herocta .cta-a{background:var(--user);color:#10130c;border:0}
+  .herocta .cta-b{background:transparent;color:var(--text);border:1px solid var(--line2)}
+  .herocta .ic{width:13px;height:13px}
+
+  /* ---- Band 2: the proof row. Hairline-split cells, each one a link to its receipt. */
+  .proofrow{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:4px}
+  .proofcell{padding:12px 10px;cursor:pointer;border-top:1px solid var(--line);min-height:44px}
+  .proofcell:nth-child(2n){border-left:1px solid var(--line)}
+  .proofcell .pv{font-family:var(--display);font-weight:800;font-size:23px;line-height:1;
+    letter-spacing:-.02em;color:var(--textw)}
+  .proofcell .pv.model{color:var(--model)}
+  .proofcell .pk{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:600;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-top:5px;line-height:1.4}
+  .proofcell .pk .ic{width:9px;height:9px;opacity:.7;vertical-align:-1px}
+  .proofcell:hover .pk{color:var(--text2)}
+
+  /* ---- Band 4: the flagship ratings card + twin mini-boards ---- */
+  .flagcard{background:linear-gradient(160deg,#0E1A16,#111a2c 60%);border:1px solid rgba(53,217,196,.22);
+    border-radius:var(--r-panel);padding:14px;margin-top:4px;box-shadow:var(--sh-card)}
+  .flagcard .fcdesc{color:var(--text2);font-size:12px;line-height:1.5;margin:6px 0 10px}
+  .twinboards{display:grid;grid-template-columns:1fr;gap:10px}
+  @media (min-width:430px){ .twinboards{grid-template-columns:1fr 1fr} }
+  .mboard{background:rgba(11,17,32,.45);border:1px solid var(--line);border-radius:13px;padding:10px}
+  .mbhead{display:flex;align-items:baseline;gap:6px;margin-bottom:6px}
+  .mbhead .mbt{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:600;
+    letter-spacing:.13em;text-transform:uppercase;color:var(--text3);flex:1}
+  .mbrow{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;min-height:34px;
+    border-top:1px solid var(--line)}
+  .mbrow:first-of-type{border-top:0}
+  .mbrow .mbr{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:11px;
+    color:var(--text3);width:15px;flex:none;text-align:right}
+  .mbrow .mbn{flex:1;min-width:0;font-size:12.5px;font-weight:600;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mbrow .mbv{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:12px;flex:none}
+  .mbrow .mbv.model{color:var(--model)} .mbrow .mbv.stat{color:var(--stat)}
+  .mbbar{height:3px;border-radius:2px;margin-top:3px;opacity:.85}
+
+  /* ---- Band 8: the team chip cloud ---- */
+  .chipcloud{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .teamchip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px 6px 6px;min-height:44px;
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;cursor:pointer;
+    font-size:12.5px;font-weight:600;white-space:nowrap}
+  .teamchip:hover{border-color:var(--user)}
+  .teamchip.fav{border-color:var(--user)}
+  .teamchip .tcc{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;
+    font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:8px;letter-spacing:.2px;
+    border:1px solid rgba(255,255,255,.14)}
+
+  /* ---- Band 3 rail: Today / Film Room ---- */
+  .todayrail{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding:2px 0 8px;
+    -webkit-overflow-scrolling:touch}
+  .todayrail::-webkit-scrollbar{display:none}
+  .tcard{flex:0 0 auto;width:232px;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:11px 12px;cursor:pointer;min-height:44px}
+  .tcard:hover{border-color:var(--line2)}
+  .tcard .tct{font-size:13px;font-weight:700;line-height:1.32;margin-top:6px}
+  .tcard .tcm{font-size:10.5px;color:var(--text2);margin-top:5px;line-height:1.4}
+  .tagchip{display:inline-flex;align-items:center;font-family:"IBM Plex Mono",monospace;
+    font-size:8.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    border-radius:999px;padding:2px 7px;border:1px solid var(--line2);color:var(--text3)}
+  .tagchip.game{color:var(--model);border-color:rgba(49,224,200,.35)}
+  .tagchip.film{color:var(--user);border-color:rgba(255,190,61,.35)}
+
+  /* ---- Band 9: notifications / briefing ---- */
+  .briefband{position:relative;overflow:hidden;border-radius:16px;padding:16px 14px;margin-top:4px;
+    background:linear-gradient(160deg,#101a2e,#0c1322);border:1px solid var(--line)}
+  .briefband .ghostwm{right:-8px;bottom:-16px;font-size:64px;line-height:1;opacity:1}
+  .briefband > *{position:relative;z-index:1}
+  /* ══════════════════════════ end U47 bands ══════════════════════════ */
 </style>
 </head>
 <body>
@@ -2296,7 +2409,7 @@ async function load(){
     app.innerHTML = skelView(9);
     try{
       if(!SHOW_HASHMARK_RATINGS) return render2026Home();
-      await ensureUnits(); return renderLeaderboard();
+      await ensureUnits(); return renderHomeBands();
     }catch(e){ app.innerHTML = header()+`<div class="list"><div class="err">Couldn't load: ${e.message}</div></div>`; wireToggle(); }
     return;
   }
@@ -2729,7 +2842,7 @@ async function injectYourTeam(){
   if(yn) yn.onclick=e=>{ e.stopPropagation(); window._scrollNews=true; openDetail(+fav); };
 }
 
-function renderLeaderboard(){
+function ratingsBoardHTML(){
   const mode = MODES[boardMode], val = mode.metric;
   const rows = unitRows.filter(r=>val(r)!=null);
   const n = rows.length;
@@ -2753,12 +2866,10 @@ function renderLeaderboard(){
   const confRankOf = {}; RANKABLE.forEach((c,i)=>confRankOf[c.conf]=i+1);
   const cmax = Math.max(0.0001, ...RANKABLE.map(c=>Math.abs(c.avg)));
 
-  // UX batch 4 #7 home order: your-team, Latest (2 + rotating bar), then U1 (B1): the
-  // home BUBBLE NAV (batch-12 component) in place of the flat feature-tile grid, board
-  let h = header() + listTop() + `<div id="ytm"></div><div class="hsec" id="cs-newshost"></div>` + homeBubblesHTML();
-  // board-type nav (C4: named header, season label rides the phase logic)
-  h += `<div class="cstrtitle" style="margin:4px 2px 2px;font-size:13px">HASHMARK RATINGS <small style="font-weight:600;color:var(--text2)">${phaseLabel()}</small></div>`;
-  h += `<div class="bnav">`;
+  // U47: this function now returns ONLY the board fragment. Home composition moved to
+  // renderHomeBands(); a mode/conference change re-mounts this fragment alone instead of
+  // rebuilding the whole page (which would have wiped every band above it).
+  let h = `<div class="bnav">`;
   ["overall","offense","defense"].forEach(k=>{
     const on = boardMode===k ? " on "+(k==="offense"?"off":k==="defense"?"def":"") : "";
     h += `<button data-mode="${k}" class="${on}">${MODES[k].short}</button>`;
@@ -2808,13 +2919,326 @@ function renderLeaderboard(){
   });
   if(!_boardsOpen && teamRows.length>3)
     h += `<div class="teaserow" data-boardup="teams">See all ${teamRows.length} teams, ranked <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`;
-  h += `</div><div class="note"><b>${SEASON_SCHED} Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings — a validated blend of finishing (points per drive), success rate and efficiency, with each unit's coordinator track record folded in where the staff changed. Conference strength is the 20%-trimmed mean of a league's member ratings (top and bottom fifth set aside) — validated against actual interconference results, and robust to a small league carried by one or two stars; leagues under 10 teams are flagged thin. Free to browse. Early-offseason data is thin, so it leans on ${SEASON_RESULTS} results and will sharpen through the summer. ${BRAND_LINE}</div>`;
-  h += `<div id="cs-teasers"></div>`;
-  app.innerHTML = h; wireToggle();
-  injectSeasonExtras();   // preseason signal teasers + news under the live board (brief #5 kept)
-  injectYourTeam();
-  wireHomeBubbles();
+  h += `<div class="note" style="border:0;padding:14px 2px 0"><b>${SEASON_SCHED} Preseason — Hashmark projection.</b> Offense and defense are the opponent-adjusted, garbage-time-filtered unit ratings — a validated blend of finishing (points per drive), success rate and efficiency, with each unit's coordinator track record folded in where the staff changed. Conference strength is the 20%-trimmed mean of a league's member ratings (top and bottom fifth set aside) — validated against actual interconference results, and robust to a small league carried by one or two stars; leagues under 10 teams are flagged thin. Free to browse. Early-offseason data is thin, so it leans on ${SEASON_RESULTS} results and will sharpen through the summer. ${BRAND_LINE}</div>`;
+  return h;
 }
+// U47: re-render ONLY the ratings board (mode / conference / unlock changes)
+function remountRatingsBoard(){
+  const host=document.getElementById("ratings-board");
+  if(!host) return load();
+  host.innerHTML = ratingsBoardHTML();
+  wireBoardControls();
+}
+function wireBoardControls(){
+  document.querySelectorAll(".bnav button[data-mode]").forEach(b=>{
+    b.onclick = ()=>{ if(boardMode!==b.dataset.mode){ boardMode=b.dataset.mode; remountRatingsBoard(); } };
+  });
+  document.querySelectorAll("[data-conf]").forEach(el=>{
+    el.onclick = ()=>{ const c=el.dataset.conf||null; if(confFilter!==c){ confFilter=c; remountRatingsBoard(); } };
+  });
+  document.querySelectorAll("[data-boardup]").forEach(el=>el.onclick=async()=>{
+    if(PLUS_GATED.ratings_boards && !(await plusUpsell("The full Hashmark boards",
+      "All 138 teams and every conference, ranked by the Hashmark model — the full boards are a Hashmark+ feature. Free while we're in preview."))) return;
+    _boardsOpen=true; remountRatingsBoard();
+  });
+}
+// ══════════════════ U47 — HOME REBUILT AS BANDS ══════════════════
+// Recomposition only: every band is fed by a renderer or table that already existed.
+// Grammar is U46's (eyebrow / display H2 / count-freshness chips / ALL pill); colour is
+// U49's contract. Per U49's scope note, model output in the bands BELOW is authored teal
+// from the start — these are new surfaces, so there is no "repaint a neutral" risk, and a
+// proof row whose accuracy number wore the user accent would repeat the exact bug U49 fixed.
+// The landing splash, the U38 tab bar and VIEW_SECTION are untouched; every band routes
+// through an existing nav primitive, so the nav-policy lint stays green.
+
+// count-only fetch (PostgREST content-range) — for proof numbers we must DERIVE, not type
+async function apiCount(path){
+  const res = await fetch(SUPABASE_URL+"/rest/v1/"+path, {headers:{apikey:KEY,
+    Authorization:"Bearer "+KEY, Range:"0-0", Prefer:"count=exact"}});
+  const cr = res.headers.get("content-range")||"";
+  const n = +String(cr).split("/")[1];
+  return Number.isFinite(n) ? n : null;
+}
+const _fmtN = n => Number(n).toLocaleString("en-US");
+
+// Band 1 — the hero. Static layer stack (base gradient / hash + yard texture / veil / copy);
+// U48 inserts the self-drawing win-probability canvas as the middle layer, nothing else moves.
+function heroBandHTML(){
+  const n = Object.keys(teamMeta||{}).length;
+  return `<div class="band"><div class="bandin"><div class="hero47">
+    <span class="heropill">Hashmark${n?` &middot; ${n} teams`:""} &middot; Gambling-free</span>
+    <h1>Every team. Every game.<span class="l2">An honest model.</span></h1>
+    <p class="hsub">Official stats, homegrown ratings, and a model that shows its work &mdash; for every FBS team, with nothing sold to a sportsbook.</p>
+    <div class="herolive" id="u47-live" role="button" tabindex="0">
+      <span class="hl-k">Loading</span><span class="hl-v" style="color:var(--text3)">&hellip;</span>
+    </div>
+    <div class="herocta">
+      <button class="cta-a" id="u47-cta-explore">Explore the data <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+      <button class="cta-b" id="u47-cta-team">Find your team <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></button>
+    </div>
+  </div></div></div>`;
+}
+
+// Band 2 — proof row. Every number is DERIVED at render time and links to its own receipt.
+// The brief's "108,988 games" was U13's one-time SWEEP figure (games scanned), not a stored
+// public artifact — so the shipped number is the artifact that sweep produced, exactly labelled.
+async function proofRowHTML(){
+  const teams = Object.keys(teamMeta||{}).length;
+  let series=null, acc=null;
+  try{ series = await apiCount("h2h_alltime?select=team_a_id"); }catch(e){}
+  try{ const a = await api("accuracy_summary?select=season,n,su_pct&order=season.desc&limit=1");
+       if(a && a.length && a[0].su_pct!=null) acc=a[0]; }catch(e){}
+  const cell=(v,k,go,cls)=>`<div class="proofcell" data-proof="${go}">
+    <div class="pv${cls?" "+cls:""}">${v}</div>
+    <div class="pk">${k} <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
+  let h = `<div class="proofrow">`;
+  h += cell(teams||"&mdash;", "FBS teams covered", "teams");
+  if(series) h += cell(_fmtN(series), "All-time series on record", "history");
+  if(acc) h += cell(`${Math.round(Number(acc.su_pct))}<small style="font-size:13px"> of 100</small>`,
+    `Winners called straight-up · ${acc.season} · ${_fmtN(acc.n)} games`, "checking", "model");
+  h += cell("$0", "From sportsbooks. Gambling-free.", "method");
+  h += `</div>`;
+  return h;
+}
+
+// Band 3 — Today / Film Room strip. STATE-AWARE: in-season it leads with this week's
+// slate and the latest Film Room breakdowns; off-season it leads with the latest analysis
+// on file plus the preseason signals. Never renders an empty rail.
+async function todayRailHTML(){
+  const inSeason = !!(SEASON_PHASE && SEASON_PHASE.started);
+  const cards=[];
+  if(inSeason){
+    try{
+      const gs = await api(`games?select=${GAME_SEL}&season=eq.${SEASON_SCHED}&week=eq.${SEASON_PHASE.week}&order=start_date.asc&limit=4`);
+      gs.forEach(g=>{ const th=teamMeta[g.home_team_id]||{}, ta=teamMeta[g.away_team_id]||{};
+        if(!th.school&&!ta.school) return;
+        cards.push(`<div class="tcard" data-game="${g.id}"><span class="tagchip game">Game</span>
+          <div class="tct">${esc(ta.school||"TBD")} @ ${esc(th.school||"TBD")}</div>
+          <div class="tcm">${esc(gameTimeLine(g)||`Week ${SEASON_PHASE.week}`)}</div></div>`); });
+    }catch(e){}
+  }
+  try{
+    const fa = await api(`game_analysis?select=season,week&order=season.desc,week.desc&limit=1`);
+    if(fa && fa.length){
+      const f=fa[0];
+      cards.push(`<div class="tcard" data-film="${f.week}"><span class="tagchip film">Film Room</span>
+        <div class="tct">The weekend, analyzed</div>
+        <div class="tcm">Season ${f.season} &middot; Week ${f.week} breakdowns &mdash; every number traces to the play-by-play.</div></div>`);
+    }
+  }catch(e){}
+  if(!inSeason){
+    cards.push(`<div class="tcard" data-sig="1"><span class="tagchip">Signature</span>
+      <div class="tct">The Collapse Index</div>
+      <div class="tcm">Which preseason top-10 team our factors flag hardest &mdash; tracked to a verdict.</div></div>`);
+    cards.push(`<div class="tcard" data-sos="1"><span class="tagchip">Schedules</span>
+      <div class="tct">Toughest ${SEASON_SCHED} slate</div>
+      <div class="tcm">The preseason strength-of-schedule board, every team ranked.</div></div>`);
+  }
+  if(!cards.length) return "";
+  return secHead("Hashmark · " + (inSeason?"Today":"Latest"), inSeason?"This week":"The offseason board",
+      {chip:[{t:inSeason?`Week ${SEASON_PHASE.week}`:`${SEASON_SCHED} preseason`}], all:"filmroom", allLabel:"Film Room"})
+    + `<div class="todayrail">${cards.join("")}</div>`;
+}
+
+// Band 4 — flagship Hashmark Ratings card: twin mini-boards over the live board.
+// Left = top teams by the model. Right = weekly movers in season, national leaders out of it
+// (the design doc's own preseason substitute) — official stats, so they wear --stat, not teal.
+function topTeamsMiniHTML(){
+  const rows=(unitRows||[]).filter(r=>r.overall!=null).sort((a,b)=>b.overall-a.overall).slice(0,5);
+  const mx=Math.max(0.001,...rows.map(r=>Math.abs(r.overall)));
+  return `<div class="mboard"><div class="mbhead"><span class="mbt">Top teams</span>
+      <span class="allpill" role="button" tabindex="0" data-u47="board" style="min-height:26px;padding:0 8px">Full board<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></span></div>
+    ${rows.map((r,i)=>`<div class="mbrow" data-team="${r.team_id}"><span class="mbr">${i+1}</span>
+      <span class="mbn">${esc(r.t.school)}<div class="mbbar" style="width:${Math.max(8,Math.abs(r.overall)/mx*100)}%;background:${hx(r.t.color)}"></div></span>
+      <span class="mbv model">${f3(r.overall)}</span></div>`).join("")}</div>`;
+}
+function flagshipBandHTML(){
+  return secHead("Hashmark · Ratings", "Hashmark Ratings",
+      {chip:[{t:phaseLabel()},{t:"Updated nightly", kind:"fresh", dot:true}]})
+    + `<div class="flagcard">
+      <div class="fcdesc">Homegrown power ratings for every FBS team &mdash; offense, defense and the factors underneath, with the receipts public.</div>
+      <div class="twinboards">${topTeamsMiniHTML()}<div id="u47-mb-right"></div></div>
+    </div>
+    <div id="ratings-board">${ratingsBoardHTML()}</div>`;
+}
+
+// Band 5 — simulator teaser. Playoff odds are Monte-Carlo output, so they read teal.
+async function simBandHTML(){
+  let rows=[];
+  try{ rows = await api(`playoff_odds?select=team_id,make_cfp&order=make_cfp.desc&limit=5`); }catch(e){}
+  const kick = new Date(Date.UTC(SEASON_SCHED,7,29,16,0,0));
+  const days = Math.max(0, Math.ceil((kick - Date.now())/864e5));
+  const body = rows.length
+    ? rows.map(r=>{ const t=teamMeta[r.team_id]||{}; const p=Math.round(Number(r.make_cfp)*100);
+        return `<div class="mbrow" data-team="${r.team_id}"><span class="mbn">${esc(t.school||"?")}</span>
+          <span class="mbv model">${p}%</span></div>`; }).join("")
+    : `<div class="secsub" style="padding:2px 0">Playoff odds publish with the first simulated slate.</div>`;
+  return secHead("Hashmark · Simulator", "Run the season",
+      {chip:[{t:"4,000 seasons nightly"}].concat(days>0?[{t:`Week 0 in ${days} days`, kind:"count"}]:[])})
+    + `<div class="flagcard"><div class="fcdesc">Pick winners and watch the 12-team bracket rebuild &mdash; conference races, seeding and playoff odds across thousands of simulated seasons.</div>
+      <div class="mboard">${body}</div>
+      <div class="navrow" style="margin:10px 0 0"><button class="navbtn primary" data-u47="sim">Run the simulator <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button></div></div>`;
+}
+
+// Band 6 — NIL economy. Coverage is DERIVED from the figures table; it upgrades on its own
+// the moment U45's modeled rows land, with no change here.
+async function nilBandHTML(){
+  let figured=null, teams=Object.keys(teamMeta||{}).length;
+  // count ONLY programs that actually carry a dollar figure. The table also holds
+  // registry-presence and tier rows, which are cited but carry no number — folding those
+  // into a "sourced" count would overstate coverage by 16 programs.
+  try{ const rows = await api(`nil_figures?select=team_id,figure_low_musd`);
+       figured = new Set(rows.filter(r=>r.figure_low_musd!=null).map(r=>r.team_id)).size; }catch(e){}
+  const chips=[{t:`${SEASON_RESULTS} figures`}];
+  if(figured!=null && teams) chips.push({t:`${figured} of ${teams} with a reported figure`, kind:"count"});
+  return secHead("Hashmark · NIL economy", "The money, tied to the football", {chip:chips, all:"nil", allLabel:"Open board"})
+    + `<div class="sec" style="margin-top:4px"><div class="secsub" style="padding:2px 0 0">Attributed spend tiers and who beats theirs &mdash; every figure carries its source, and an unsourced program says so rather than guessing.</div></div>`;
+}
+
+// Band 8 — team chip cloud. Favourite first (amber), then a slice of the directory.
+function chipCloudHTML(){
+  const fav=favTeamId();
+  const ids=Object.keys(teamMeta||{});
+  // order by the model board so the cloud opens with programs people recognise; raw
+  // teamMeta order is by team id, which surfaces an arbitrary alphabetical slice
+  const ranked=(unitRows||[]).filter(r=>r.overall!=null).sort((a,b)=>b.overall-a.overall).map(r=>String(r.team_id));
+  const pick=[];
+  if(fav && teamMeta[fav]) pick.push(String(fav));
+  for(const id of ranked.concat(ids)){ if(pick.length>=12) break;
+    if(!pick.includes(String(id)) && teamMeta[id]) pick.push(String(id)); }
+  return secHead("Hashmark · Every program", "Your team has a home here",
+      {chip:[{t:`${ids.length} FBS teams`, kind:"count"}]})
+    + `<div class="chipcloud">${pick.map(id=>{ const t=teamMeta[id]||{};
+        return `<span class="teamchip${String(id)===String(fav)?" fav":""}" data-team="${id}" role="button" tabindex="0">
+          <span class="tcc" style="background:${hx(t.color)};color:${textOn(t.color)}">${esc(monogram(t.school||"?"))}</span>${esc(t.school||"?")}</span>`; }).join("")}
+      <span class="teamchip" data-u47="picker" role="button" tabindex="0" style="border-style:dashed">All ${ids.length} teams<svg class="ic" aria-hidden="true" style="width:12px;height:12px"><use href="#i-chev-r"/></svg></span></div>
+    <div class="secsub" style="padding:8px 2px 0">Schedule, ratings, grades, NIL and news &mdash; one page per program.</div>`;
+}
+
+// Band 9 — the briefing / notifications block, wired to the existing push plumbing.
+function briefBandHTML(){
+  return `<div class="briefband"><div class="ghostwm" aria-hidden="true">Hashmark</div>
+    <div class="eyebrow brand">Hashmark &middot; The briefing</div>
+    <h2 style="font-family:var(--display);font-weight:700;font-size:var(--d2);line-height:var(--lh-d);letter-spacing:-.008em;text-transform:uppercase;color:var(--textw);margin:5px 0 0">Your season, briefed</h2>
+    <p style="color:var(--text2);font-size:12px;line-height:1.5;margin:8px 0 10px">Kickoffs, model calls and your team&rsquo;s week &mdash; no filler, no odds, no wagering. Turn on the alerts you want and nothing else. ${authUser?"":"<span style=\"color:var(--text3)\">Takes an account &mdash; we ask for an email and nothing else.</span>"}</p>
+    <div class="navrow" style="margin:0"><button class="navbtn primary" data-u47="notify"><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg> Kickoff &amp; results alerts</button></div></div>`;
+}
+
+// The composer. Synchronous bands paint immediately from cached data; the rest fill in.
+async function renderHomeBands(){
+  await ensureTeamMeta();
+  const h = header() + `<div class="list" style="padding-top:6px">
+    ${heroBandHTML()}
+    <div class="band rule raised"><div class="bandin">${secHead("Hashmark · The whole sport", "The receipts", {})}<div id="u47-proof"><div class="skel" style="height:120px"></div></div></div></div>
+    <div class="band"><div class="bandin"><div id="ytm"></div></div></div>
+    <div class="band rule"><div class="bandin" id="u47-today"></div></div>
+    <div class="band rule raised"><div class="bandin">${flagshipBandHTML()}</div></div>
+    <div class="band rule"><div class="bandin" id="u47-sim"></div></div>
+    <div class="band rule raised"><div class="bandin" id="u47-nil"></div></div>
+    <div class="band rule"><div class="bandin"><div class="hsec" id="cs-newshost"></div></div></div>
+    <div class="band rule raised"><div class="bandin">${chipCloudHTML()}</div></div>
+    <div class="band rule"><div class="bandin">${secHead("Hashmark · Explore", "The full toolkit", {all:"explore", allLabel:"All tools"})}${homeBubblesHTML()}</div></div>
+    <div class="band rule raised"><div class="bandin">${briefBandHTML()}</div></div>
+    <div id="cs-teasers" style="display:none"></div>
+    <div class="note"><b>Hashmark &mdash; independent, gambling-free college football analytics.</b> Official data (CFBD), homegrown ratings, and every claim checked in public. ${BRAND_LINE}</div>
+  </div>`;
+  app.innerHTML = h;
+  wireToggle();
+  wireHomeBubbles();
+  wireHomeBands();
+  injectYourTeam();
+  injectNews();
+  injectHomeBands();
+}
+
+function wireHomeBands(){
+  const on=(id,fn)=>{ const e=document.getElementById(id); if(e) e.onclick=fn; };
+  on("u47-cta-explore", ()=>openExplore());
+  on("u47-cta-team", async()=>{ await ensureTeamMeta(); teamPicker(null, id=>pickFavAny(id)); });
+  const GO={ teams:async()=>{ await ensureTeamMeta(); teamPicker(null, id=>openDetail(id)); },
+             history:()=>openHistory(), checking:()=>openCheckingWork(), method:()=>openMethodology(),
+             sim:()=>gatedSimulator(), nil:()=>openNILEconomy(),
+             // openNotifyPrefs reads authUser.id straight off, so a signed-out tap threw and
+             // the sheet silently never opened. Send guests to sign-in first.
+             notify:()=>{ if(!authUser) return openAuthModal(); openNotifyPrefs(); },
+             picker:async()=>{ await ensureTeamMeta(); teamPicker(null, id=>openDetail(id)); },
+             movers:()=>openMovers(), leaders:()=>openStats("leaders"),
+             board:()=>{ const b=document.getElementById("ratings-board"); if(b) b.scrollIntoView({block:"start"}); } };
+  document.querySelectorAll("[data-proof]").forEach(el=>el.onclick=()=>{ const f=GO[el.dataset.proof]; if(f) f(); });
+  document.querySelectorAll("[data-u47]").forEach(el=>el.onclick=()=>{ const f=GO[el.dataset.u47]; if(f) f(); });
+  document.querySelectorAll("[data-film]").forEach(el=>el.onclick=()=>openFilmRoom(+el.dataset.film||null));
+  document.querySelectorAll("[data-sig]").forEach(el=>el.onclick=()=>openSignature());
+  document.querySelectorAll("[data-sos]").forEach(el=>el.onclick=()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; openStandings(); });
+}
+
+// async fills — each one independent, each failing silently into a smaller page
+async function injectHomeBands(){
+  const put=(id,html)=>{ const e=document.getElementById(id); if(e){ e.innerHTML=html; wireHomeBands(); } };
+  proofRowHTML().then(h=>put("u47-proof",h)).catch(()=>{ const e=document.getElementById("u47-proof"); if(e) e.innerHTML=""; });
+  todayRailHTML().then(h=>put("u47-today",h)).catch(()=>{});
+  simBandHTML().then(h=>put("u47-sim",h)).catch(()=>{});
+  nilBandHTML().then(h=>put("u47-nil",h)).catch(()=>{});
+  heroLiveLine().catch(()=>{});
+  moversMiniHTML().then(h=>put("u47-mb-right",h)).catch(()=>{});
+}
+
+// the hero's one live line: next big game in season, the newest story out of it
+async function heroLiveLine(){
+  const host=document.getElementById("u47-live");
+  if(!host) return;
+  const inSeason = !!(SEASON_PHASE && SEASON_PHASE.started);
+  try{
+    if(inSeason){
+      const gs=await api(`games?select=${GAME_SEL}&season=eq.${SEASON_SCHED}&completed=eq.false&order=start_date.asc&limit=1`);
+      if(gs && gs.length){ const g=gs[0], th=teamMeta[g.home_team_id]||{}, ta=teamMeta[g.away_team_id]||{};
+        host.innerHTML=`<span class="hl-k">Next up</span><span class="hl-v">${esc(ta.school||"TBD")} @ ${esc(th.school||"TBD")}${gameTimeLine(g)?` &middot; ${esc(gameTimeLine(g))}`:""}</span><svg class="ic" style="width:12px;height:12px;flex:none;color:var(--text3)" aria-hidden="true"><use href="#i-chev-r"/></svg>`;
+        host.onclick=()=>openGame(g.id); return; }
+    }
+    const ns=await api(`news_items?select=headline,url,source,published_at&order=published_at.desc&limit=1`);
+    if(ns && ns.length){
+      host.innerHTML=`<span class="hl-k">Top story</span><span class="hl-v">${esc(decodeEnt(ns[0].headline))}</span><svg class="ic" style="width:12px;height:12px;flex:none;color:var(--text3)" aria-hidden="true"><use href="#i-chev-r"/></svg>`;
+      host.onclick=()=>openNewsArchive(); return;
+    }
+    host.remove();
+  }catch(e){ if(host) host.remove(); }
+}
+
+// right-hand mini-board: weekly movers in season, national leaders out of it
+async function moversMiniHTML(){
+  try{
+    const rows=await api(`poll_rankings_history?select=season,week,rank,team_id&poll=eq.AP%20Top%2025&order=season.desc,week.desc&limit=100`);
+    const weeks=[...new Set((rows||[]).map(r=>r.season*100+r.week))].sort((a,b)=>b-a);
+    // "This week's movers" must actually BE this week. Off-season the newest poll snapshot
+    // is last season's final week, and labelling that as current would be a straight lie —
+    // so unless the snapshot is from the current season we fall through to the leaders board.
+    if(weeks.length>=2 && Math.floor(weeks[0]/100)===SEASON_SCHED){
+      const cur=rows.filter(r=>r.season*100+r.week===weeks[0]);
+      const prev=Object.fromEntries(rows.filter(r=>r.season*100+r.week===weeks[1]).map(r=>[r.team_id,r.rank]));
+      const mv=cur.map(r=>({...r, d:(prev[r.team_id]!=null)?prev[r.team_id]-r.rank:null}))
+        .filter(r=>r.d!=null&&r.d!==0).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,5);
+      if(mv.length) return `<div class="mboard"><div class="mbhead"><span class="mbt">This week&rsquo;s movers</span>
+          <span class="allpill" role="button" tabindex="0" data-u47="movers" style="min-height:26px;padding:0 8px">All<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></span></div>
+        ${mv.map(r=>{ const t=teamMeta[r.team_id]||{};
+          return `<div class="mbrow" data-team="${r.team_id}"><span class="mbr">${r.rank}</span>
+            <span class="mbn">${esc(t.school||"?")}</span>
+            <span class="mbv ${r.d>0?"mv-up":"mv-dn"}">${r.d>0?"+":""}${r.d}</span></div>`; }).join("")}</div>`;
+    }
+  }catch(e){}
+  // preseason substitute (the design doc's own): official national leaders — --stat, not teal
+  try{
+    await ensureCatalog();
+    const leaders=await api(`team_stat_season?select=stat_key,team_id,value&season=eq.${STAT_SEASON}&rank=eq.1&stat_key=in.(${HOME_LEADERS.map(x=>x[0]).join(",")})`);
+    const lmap={}; (leaders||[]).forEach(r=>lmap[r.stat_key]=r);
+    const rows=HOME_LEADERS.map(([k,label])=>({k,label,r:lmap[k]})).filter(x=>x.r).slice(0,5);
+    if(!rows.length) return "";
+    return `<div class="mboard"><div class="mbhead"><span class="mbt">National leaders &middot; ${STAT_SEASON}</span>
+        <span class="allpill" role="button" tabindex="0" data-u47="leaders" style="min-height:26px;padding:0 8px">All<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></span></div>
+      ${rows.map(({k,label,r})=>{ const t=teamMeta[r.team_id]||{}, d=_catalog.by[k];
+        return `<div class="mbrow" data-team="${r.team_id}"><span class="mbn">${esc(t.school||"?")}<div class="mbbar" style="width:100%;background:${hx(t.color)};opacity:.5"></div></span>
+          <span class="mbv stat" title="${esc(label)}">${fmtStat(r.value,d?d.format:"1dp")}</span></div>`; }).join("")}</div>`;
+  }catch(e){ return ""; }
+}
+
 // Batch 8 #5: ONE tile config renders both the home feature row and the Explore grid
 // (Explore additionally appends Methodology, Checking Our Work, Notifications + About).
 const FEATURE_TILES=[
@@ -2933,17 +3357,12 @@ function wireToggle(){
   const simnav=document.getElementById("simnav"); if(simnav) simnav.onclick = ()=> openSimulator();
   const pressnav=document.getElementById("pressnav"); if(pressnav) pressnav.onclick = ()=> openPreseason();
   wireSearch();
-  // leaderboard controls (re-render from cached data; no refetch)
-  document.querySelectorAll(".bnav button").forEach(b=>{
-    b.onclick = ()=>{ if(boardMode!==b.dataset.mode){ boardMode=b.dataset.mode; renderLeaderboard(); window.scrollTo(0,0); } };
-  });
-  document.querySelectorAll("[data-conf]").forEach(el=>{
-    el.onclick = ()=>{ const c=el.dataset.conf||null; if(confFilter!==c){ confFilter=c; renderLeaderboard(); window.scrollTo(0,0); } };
-  });
-  document.querySelectorAll("[data-boardup]").forEach(el=>el.onclick=async()=>{
+  // leaderboard controls (re-render from cached data; no refetch) — U47: scoped to the board
+  wireBoardControls();
+  document.querySelectorAll("[data-boardup-legacy]").forEach(el=>el.onclick=async()=>{
     if(PLUS_GATED.ratings_boards && !(await plusUpsell("The full Hashmark boards",
       "All 138 teams and every conference, ranked by the Hashmark model — the full boards are a Hashmark+ feature. Free while we're in preview."))) return;
-    _boardsOpen=true; renderLeaderboard();
+    _boardsOpen=true; remountRatingsBoard();
   });
 }
 
@@ -6723,6 +7142,11 @@ const ALL_GO = {
   history:   ()=>openHistory(),
   stats:     ()=>openStats(),
   signature: ()=>openSignature(),
+  // U47 band destinations (secHead only renders an ALL pill for a key that exists here)
+  filmroom:  ()=>openFilmRoom(),
+  nil:       ()=>openNILEconomy(),
+  sim:       ()=>gatedSimulator(),
+  checking:  ()=>openCheckingWork(),
 };
 // chip: string | {t, kind} | array of either. kind: "count" | "fresh" | "" (neutral)
 function cChip(c){
@@ -6988,10 +7412,16 @@ window.addEventListener("popstate", e=>{
 });
 try{ history.replaceState({hm:1, v:"home", p:{}}, ""); }catch(e){}
 // wrap every navigation entry point (plain-script function declarations live on window).
-// DEFERRED with setTimeout(0): openWhatWins/openSignature/... are declared in a LATER
-// script block — all blocks evaluate synchronously before timers fire, so this wraps
-// everything regardless of which block declared it.
-setTimeout(()=>{
+// !! U47 CORRECTION: the note that used to sit here claimed a setTimeout(0) was enough because
+// "all blocks evaluate synchronously before timers fire". It is NOT — the HTML parser yields
+// between <script> blocks, so this timer fired while the third block was still unparsed and
+// ELEVEN listed views (History, Film Room, NIL Economy, Explore, Teams, Model Hub, Injuries,
+// Admin, Signature Board, NIL Performance, Landing) were still undefined. `if(typeof f
+// !== "function") return;` swallowed them, so they never pushed a history state — the U17
+// "Back regresses a step" class, invisible to the nav-registry lint because the lint only
+// checks that the NAME is listed. The wrapper is now idempotent and installNavWraps() runs
+// again at the end of the last block.
+function installNavWraps(){
 [["openDetail","team",id=>({id})],
  ["openPlayer","player",id=>({id})],
  ["openScores","scores"],["openStats","stats",tab=>({tab})],
@@ -7014,10 +7444,13 @@ setTimeout(()=>{
  ["openFilmRoom","filmroom",wk=>({wk})],["openReportCard","reportcard",wk=>({wk})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
-  if(typeof f!=="function") return;
+  if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
+  _NAV_WRAPPED.add(name);
   window[name]=function(...args){ navPush(v, mapper?mapper(...args):{}); return f.apply(this,args); };
 });
-}, 0);
+}
+const _NAV_WRAPPED=new Set();
+setTimeout(installNavWraps, 0);
 // the season toggle is a navigation too — home states carry the active view
 const _wireToggle=wireToggle;
 wireToggle=function(){
@@ -9528,6 +9961,9 @@ setTimeout(()=>{ try{
   if(!document.getElementById("v2hero")
      && /national leaders/i.test(app.textContent||"")){ v2HomeExtras(); liveArm(); }
 }catch(e){} }, 3500);
+// U47: the views declared in THIS block are invisible to the wrap loop in the first block
+// (declarations do not hoist across <script> boundaries). Re-run it here — it is idempotent.
+try{ installNavWraps(); }catch(_e){}
 </script>
 
 </body>
