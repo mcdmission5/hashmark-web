@@ -548,6 +548,7 @@
     color:var(--text2);font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer}
   .lbtoggle button.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
   /* ---- standings ---- */
+  .strow.me{background:var(--amber-tint,rgba(230,177,60,.08));border-radius:8px;outline:1px solid var(--amber)}
   .stconf{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:11px;letter-spacing:.05em;
     text-transform:uppercase;color:var(--amber);margin:14px 2px 6px}
   .sthead{display:grid;grid-template-columns:26px 30px 1fr 56px 56px 44px;gap:8px;padding:0 12px 6px;
@@ -4486,21 +4487,12 @@ function hmSection(hm, t){
 }
 
 function renderDetailPreview(t, ap, ts, games, teamId, ext){
-  setTimeout(async()=>{ try{
-    const html = await teamNewsHTML(teamId);
-    if(!html) return;
-    const d=document.createElement("div"); d.innerHTML=html;
-    // signature-and-gating §2: news lives HIGH on the team page — right under the
-    // identity/record block, above the deep stat sections (overrides design-doc order)
-    // UX batch 4 #4: news lands directly under the stats card (its own host slot)
-    const slot = document.getElementById("tp-newshost");
-    const host = document.getElementById("tp-bubbles") || app.querySelector(".note");
-    if(slot) slot.appendChild(d.firstChild);
-    else if(host) host.parentNode.insertBefore(d.firstChild, host);
-    if(window._scrollNews){ window._scrollNews=false;   // Part 0.2: favorite-module headline tap
-      const sec=[...app.querySelectorAll(".sectitle")].find(x=>x.textContent.startsWith("Team news"));
-      if(sec) sec.scrollIntoView({behavior:"smooth", block:"start"}); }
-  }catch(_e){} }, 0);
+  // U28: the team news list lives INSIDE the News bubble now (the old injected
+  // placement above the bubbles is gone); the favorite-module headline tap opens
+  // that bubble directly.
+  if(window._scrollNews){ window._scrollNews=false;
+    setTimeout(()=>{ try{ const b=document.querySelector('[data-bub="news"]');
+      if(b){ b.click(); b.scrollIntoView({behavior:"smooth", block:"center"}); } }catch(_e){} }, 400); }
   setTimeout(()=>{ try{ injectTeamViz(teamId); }catch(_e){} }, 0);   // V4/V5 team-page embeds
   // Ask Hashmark entry (P2-E5, now LIVE): injected only when the edge function answers
   // the probe — the section simply never appears while the feature is dark.
@@ -4540,7 +4532,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   // (batch 7's top/bottom swap superseded); the 2025 bubbles stay as the historical archive.
   const done26 = (games||[]).filter(g=>g.season===SEASON_SCHED && g.completed && g.home_points!=null).length;
   const swap26 = done26>=3;
-  const BUBS = [["sched","Schedule"],["stats","Stats"]]
+  const BUBS = [["sched","Schedule"],["news","News"],["standings","Standings"],["stats","Stats"]]
     .concat(swap26?[["splits","Splits"]]:[])
     .concat([["recruit","Recruiting"],["avail","Injuries"],["portal","Transfer portal"],["nil","NIL"],
       ["leaders","Returning leaders"],["stats25",`${SEASON_RESULTS} Stats`],["sched25",`${SEASON_RESULTS} Schedule`],
@@ -4556,7 +4548,6 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div>
     ${head}
     ${standLine}
-    <div id="tp-newshost"></div>
     <div class="bubwrap" id="tp-bubbles"><div class="bubrow" id="tp-bubrow" role="tablist" aria-label="Team sections">
       ${BUBS.map(([k,l])=>`<button class="bub${k==="sched"?" on":""}" role="tab" aria-selected="${k==="sched"}" data-bub="${k}">${l}</button>`).join("")}
     </div></div>
@@ -4585,6 +4576,37 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
 // the single #tp-panel in place and NEVER push history — Back always leaves the team page.
 // Deep links (#team/:id/:tab) were considered and skipped: the app routes by history
 // state, not URL fragments, so a hash router would be a new subsystem, not a cheap add.
+// U28: the team's conference table inside a bubble panel — standings-renderer
+// markup reused (.stconf/.sthead/.strow), the team's own row highlighted,
+// DIVISIONAL conferences (Sun Belt East/West) grouped by teams.division.
+async function teamStandingsPanel(teamId, t){
+  const conf=(t&&t.conference)||"";
+  if(!conf) return `<div class="secsub" style="padding:10px 2px">No conference on file.</div>`;
+  const [rows, divs] = await Promise.all([
+    api(`standings?select=team_id,school,conference,wins,losses,conf_wins,conf_losses,streak,sos_rank,conf_rank&season=eq.${SEASON_RESULTS}&conference=eq.${encodeURIComponent(conf)}&order=conf_rank.asc.nullslast`).catch(()=>[]),
+    api(`teams?select=id,division&conference=eq.${encodeURIComponent(conf)}`).catch(()=>[]) ]);
+  if(!rows.length) return `<div class="secsub" style="padding:10px 2px">No ${esc(conf)} standings on file yet.</div>`;
+  const divOf={}; divs.forEach(d=>{ if(d.division) divOf[d.id]=d.division; });
+  const groups={};
+  rows.forEach(r=>{ (groups[divOf[r.team_id]||""]=groups[divOf[r.team_id]||""]||[]).push(r); });
+  const gkeys=Object.keys(groups).sort();
+  let h=`<div class="sec" style="padding-top:2px"><div class="sectitle">${esc(conf)} — ${SEASON_RESULTS} standings</div>`;
+  gkeys.forEach(gk=>{
+    if(gk) h+=`<div class="stconf">${esc(gk)}</div>`;
+    h+=`<div class="sthead"><div></div><div></div><div></div><div>Overall</div><div>Conf</div><div>Strk</div></div>`;
+    groups[gk].forEach((r,i)=>{ const tm=teamMeta[r.team_id]||{school:r.school};
+      h+=`<div class="strow${String(r.team_id)===String(teamId)?" me":""}" data-team="${r.team_id}">
+        <div class="srk">${r.conf_rank||i+1}</div>
+        ${crestEl("glcr",tm.school,oppColor(r.team_id))}
+        <div class="snm">${esc(r.school)}<small>SoS #${r.sos_rank||"—"}</small></div>
+        <div class="srec">${r.wins}–${r.losses}</div>
+        <div class="srec">${r.conf_wins}–${r.conf_losses}</div>
+        <div class="sstrk ${_strkCls(r.streak)}">${esc(r.streak||"—")}</div></div>`; });
+  });
+  h+=`<div class="navrow" style="padding-top:8px"><button class="navbtn" data-go="standings">Full FBS standings</button></div></div>`;
+  return h;
+}
+
 function wireTeamPanels(teamId, t, games, e, swap26){
   const panel=document.getElementById("tp-panel"), row=document.getElementById("tp-bubrow");
   if(!panel || !row) return;
@@ -4629,6 +4651,9 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     splits: async()=>{ const sp=await loadSplits();
       return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_SCHED), t.school, SEASON_SCHED)
         || emptyNote(`${SEASON_SCHED} situational splits are still processing.`); },
+    news: async()=> (await teamNewsHTML(teamId))
+      || emptyNote("No recent headlines on file for this team."),
+    standings: async()=> teamStandingsPanel(teamId, t),
     recruit: async()=>(await loadIntel()).rec,
     avail:   async()=>(await loadIntel()).inj,
     portal:  async()=>(await loadIntel()).por,
@@ -4657,6 +4682,8 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     panel.querySelectorAll("[data-mopp]").forEach(el=>el.onclick=ev=>{
       ev.stopPropagation(); openMatchup(teamId, el.dataset.mopp, el.dataset.mven); });
     if(k==="avail") wireInjGate(panel, C.data.intel);
+    if(k==="standings"){ const fb=panel.querySelector('[data-go="standings"]');
+      if(fb) fb.onclick=()=>openStandings(); }   // U28: full-standings link
     // U11+U31: in-panel sub-tabs (Commits/Prospects/News, Moves/News) — swap only,
     // no history push (U17 policy: bubbles are content panels, not destinations)
     if(k==="recruit"||k==="portal") panel.querySelectorAll("[data-rectab]").forEach(b=>b.onclick=()=>{
