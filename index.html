@@ -4547,15 +4547,16 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div>` : "";
   // batch 12 #3: BUBBLE NAV — a horizontally-scrollable chip row + ONE swappable panel
   // replace the stacked accordions (owner-specified order; Schedule is the default panel).
-  // >=3 completed current-season games flips the Stats/Splits panels to the current season
-  // (batch 7's top/bottom swap superseded); the 2025 bubbles stay as the historical archive.
+  // U29: Stats, Schedule and Recruiting carry a 2026/2025 sub-toggle INSIDE the panel, so
+  // the standalone "2025 Stats"/"2025 Schedule" bubbles are retired (their bodies moved
+  // behind the toggles). The batch-7 >=3-completed-games swap survives as the Stats
+  // toggle's DEFAULT side (2026 lands once real games exist; until then 2025 · final).
   const done26 = (games||[]).filter(g=>g.season===SEASON_SCHED && g.completed && g.home_points!=null).length;
   const swap26 = done26>=3;
   const BUBS = [["sched","Schedule"],["news","News"],["standings","Standings"],["stats","Stats"]]
     .concat(swap26?[["splits","Splits"]]:[])
     .concat([["recruit","Recruiting"],["avail","Injuries"],["portal","Transfer portal"],["nil","NIL"],
-      ["leaders","Returning leaders"],["stats25",`${SEASON_RESULTS} Stats`],["sched25",`${SEASON_RESULTS} Schedule`],
-      ["splits25",`${SEASON_RESULTS} Splits`],["honors","Honors"],["staff","Coaching"]]);
+      ["leaders","Returning leaders"],["splits25",`${SEASON_RESULTS} Splits`],["honors","Honors"],["staff","Coaching"]]);
   let h = `<div class="detail">
     <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
@@ -4570,8 +4571,8 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     <div class="bubwrap" id="tp-bubbles"><div class="bubrow" id="tp-bubrow" role="tablist" aria-label="Team sections">
       ${BUBS.map(([k,l])=>`<button class="bub${k==="sched"?" on":""}" role="tab" aria-selected="${k==="sched"}" data-bub="${k}">${l}</button>`).join("")}
     </div></div>
-    <div id="tp-panel">${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
-      || `<div class="secsub" style="padding:10px 2px">No ${SEASON_SCHED} schedule on file yet.</div>`}</div>
+    <div id="tp-panel">${tpSeasonToggle("scseg", SEASON_SCHED)}<div id="tp-schedbody">${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
+      || `<div class="secsub" style="padding:10px 2px">No ${SEASON_SCHED} schedule on file yet.</div>`}</div></div>
     ${hmSection(e.hm, t)}
     ${e.hm?"":`<div class="sec" style="padding-top:6px">
       <div class="soon" style="padding:22px 20px 6px">
@@ -4628,6 +4629,13 @@ async function teamStandingsPanel(teamId, t){
   return h;
 }
 
+// U29: the ONE season sub-toggle rendered at the top of the Stats / Schedule /
+// Recruiting panels (U1's Stats-toggle pattern generalized — same .lbtoggle markup,
+// per-panel data-attribute so the handlers never cross-fire).
+const tpSeasonToggle=(seg, on)=>`<div class="lbtoggle" style="margin:2px 2px 8px">
+  <button data-${seg}="${SEASON_SCHED}"${on===SEASON_SCHED?' class="on"':""}>${SEASON_SCHED}</button>
+  <button data-${seg}="${SEASON_RESULTS}"${on===SEASON_RESULTS?' class="on"':""}>${SEASON_RESULTS}</button></div>`;
+
 function wireTeamPanels(teamId, t, games, e, swap26){
   const panel=document.getElementById("tp-panel"), row=document.getElementById("tp-bubrow");
   if(!panel || !row) return;
@@ -4650,8 +4658,8 @@ function wireTeamPanels(teamId, t, games, e, swap26){
         J(`nil_performance_2025?select=band,wins,losses,est_low_musd,est_high_musd,confidence,disputed&team_id=eq.${teamId}`)]);
       C.data.nil={tier:tier[0], ds:ds[0], perf:perf[0]}; } return C.data.nil; };
   // U1 (B1 #2): the Stats panel body for one season — behind the 2026/2025 sub-toggle.
-  // The separate "2025 Stats" bubble stays as the explicit archive; this is the in-panel
-  // convenience. Season labels ride statProfile's own titles.
+  // U29: this toggle IS the stats archive now (the standalone "2025 Stats" bubble is
+  // retired). Season labels ride statProfile's own titles.
   const tpStatsBody=async yr=>{
     if(yr===SEASON_SCHED && !swap26)
       return `<div class="sec"><div class="sectitle">${SEASON_SCHED} stats</div>
@@ -4662,20 +4670,36 @@ function wireTeamPanels(teamId, t, games, e, swap26){
       return emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`);
     return statProfile(s.cat, rows, t.school, yr) || emptyNote(`No ${yr} stat profile on file.`);
   };
+  // U29: the Schedule panel's sub-toggle bodies — 2026 = the upcoming schedule,
+  // 2025 = the final game log (the retired "2025 Schedule" bubble's body, verbatim)
+  const tpSchedBody=async yr=>{
+    if(yr===SEASON_SCHED)
+      return scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
+        || emptyNote(`No ${SEASON_SCHED} schedule on file yet.`);
+    if(!C.data.gamelog)
+      C.data.gamelog=await J(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`);
+    return gameLogSection((C.data.gamelog||[]).filter(g=>g.season<SEASON_SCHED), teamId)
+      || emptyNote(`No ${SEASON_RESULTS} results on file.`);
+  };
   const BUILD={
-    sched: async()=> scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
-      || emptyNote(`No ${SEASON_SCHED} schedule on file yet.`),
-    stats: async()=>`<div class="lbtoggle" style="margin:2px 2px 8px">
-        <button data-stseg="${SEASON_SCHED}" class="on">${SEASON_SCHED}</button>
-        <button data-stseg="${SEASON_RESULTS}">${SEASON_RESULTS}</button></div>
-      <div id="tp-statsbody">${await tpStatsBody(SEASON_SCHED)}</div>`,
+    sched: async()=> tpSeasonToggle("scseg", SEASON_SCHED)
+      +`<div id="tp-schedbody">${await tpSchedBody(SEASON_SCHED)}</div>`,
+    // U29: the batch-7 >=3-completed-games swap is the toggle DEFAULT — the panel
+    // lands on 2026 once real games exist, on the final 2025 profile until then.
+    stats: async()=>{ const yr = swap26 ? SEASON_SCHED : SEASON_RESULTS;
+      return tpSeasonToggle("stseg", yr)
+        +`<div id="tp-statsbody">${await tpStatsBody(yr)}</div>`; },
     splits: async()=>{ const sp=await loadSplits();
       return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_SCHED), t.school, SEASON_SCHED)
         || emptyNote(`${SEASON_SCHED} situational splits are still processing.`); },
     news: async()=> (await teamNewsHTML(teamId))
       || emptyNote("No recent headlines on file for this team."),
     standings: async()=> teamStandingsPanel(teamId, t),
-    recruit: async()=>(await loadIntel()).rec,
+    // U29: Recruiting sub-toggle — 2026 = the live cycle (Commits/Prospects/News),
+    // 2025 = the signed, final class (archive; no prospect/news tabs — those are
+    // current-cycle surfaces by definition)
+    recruit: async()=>{ const i=await loadIntel();
+      return tpSeasonToggle("rcseg", SEASON_SCHED)+`<div id="tp-recbody">${i.rec}</div>`; },
     avail:   async()=>(await loadIntel()).inj,
     portal:  async()=>(await loadIntel()).por,
     staff:   async()=>(await loadIntel()).coa,
@@ -4683,13 +4707,6 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     leaders: async()=>{ if(!C.data.players)
         C.data.players=await J(`team_returning_leaders?select=player,position,category,stat_key,value&season=eq.${STAT_SEASON}&team_id=eq.${teamId}`);
       return teamLeaders(C.data.players||[]) || emptyNote("No returning-leader data on file yet."); },
-    stats25: async()=>{ const s=await loadStats();
-      return statProfile(s.cat, statsFor(s.rows, SEASON_RESULTS), t.school, SEASON_RESULTS)
-        || emptyNote(`No ${SEASON_RESULTS} stat profile on file.`); },
-    sched25: async()=>{ if(!C.data.gamelog)
-        C.data.gamelog=await J(`team_game_stats?select=game_id,season,week,season_type,opponent_id,opponent_name,home_away,points,opp_points,result,stats&team_id=eq.${teamId}&order=season.desc,season_type.asc,week.asc`);
-      return gameLogSection((C.data.gamelog||[]).filter(g=>g.season<SEASON_SCHED), teamId)
-        || emptyNote(`No ${SEASON_RESULTS} results on file.`); },
     splits25: async()=>{ const sp=await loadSplits();
       return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_RESULTS), t.school, SEASON_RESULTS)
         || emptyNote(`No ${SEASON_RESULTS} situational splits on file.`); },
@@ -4720,6 +4737,25 @@ function wireTeamPanels(teamId, t, games, e, swap26){
       if(!body) return;
       body.innerHTML=`<div class="loading">Loading…</div>`;
       body.innerHTML=await tpStatsBody(Number(b.dataset.stseg));
+    });
+    // U29: the Schedule + Recruiting sub-toggles — same in-panel swap, no history push;
+    // wirePanel re-runs after each swap so the new body's handlers (schedule-row
+    // matchup taps, the Commits/Prospects/News sub-tabs) re-attach.
+    if(k==="sched") panel.querySelectorAll("[data-scseg]").forEach(b=>b.onclick=async()=>{
+      panel.querySelectorAll("[data-scseg]").forEach(x=>x.classList.toggle("on",x===b));
+      const body=panel.querySelector("#tp-schedbody");
+      if(!body) return;
+      body.innerHTML=`<div class="loading">Loading…</div>`;
+      body.innerHTML=await tpSchedBody(Number(b.dataset.scseg));
+      wirePanel("sched");
+    });
+    if(k==="recruit") panel.querySelectorAll("[data-rcseg]").forEach(b=>b.onclick=async()=>{
+      panel.querySelectorAll("[data-rcseg]").forEach(x=>x.classList.toggle("on",x===b));
+      const body=panel.querySelector("#tp-recbody");
+      if(!body) return;
+      const i=await loadIntel();
+      body.innerHTML = Number(b.dataset.rcseg)===SEASON_SCHED ? i.rec : i.recPast;
+      wirePanel("recruit");
     });
   };
   const show=async k=>{
@@ -6728,17 +6764,25 @@ async function teamIntelData(teamId, t){
     J(`recruiting_prospects?select=*&order=national_rank.asc.nullslast&limit=200`)]);
   // ---- U11+U31: recruiting bubble = Commits / Prospects / News sub-tabs (UNGATED —
   //      the U11 tease-paywall is superseded by the owner's news-is-free decision) ----
-  let recCommits="";
-  [SEASON_SCHED, SEASON_SCHED+1].forEach(yr=>{
+  // U29: one class-year renderer for the live cycle AND the archived class behind
+  // the Recruiting panel's season toggle (same commits/class queries — unfiltered
+  // by year — so the archive costs no extra fetch).
+  const classBlock=yr=>{
     const c=cls.find(x=>Number(x.class_year)===yr);
     const list=commits.filter(x=>Number(x.class_year)===yr);
-    if(!c && !list.length) return;
-    recCommits+=`<div class="glseason">Class of ${yr}${c?` — ${c.n_commits||list.length} commits · avg ${Number(c.avg_stars||0).toFixed(1)} stars${c.rank?` · class #${c.rank}`:""}`:""}</div>`;
-    list.slice(0,25).forEach(p=>{ recCommits+=`<div class="stgame"><div class="stopp"><div>
+    if(!c && !list.length) return "";
+    let h=`<div class="glseason">Class of ${yr}${c?` — ${c.n_commits||list.length} commits · avg ${Number(c.avg_stars||0).toFixed(1)} stars${c.rank?` · class #${c.rank}`:""}`:""}</div>`;
+    list.slice(0,25).forEach(p=>{ h+=`<div class="stgame"><div class="stopp"><div>
       <div class="on">${esc(p.player)} <small>${esc(p.position||"")}${p.stars?` · ${p.stars}-star`:""}</small></div>
       <div class="ha">${p.rating?`rating ${Number(p.rating).toFixed(4)}`:""}${p.national_rank?` · natl #${p.national_rank}`:""}${p.commit_date?` · ${new Date(p.commit_date).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"})}`:""}</div></div></div></div>`; });
-  });
+    return h;
+  };
+  let recCommits=[SEASON_SCHED, SEASON_SCHED+1].map(classBlock).join("");
   if(!recCommits) recCommits=`<div class="secsub" style="padding:6px 2px">No ${SEASON_SCHED}/${SEASON_SCHED+1} commits on file yet — the class builds through the year.</div>`;
+  const pastBlock=classBlock(SEASON_RESULTS);
+  const recPastBody = pastBlock
+    ? `<div class="ha" style="padding:2px 2px 6px"><b>Signed, final class.</b> Rankings via CollegeFootballData (industry composite).</div>`+pastBlock
+    : `<div class="secsub" style="padding:6px 2px">No archived Class of ${SEASON_RESULTS} on file.</div>`;
   // Prospects tab: (a) evidence rail, (b) national board, (c) both honest empty states
   const byRid={}; (board||[]).forEach(p=>byRid[p.recruit_id]=p);
   const now90=Date.now()-90*864e5;
@@ -6877,6 +6921,8 @@ async function teamIntelData(teamId, t){
   const sec=(title,sub,inner)=>`<div class="sec"><div class="sectitle">${title} <small>${sub||""}</small></div>${inner}</div>`;
   return {
     rec: sec(`Recruiting — classes of ${SEASON_SCHED} + ${SEASON_SCHED+1}`, "commits · prospects · news", rec),
+    // U29: the Recruiting toggle's archive side — the signed Class of 2025
+    recPast: sec(`Recruiting — Class of ${SEASON_RESULTS}`, "final · signed", recPastBody),
     inj: sec("Injuries and availability", avail.length?"counts free · detail Hashmark+":"in-season", inj),
     por: sec(`Transfer portal — ${SEASON_SCHED} cycle`, "moves · news", por),
     coa: sec(`Coaching staff — ${SEASON_SCHED}`, "who runs the show", coa),
