@@ -6639,6 +6639,13 @@ async function teamIntelData(teamId, t){
   // Prospects tab: (a) evidence rail, (b) national board, (c) both honest empty states
   const byRid={}; (board||[]).forEach(p=>byRid[p.recruit_id]=p);
   const now90=Date.now()-90*864e5;
+  // evidence-linked prospects can sit OUTSIDE the board fetch's rank slice
+  // (4-star rows ranked >200) — resolve the misses with one targeted fetch
+  const missRids=[...new Set((pnews||[]).filter(v=>new Date(v.matched_at).getTime()>now90 && !byRid[v.recruit_id]).map(v=>v.recruit_id))];
+  if(missRids.length){
+    const extra=await J(`recruiting_prospects?select=*&recruit_id=in.(${missRids.map(encodeURIComponent).join(",")})`);
+    (extra||[]).forEach(p=>byRid[p.recruit_id]=p);
+  }
   const liveEv=(pnews||[]).filter(v=>new Date(v.matched_at).getTime()>now90 && byRid[v.recruit_id]);
   const evByRid={};
   liveEv.forEach(v=>{ (evByRid[v.recruit_id]=evByRid[v.recruit_id]||[]).push(v); });
