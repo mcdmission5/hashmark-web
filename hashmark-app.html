@@ -797,6 +797,26 @@
   .pctk{font-size:10.5px;color:var(--text2);text-transform:capitalize}
   .pctbar{height:9px;background:var(--bg);border-radius:5px;overflow:hidden}
   .pctbar i{display:block;height:100%;border-radius:5px}
+  /* U20 duel rows — two opposing percentile bars meeting at a center diamond */
+  .duelpanel{margin:8px 0 4px;padding:8px 0;border-top:1px solid var(--line2)}
+  .duelpanelhd{font-weight:800;font-size:12.5px;padding:0 2px 6px}
+  .duelinfo{font-size:9.5px;font-weight:600;color:var(--text3);margin-left:8px;cursor:help;
+    border-bottom:1px dotted var(--line2)}
+  .duelrow{padding:7px 2px 9px;border-bottom:1px solid var(--line)}
+  .duelhead{display:flex;justify-content:space-between;font-size:9.5px;font-weight:700;
+    letter-spacing:.04em;color:var(--text3);text-transform:uppercase;padding-bottom:4px}
+  .duelhead span:nth-child(2){text-transform:none;letter-spacing:0;color:var(--text);font-size:11px}
+  .duelbars{display:flex;align-items:center;gap:4px}
+  .duelbar{flex:1;height:9px;background:var(--bg);border-radius:5px;overflow:hidden;display:flex}
+  .duelbar.l{justify-content:flex-end}
+  .duelbar i{display:block;height:100%;border-radius:5px}
+  .duelbar i.ghost{width:38%;background:var(--line2);filter:blur(1.5px)}
+  .dueldia{color:var(--text3);font-size:8px;flex:none}
+  .duelpcts{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);padding-top:3px}
+  .duelmodel{color:var(--teal,#4FD1C5);font-size:11.5px;font-weight:600;padding-top:4px}
+  .duelmodel.muted{color:var(--text3);font-weight:500}
+  .duelrow.locked{cursor:pointer}
+  .duellock{display:inline-flex;align-items:center;gap:4px;color:var(--text3)}
   .pctv{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text2);text-align:right}
   .mgrid{display:grid;grid-template-columns:70px repeat(6,1fr);gap:3px;padding:4px 0;overflow-x:auto}
   .mgh{font-size:8px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;
@@ -2690,14 +2710,96 @@ async function fetchH2H(a,b){
 // layer (win-prob dial, model lean, unit heat grid) is HIDDEN, not deleted, behind this
 // single flag for easy re-enable.
 const MATCHUP_SHOW_MODEL = false;
+// U20: the ADJUSTED section is its OWN flag (research §3 architecture note — not a
+// blanket MATCHUP_SHOW_MODEL re-enable). Percentiles + pre-rounded ranges only; the
+// ratings board stays dark. This supersedes the batch-4 "official stats only" pivot
+// for this section (owner-decided; logged in the changelog).
+const MATCHUP_SHOW_ADJUSTED = true;
+let _adjOpen = false;                  // Hashmark+ unlock state (plusUpsell/PREVIEW)
+const ADJ_FREE_KEYS = ["proj_points","epa_play","success_rate"];  // 3 free duel rows
+const ADJ_PROMISE = {                  // locked-row one-line promises (labels never blur)
+  explosive_rate:"Who breaks the big play, schedule-adjusted",
+  pts_per_opp:"Points per trip inside the 40, schedule-adjusted",
+  field_pos:"The hidden yardage battle, schedule-adjusted",
+  havoc_rate:"Ball security vs a havoc defense, schedule-adjusted",
+  run_trenches:"OL run blocking vs their run defense — trench duel",
+  pass_pro:"Pass protection vs their pass rush — trench duel",
+  rush_fallback:"Rushing production vs the schedule they faced",
+  pass_fallback:"Passing production vs the schedule they faced"};
+function adjModelLine(r, defSchool){
+  const R=(r.lo===r.hi)?r.lo:`${r.lo}–${r.hi}`;
+  if(r.fmt==="pts")  return `Projects to ~${R} points vs this defense`;
+  if(r.fmt==="epa")  return `Projects to ${R} EPA/play vs this defense`;
+  if(r.fmt==="pct")  return r.key==="success_rate"
+      ? `Projects to ~${R}% of plays staying on schedule vs this defense`
+      : (r.key==="havoc_rate" ? `Projects to ~${R}% of plays disrupted vs this defense`
+                              : `Projects to a ~${R}% rate vs this defense`);
+  if(r.fmt==="ppo")  return `Projects to ~${R} points per trip inside the 40`;
+  if(r.fmt==="yard") return `Projects to average starts near the ${R} yard line`;
+  return "";
+}
+function duelRowHTML(r, tOff, tDef, locked){
+  const promise=ADJ_PROMISE[r.key]||"";
+  if(locked) return `<div class="duelrow locked" data-adjgate="1">
+    <div class="duelhead"><span>${esc(r.label)}</span>
+      <span class="duellock"><svg class="ic"><use href="#i-lock"/></svg> <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></span></div>
+    <div class="duelbars"><div class="duelbar l"><i class="ghost"></i></div><div class="dueldia">·</div><div class="duelbar r"><i class="ghost"></i></div></div>
+    <div class="duelmodel muted">${esc(promise)}</div></div>`;
+  const edge = r.fmt==="duel"
+    ? `${r.off_pct>=r.def_pct?esc(tOff.school)+" edge":esc(tDef.school)+" edge"} — ${r.off_pct}th vs ${r.def_pct}th percentile${r.note?` · ${esc(r.note)}`:""}`
+    : adjModelLine(r, tDef.school);
+  if(r.fmt==="text") return `<div class="duelrow"><div class="duelhead"><span>${esc(r.label)}</span></div>
+    <div class="duelmodel muted">${esc(r.text)}</div></div>`;
+  return `<div class="duelrow">
+    <div class="duelhead"><span>OFF · ${esc(tOff.school)}</span><span>${esc(r.label)}</span><span>DEF · ${esc(tDef.school)}</span></div>
+    <div class="duelbars">
+      <div class="duelbar l"><i style="width:${r.off_pct}%;background:${hx(tOff.color)}"></i></div>
+      <div class="dueldia">·</div>
+      <div class="duelbar r"><i style="width:${r.def_pct}%;background:${hx(tDef.color)}"></i></div></div>
+    <div class="duelpcts"><span>${r.off_pct}th pct · ${esc(r.off_tier)} <small>#${r.off_rank}</small></span>
+      <span>${r.def_pct}th pct · ${esc(r.def_tier)} <small>#${r.def_rank}</small></span></div>
+    ${edge?`<div class="duelmodel">&rarr; ${edge}</div>`:""}</div>`;
+}
+function adjustedSection(adj){
+  const tA=teamMeta[matchup.a]||{school:"?"}, tB=teamMeta[matchup.b]||{school:"?"};
+  if(!adj||!adj.panels) return "";
+  let h=`<div class="sec" id="adjsec"><div class="sectitle">Adjusted matchup
+      <span class="fmangle" style="margin-left:6px">ADJUSTED FOR SCHEDULE</span>
+      <small style="display:block;padding-top:2px">${esc(adj.season_label||"")}</small></div>
+    <div class="secsub">Raw stats reward soft schedules. Everything below is adjusted for the
+      defenses and offenses each team actually faced. Shown as ranges — single games vary.</div>`;
+  adj.panels.forEach(p=>{
+    const tOff=teamMeta[p.off]||{school:"?"}, tDef=teamMeta[p.def]||{school:"?"};
+    h+=`<div class="duelpanel"><div class="duelpanelhd">${esc(tOff.school)} offense vs ${esc(tDef.school)} defense
+      ${p.hover?`<span class="duelinfo" data-tip="${esc(p.hover)}">raw &rarr; adjusted</span>`:""}</div>`;
+    const rows=[...p.rows, ...(p.fallback||[])];
+    let gateShown=false;
+    rows.forEach(r=>{
+      const free=_adjOpen||ADJ_FREE_KEYS.includes(r.key);
+      if(!free&&!gateShown){ gateShown=true;
+        h+=`<div class="teaserow" data-adjgate="1">${rows.length-ADJ_FREE_KEYS.length} more schedule-adjusted matchups — trenches, explosiveness, finishing, field position &amp; more <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`; }
+      h+=duelRowHTML(r, tOff, tDef, !free);
+    });
+    h+=`</div>`;
+  });
+  if(adj.pace) h+=`<div class="secsub" style="padding-top:6px"><b>Pace:</b> ~${adj.pace.plays_lo}–${adj.pace.plays_hi}
+    plays · ${adj.pace.drives_lo}–${adj.pace.drives_hi} drives each (${esc(adj.pace.note||"")}).</div>`;
+  h+=`<div class="secsub" style="padding-top:4px">Projected output is a model estimate of typical
+    performance, shown as a range because single-game results vary a lot. Per-unit views only —
+    the win probability (when shown) is the only whole-game verdict. Entertainment only.</div></div>`;
+  return h;
+}
 async function drawMatchup(){
   const a=matchup.a, b=matchup.b, S=await activeStatSeason();
-  const [statsRows, wp, hh] = await Promise.all([
+  const lo=Math.min(+a,+b), hi=Math.max(+a,+b);
+  const [statsRows, wp, hh, adjRows] = await Promise.all([
     api(`team_stat_season?select=team_id,stat_key,value,rank,percentile&season=eq.${S}&team_id=in.(${a},${b})&stat_key=in.(${MATCHUP_STATS.join(",")})`),
     (SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?fetchWinProb(a,b):Promise.resolve(null),
-    fetchH2H(a,b), loadMarketLines(),
+    fetchH2H(a,b),
+    MATCHUP_SHOW_ADJUSTED?api(`matchup_adjusted?select=payload&season=eq.${SEASON_SCHED}&team_a=eq.${lo}&team_b=eq.${hi}`).catch(()=>[]):[],
+    loadMarketLines(),
     fetchSeasonGames(SEASON_SCHED) ]);   // U21: chip when a real game is scheduled
-  renderMatchup(statsRows, wp, hh, S);
+  renderMatchup(statsRows, wp, hh, S, (adjRows&&adjRows[0])?adjRows[0].payload:null);
   if(MATCHUP_SHOW_MODEL) setTimeout(()=>{ try{ injectMatchupGrid(a,b); }catch(_e){} }, 0);   // P1 heat-grid seam
 }
 function mPickCard(slot){
@@ -2707,7 +2809,7 @@ function mPickCard(slot){
     <div class="pname">${esc(t.school)}</div><div class="pconf">${esc(t.conference||"")}</div>
     <div class="pchg">Change</div></div>`;
 }
-function renderMatchup(statsRows, wp, hh, S){
+function renderMatchup(statsRows, wp, hh, S, adj){
   const a=matchup.a, b=matchup.b, tA=teamMeta[a]||{school:"?"}, tB=teamMeta[b]||{school:"?"};
   const idx={}; statsRows.forEach(r=>{ idx[`${r.team_id}|${r.stat_key}`]=r; });
   let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
@@ -2736,6 +2838,9 @@ function renderMatchup(statsRows, wp, hh, S){
       <div class="mwpnote">Model estimate of how often <b>${esc(fav.school)}</b> wins this matchup (${favPct}%). A probability only — not a prediction or a score. Entertainment only, not gambling advice. Independent &amp; gambling-free.</div>
     </div>`;
   }
+  // U20: the adjusted duel-row section (own flag; official table stays below as
+  // the official-stats layer — batch-4 decision preserved for THAT table)
+  if(MATCHUP_SHOW_ADJUSTED && adj) h+=adjustedSection(adj);
   // side-by-side official stats with national rank context
   h+=`<div class="sec"><div class="sectitle">Team stats — ${S}</div>
     <div class="mhead"><div>${esc(tA.school)}</div><div></div><div>${esc(tB.school)}</div></div>`;
@@ -2744,7 +2849,7 @@ function renderMatchup(statsRows, wp, hh, S){
   let mshown=0;
   MATCHUP_STATS.forEach(k=>{ const d=_catalog.by[k]; if(!d) return;
     const ra=idx[`${a}|${k}`], rb=idx[`${b}|${k}`]; if(!ra&&!rb) return;
-    if(!_matchupOpen && mshown>=2){ if(mshown===2){ h+=`<div class="teaserow" data-mup="1">See every stat comparison <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`; mshown++; } return; }
+    if(!_matchupOpen && mshown>=3){ if(mshown===3){ h+=`<div class="teaserow" data-mup="1">See every stat comparison <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></div>`; mshown++; } return; }   // U20: 3 free (was 2)
     let wa="",wb="";
     if(ra&&rb){ const va=Number(ra.value), vb=Number(rb.value);
       if(va!==vb){ const aWin=d.higher_is_better?va>vb:va<vb; if(aWin)wa="win"; else wb="win"; } }
@@ -2775,6 +2880,11 @@ function renderMatchup(statsRows, wp, hh, S){
   if(mup) mup.onclick=async()=>{ if(PLUS_GATED.matchup_full && !(await plusUpsell("The full matchup comparison",
     "Every stat, side by side with national ranks — a Hashmark+ view; free while we're in preview."))) return;
     _matchupOpen=true; drawMatchup(); };
+  // U20: any locked duel row or the gate card opens the adjusted-section upsell
+  document.querySelectorAll("[data-adjgate]").forEach(el=>el.onclick=async()=>{
+    if(PLUS_GATED.matchup_adjusted && !(await plusUpsell("The full adjusted matchup",
+      "Every schedule-adjusted duel — trenches, explosiveness, finishing drives, field position and more. Free during preview."))) return;
+    _adjOpen=true; drawMatchup(); });
   document.querySelectorAll("[data-mpick]").forEach(el=>el.onclick=()=>{ const slot=el.dataset.mpick;
     teamPicker(matchup[slot==="a"?"b":"a"], id=>{ matchup[slot]=String(id); drawMatchup(); }); });
   document.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ matchup.venue=b.dataset.mv; drawMatchup(); });
@@ -6076,7 +6186,8 @@ const PLUS_GATED = {   // signature-and-gating §1 — seams live, nothing purch
   player_compare:true,         // P3: cards free; compare-two gated
   roster_economy:true,
   injury_detail:true,         // batch 11 C2: counts free, player rows + sources gated
-  matchup_full:true,          // batch 7 #4: first 2 matchup stats free, rest gated
+  matchup_full:true,          // batch 7 #4 (U20: now first 3 free), rest gated
+  matchup_adjusted:true,      // U20: 3 free duel rows, rest ghost-barred behind the gate
   whatwins_full:true,         // batch 7 #5 owner pivot: headline free, full board gated       // P5: gated with the NIL lane (conference teaser free)
   film_room:true };           // U13: favorite-team headline + one chart FREE (the weekly
                               // hook); full per-game analyses + all-games roundup gated
