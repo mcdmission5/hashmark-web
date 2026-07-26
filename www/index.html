@@ -1626,6 +1626,9 @@ async function openScores(){
 async function drawScores(){
   const games = await fetchSeasonGames(scoresSeason);
   if(scoresSeason===SEASON_SCHED) await loadMarketLines();   // U21 chip data (upcoming games only)
+  // U27: lookahead-watch strip — computed BEFORE the template that interpolates
+  // it (the first cut declared it mid-function and broke the whole view)
+  let lookStrip="";
   const regWeeks = [...new Set(games.filter(g=>g.season_type!=="postseason").map(g=>g.week))].sort((a,b)=>a-b);
   const hasPost = games.some(g=>g.season_type==="postseason");
   const keys = regWeeks.map(w=>({key:"R"+w, label:""+w, f:g=>g.season_type!=="postseason"&&g.week===w}))
@@ -1635,6 +1638,18 @@ async function drawScores(){
     const cutoff = Date.now() - 36*36e5;   // a game that kicked off <36h ago still counts as "this week"
     const upcoming = keys.find(k=>games.some(g=>k.f(g) && !g.completed && g.start_date && new Date(g.start_date).getTime()>=cutoff));
     scoresWeek = (upcoming || keys[0] || {}).key || null;
+  }
+  if(scoresSeason===SEASON_SCHED){
+    try{
+      const lw=await api(`signature_stats?select=team_id,drivers&stat_key=eq.lookahead_watch&order=rank.asc&limit=14`);
+      const wkNum=Number(String(scoresWeek).replace("R",""));
+      const here=lw.filter(r=>r.drivers&&Number(r.drivers.week)===wkNum);
+      if(here.length){ await ensureTeamMeta();
+        const names=here.slice(0,3).map(r=>(teamMeta[r.team_id]||{}).school).filter(Boolean).join(", ");
+        lookStrip=`<div class="sec" data-go-sig="lookahead_watch" style="cursor:pointer;padding:10px 12px;margin:2px 2px 8px">
+          <div class="sectitle" style="padding:0">Lookahead watch <small>· ${here.length} spot${here.length>1?"s":""} this week</small></div>
+          <div class="secsub" style="padding:2px 0 0">${esc(names)} in classic sandwich spots — but top-10 teams still won about 91 of 100 of these (2014-2024). Watch, not bank.</div></div>`; }
+    }catch(e){}
   }
   const active = keys.find(k=>k.key===scoresWeek);
   const list = (active?games.filter(active.f):[]).slice()
@@ -1657,21 +1672,6 @@ async function drawScores(){
       : "Official 2026 schedule — dates, kickoff times &amp; TV shown as they're announced. Tap a team to open it."}</div>`;
   list.forEach(g=>h+=scGameRow(g));
   if(!list.length) h+=`<div class="loading" style="padding:30px">No games.</div>`;
-  // U27: lookahead-watch strip — spots flagged in the ACTIVE week get a compact
-  // honesty card linking the board (free; never an upset call)
-  let lookStrip="";
-  if(scoresSeason===SEASON_SCHED){
-    try{
-      const lw=await api(`signature_stats?select=team_id,drivers&stat_key=eq.lookahead_watch&order=rank.asc&limit=14`);
-      const wkNum=Number(String(scoresWeek).replace("R",""));
-      const here=lw.filter(r=>r.drivers&&Number(r.drivers.week)===wkNum);
-      if(here.length){ await ensureTeamMeta();
-        const names=here.slice(0,3).map(r=>(teamMeta[r.team_id]||{}).school).filter(Boolean).join(", ");
-        lookStrip=`<div class="sec" data-go-sig="lookahead_watch" style="cursor:pointer;padding:10px 12px;margin:2px 2px 8px">
-          <div class="sectitle" style="padding:0">Lookahead watch <small>· ${here.length} spot${here.length>1?"s":""} this week</small></div>
-          <div class="secsub" style="padding:2px 0 0">${esc(names)} in classic sandwich spots — but top-10 teams still won about 91 of 100 of these (2014-2024). Watch, not bank.</div></div>`; }
-    }catch(e){}
-  }
   const hasMkt = scoresSeason===SEASON_SCHED && list.some(g=>!g.completed && marketMap && marketMap[g.id]);
   h += `<div class="note"><b>Official ${scoresSeason} ${scoresSeason===SEASON_RESULTS?"results":"schedule"}.</b> Source: CFBD game data. ${hasMkt?MKT_NOTE+" ":""}${BRAND_LINE}</div></div></div>`;
   app.innerHTML = h;
