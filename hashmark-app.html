@@ -3126,7 +3126,10 @@ async function teamNewsHTML(teamId){
     if(items.length) localStorage.setItem(seenKey, items[0].published_at);
     if(items.length)
       return `<div class="sec"><div class="sectitle">Team news${nNew?` <span class="chip-new">${nNew} new</span>`:""}</div>`+items.slice(0,2).map(newsRow).join("")
-        +`<div class="navrow" style="padding-top:6px"><button class="navbtn" data-newsall="${teamId}">All team news <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
+        +`<div id="tpnews-more"></div>
+        <div class="navrow" style="padding-top:6px">
+          <button class="navbtn" data-newsmore="${teamId}" data-oldest="${esc(items[1]?items[1].published_at:items[0].published_at)}">More headlines</button>
+          <button class="navbtn" data-newsall="${teamId}">Archive <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
     const t = teamMeta && teamMeta[teamId];
     return `<div class="sec"><div class="sectitle">Team news</div>
       <div class="secsub">No recent headlines${t&&t.conference?` — see ${esc(t.conference)} coverage on the home page`:""}.</div></div>`;
@@ -6016,6 +6019,22 @@ document.body.addEventListener("click", e=>{
   const box=e.target.closest("[data-box]");
   if(box && box.dataset.box && box.dataset.box!=="undefined"){ openBox(box.dataset.box, box.dataset.bteam); return; }
   const nb=e.target.closest("[data-newsall]"); if(nb){ gatedNewsArchive(nb.dataset.newsall); return; }
+  // U40: inline lazy-load of the team's deeper history — 20 headlines per tap,
+  // capped at the 6-month backfilled window (the month-paged archive covers the
+  // rest); no giant first paint, the U39 renderer untouched
+  const nm=e.target.closest("[data-newsmore]");
+  if(nm){ (async()=>{
+    const tid=nm.dataset.newsmore, oldest=nm.dataset.oldest;
+    const floor=new Date(Date.now()-183*864e5).toISOString();
+    nm.disabled=true; nm.textContent="Loading…";
+    const more=await api(`news_items?select=headline,url,source,published_at&team_tags=cs.{${tid}}&published_at=lt.${encodeURIComponent(oldest)}&published_at=gte.${encodeURIComponent(floor)}&order=published_at.desc&limit=20`).catch(()=>[]);
+    const host=document.getElementById("tpnews-more");
+    if(host&&more.length){ host.insertAdjacentHTML("beforeend", more.map(newsRow).join(""));
+      nm.dataset.oldest=more[more.length-1].published_at;
+      nm.disabled=false; nm.textContent="More headlines";
+      if(more.length<20){ nm.remove(); } }
+    else if(nm){ nm.remove(); }
+  })(); return; }
   const ah=e.target.closest("[data-acc]");
   if(ah){ const body=document.getElementById("accb-"+ah.dataset.acc);
     const open=ah.getAttribute("aria-expanded")==="true";
