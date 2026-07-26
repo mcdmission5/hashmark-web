@@ -2115,6 +2115,42 @@ const HOME_GO = {explorer:()=>openStats("explorer"), leaders:()=>openStats("lead
 // ---- W2.5 (dormant behind SHOW_HASHMARK_RATINGS): methodology + Checking Our Work ----
 // The 5 required methodology elements (research: scale anchors; inputs; adjustments incl.
 // explicit garbage-time policy; admitted limitations in plain language; update cadence).
+// ---------- UG3: weekly grade report card (standing view + return-feed source) ----------
+async function openReportCard(wk){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading report card…</div>`;
+  await ensureTeamMeta();
+  const all=await api(`report_cards?select=season,week&order=season.desc,week.desc&limit=20`).catch(()=>[]);
+  if(!all.length){ app.innerHTML=backHeader("Weekly Report Card")+`<div class="list"><div class="secsub" style="padding:10px 2px">Report cards publish Sundays in-season — the first lands after Week 1 wraps.</div></div>`;
+    document.querySelector(".back").onclick=navBack; return; }
+  const pick=wk&&all.find(x=>x.season*100+x.week===Number(wk))||all[0];
+  const row=(await api(`report_cards?select=payload&season=eq.${pick.season}&week=eq.${pick.week}`))[0];
+  const p=row.payload, ROLE={pass:"Passing",rush:"Rushing"};
+  const line=(s,i)=>`<div class="boxrow"><div class="bva ${s.epa_play>=0.3?"win":""}">${Number(s.epa_play).toFixed(2)}</div>
+    <div class="bk">${i!=null?`#${i+1} `:""}${esc(s.name)} <small>${esc(s.team)} · ${s.plays} plays · ${s.success} of 100 successful</small></div></div>`;
+  let h=`<div class="cmp">${backHeader("Weekly Report Card")}<div class="list" style="padding-top:4px">
+    <div class="confbar">${all.map(x=>`<button class="confpill ${x.season===pick.season&&x.week===pick.week?"on":""}" data-rcwk="${x.season*100+x.week}">Wk ${x.week}</button>`).join("")}</div>
+    <div class="sec"><div class="sectitle">Player of the Week <small>${p.season} · Week ${p.week}</small></div>
+      ${line(p.pow)}
+      <div class="gradenote">${esc(p.pow.blurb||"")}<small>Attributed EPA per play, garbage time excluded — every number machine-verified.</small></div></div>`;
+  ["pass","rush"].forEach(r=>{
+    const st=(p.studs&&p.studs[r])||[], du=(p.duds&&p.duds[r])||[];
+    if(st.length||du.length){
+      h+=`<div class="sec"><div class="sectitle">${ROLE[r]} — studs of the week</div>${st.map((s,i)=>line(s,i)).join("")||""}`;
+      if(du.length) h+=`<div class="sectitle" style="padding-top:8px">Tough week</div>${du.map(s=>line(s)).join("")}`;
+      h+=`</div>`;
+    } else h+=`<div class="sec"><div class="sectitle">${ROLE[r]}</div><div class="secsub">No ${ROLE[r].toLowerCase()} lines cleared the attribution + qualification bar this week.</div></div>`;
+  });
+  const fav=favTeamId();
+  const tn=fav&&p.teams&&p.teams[String(fav)];
+  if(tn&&tn.best){ const t=teamMeta[fav]||{school:"Your team"};
+    h+=`<div class="sec"><div class="sectitle">${esc(t.school)} — your team</div>${line(tn.best)}
+      ${tn.worst?line(tn.worst):""}${tn.next_note?`<div class="secsub" style="padding-top:4px">${esc(tn.next_note)}</div>`:""}</div>`; }
+  h+=`<div class="note"><b>Weekly grade report.</b> ${esc(p.rules||"")} Respectful by design — a tough week is a data point, not a verdict. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-rcwk]").forEach(b=>b.onclick=()=>openReportCard(b.dataset.rcwk));
+}
+
 function openMethodology(){
   // B3: methodology/transparency pages render regardless of SHOW_HASHMARK_RATINGS — the copy is
   // generic (no hidden-rating reveal) and every visible entry point must land somewhere real.
@@ -2446,6 +2482,7 @@ const FEATURE_TILES=[
   ["whatwins","target","What wins games",null,true,"What wins today vs what repeats next season.",()=>openWhatWins()],
   ["movers","trend","Weekly Movers",null,false,"Who rose, who fell — updated Sundays.",()=>openMovers()],
   ["filmroom","flame","Film Room",null,true,"Monday-morning game analyses — every number traces to the play-by-play.",()=>openFilmRoom()],
+  ["reportcard","chart","Weekly Report Card",null,false,"Studs, duds and Player of the Week — graded from the play-by-play.",()=>openReportCard()],
 ];
 const EXPLORE_EXTRA=[
   ["teams","star","Teams","amber",false,"Every FBS team — search, pick your favorite.",()=>openTeams()],
@@ -6074,6 +6111,7 @@ const NAV_ROUTES={
   sigboard:p=>openSignatureBoard(p&&p.k),
   teams:()=>openTeams(),
   filmroom:p=>openFilmRoom(p&&p.wk),
+  reportcard:p=>openReportCard(p&&p.wk),
 };
 // ================= U17: THE nav primitives (the 3rd and FINAL back audit) =================
 // POLICY (briefs/audit-U17-nav-enumeration.md): top-level view changes PUSH one entry
@@ -6161,7 +6199,7 @@ setTimeout(()=>{
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
  ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],
- ["openFilmRoom","filmroom",wk=>({wk})],
+ ["openFilmRoom","filmroom",wk=>({wk})],["openReportCard","reportcard",wk=>({wk})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function") return;
@@ -6304,7 +6342,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   sigboard:"stats", whatwins:"stats", playerrank:"stats", quadrant:"stats", luck:"stats",
   gauntlet:"stats", gauntletwall:"stats", oddstime:"stats", movers:"stats", nileconomy:"stats",
   nileff:"stats", nilperf:"stats", nilmethod:"stats", modelhub:"stats", injuries:"stats",
-  whyrating:"stats", rosterecon:"stats", filmroom:"stats",
+  whyrating:"stats", rosterecon:"stats", filmroom:"stats", reportcard:"stats",
   explore:"explore", teams:"explore", newsarchive:"explore", method:"explore",
   checking:"explore", accuracy:"explore" };
   // team/player/playercard are reachable from every section, so they are STICKY (keep the current set)
@@ -7529,6 +7567,15 @@ async function checkReturnFeed(){
     const wkKey=ga.length?ga[0].season*100+ga[0].week:null;
     if(wkKey && !seen["gw:"+wkKey])
       cards.push({k:"gw:"+wkKey, kind:"filmwk", season:ga[0].season, week:ga[0].week, n:ga.length});
+    // UG3: the weekly Grade Report card — priority BELOW the Monday Film Room,
+    // once per week, same seen-state + archive machinery (no new pop-up system)
+    try{
+      const rc=(await api(`report_cards?select=season,week,payload,asof&order=season.desc,week.desc&limit=1`))[0];
+      if(rc && Date.now()-new Date(rc.asof).getTime()<8*864e5 && !seen["rc:"+(rc.season*100+rc.week)] && cards.length<4){
+        const favN=fav&&rc.payload.teams&&rc.payload.teams[String(fav)];
+        cards.push({k:"rc:"+(rc.season*100+rc.week), kind:"gradereport", rc, favN});
+      }
+    }catch(e){}
     if(lastSeen && cards.length<4){
       const majors=await api(`news_items?select=headline,url,source,published_at,team_tags,category&major=eq.true&published_at=gt.${encodeURIComponent(lastSeen)}&order=published_at.desc&limit=20`).catch(()=>[]);
       const mine=fav?majors.filter(m=>(m.team_tags||[]).some(t=>Number(t)===fav)):[];
@@ -7565,6 +7612,11 @@ async function checkReturnFeed(){
           <span class="fmangle">FILM ROOM</span>
           <div class="fmhead">The weekend, analyzed: ${c.n} game breakdowns from Week ${c.week}</div>
           <div class="fmmeta">Monday drop · tap for the full board</div></div>`;
+        if(c.kind==="gradereport"){ const pw=c.rc.payload.pow;
+          return `<div class="fmcard" data-fc="${i}">
+          <span class="fmangle">GRADE REPORT</span>${c.favN&&c.favN.best?`<span class="fmangle" style="color:var(--text2);border-color:var(--line2);margin-left:5px">YOUR TEAM</span>`:""}
+          <div class="fmhead">${c.favN&&c.favN.best?`${esc(c.favN.best.name)} led your team — Week ${c.rc.week} grades are in`:`${esc(pw.name)} (${esc(pw.team)}) is the Week ${c.rc.week} Player of the Week`}</div>
+          <div class="fmmeta">Studs, duds &amp; POW · graded from the play-by-play · tap for the full card</div></div>`; }
         return `<a class="awayrow" href="${esc(c.m.url)}" target="_blank" rel="noopener noreferrer">
           <span class="awaycat">${CAT[c.m.category]||"NEWS"}</span>
           <span class="awayhl">${esc(decodeEnt(c.m.headline))}<span class="newsattr" style="display:block">${esc(c.m.source||"")}</span></span></a>`;
@@ -7581,6 +7633,7 @@ async function checkReturnFeed(){
       ovClose(ov);                                    // action close (U17)
       if(c.kind==="film") gatedFilm(c.row, false);
       else if(c.kind==="filmwk") openFilmRoom(c.season*100+c.week);
+      else if(c.kind==="gradereport") openReportCard(c.rc.season*100+c.rc.week);
     });
   }catch(e){}
 }

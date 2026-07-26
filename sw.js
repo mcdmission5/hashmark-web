@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v57";   // v57: U26 - Talent Bomb widened (top-25 talent, bottom-60% margin, up to 8)   // v56: U11+U31 - recruiting Commits/Prospects/News sub-tabs + portal News (ungated)
+const VERSION = "hashmark-v58";   // v58: UG3 - weekly grade report cards (return-feed card + standing view)   // v56: U11+U31 - recruiting Commits/Prospects/News sub-tabs + portal News (ungated)
 const SHELL = [
   "./",
   "./index.html",
