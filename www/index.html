@@ -41,6 +41,26 @@
     --amber:#FFBE3D; --amber-tint:rgba(255,190,61,.13);
     --teal:#31E0C8; --teal-tint:rgba(49,224,200,.12);
     --live:#FF5C5C; --loss:#E05B5B;
+    /* U49 SEMANTIC ACCENT TOKENS — the contract, expressed as variables so a future
+       reclassification is a one-line edit instead of a sweep. Full inventory and the
+       per-usage classification live in briefs/audit-U49-palette.md.
+         --model   the Model speaks: anything Hashmark itself computed or predicted
+         --user    the human side: you, your team, your picks, the crowd/consensus,
+                   and the primary interactive state (an active tab IS where you are)
+         --warn    provisional / disputed / stale — neither Model nor user. Keeps the
+                   exact hue it already had, so U49 changes no pixels here; it just
+                   stops these caveats from being mistaken for the user accent.
+         --stat    official third-party stat emphasis (CFBD leaders, poll ranks,
+                   stat-vs-stat winners). DELIBERATELY still amber — see the audit's
+                   "not remapped" section. Flip this one line to neutralise them. */
+    --model:var(--teal); --model-tint:var(--teal-tint);
+    /* the model family is COOL (aqua -> teal -> blue). --model-strong keeps the three
+       rating boards distinguishable now that Overall has left the amber side:
+       Overall #6DF2D8 / Offense --teal #31E0C8 / Defense #7CA8FF. */
+    --model-strong:#6DF2D8;
+    --user:var(--amber); --user-tint:var(--amber-tint);
+    --warn:#E8B657;
+    --stat:var(--amber);
   }
 
 
@@ -1308,6 +1328,74 @@
     .cchip.dot::before{animation:none!important}
   }
   /* ══════════════════════════ end U46 tokens ══════════════════════════ */
+
+  /* ══════════════ U49 PALETTE REMAP — Model = teal, user/crowd = amber ══════════════
+     OWNER-DECIDED. U46 flagged that the Model's flagship numbers were painted in the
+     USER accent and refused to half-fix it; this block finishes the job.
+
+     It is an OVERRIDE layer on purpose: the original rules are left untouched, so the
+     whole remap is one readable, revertable diff (the U46 pattern). Selectors only —
+     no markup moved, no logic, no copy changed.
+     Every classification is recorded in briefs/audit-U49-palette.md. Contrast on the
+     darkest surface this app paints (--surface2 #182342): teal 9.30:1, amber 9.34:1 —
+     both far past WCAG AA (4.5) and AAA (7), so the swap costs no legibility. */
+
+  /* ---- 1. RATINGS: the flagship model number, its rank, and its drivers ----
+     NOT here: .rval and .row.top .rank. rowHTML() is shared by the model board AND the
+     final-AP board, so a blanket rule would have painted official poll ranks in the
+     Model's colour (caught in visual verify). The model board already accents its own
+     underline inline from MODES.accent, which U49 points at --model; the AP board and
+     the top-3 position highlight are classified --stat in section 4 below. */
+  .dconf .rk{color:var(--model)}                           /* "#5" in the team line */
+  .drk{color:var(--model)}                                 /* "#5 of 138" under the hero */
+  .dbig{color:var(--model);border-bottom-color:var(--model);
+    text-shadow:0 0 18px rgba(49,224,200,.42)}             /* the rating hero itself */
+  .dvbar i.pos{background:var(--model)}                    /* why-this-rating drivers */
+
+  /* ---- 2. WIN PROBABILITY / PROJECTIONS ---- */
+  .mwpbar i{background:var(--model)}                       /* matchup win-prob bar */
+  /* .boxrow .win is the app's "this is the model's headline number" cell: the game
+     page's win %, live win prob, Hashmark Grades >=70, EPA/play callouts, and the
+     poll-era title count (a Hashmark-curated ledger under a stated definition). */
+  .boxrow .win{color:var(--model)}
+  .gleg .glp{color:var(--model)}                           /* gauntlet leg win prob */
+  /* the probability bar is only ever fed model output (playoff odds, live win prob) */
+  .pbar .fill{background:linear-gradient(90deg,#0F8E7E,#35D9C4)}
+
+  /* ---- 3. SIMULATOR + PLAYOFF ODDS (Monte-Carlo output) ---- */
+  .oddrow .ov:first-of-type{color:var(--model)}            /* Make CFP % */
+  /* the distribution histogram is Monte-Carlo output in both of its user-facing uses
+     (projected win totals on a team page, projected seed in the sim). The owner
+     console reuses the same component for DAU counts - tagged .admin, stays neutral. */
+  .rdcol i{background:var(--model)}
+  .rdist.admin .rdcol i{background:var(--text3)}
+  .simseed .ssn{color:var(--model)}                        /* projected seed */
+  .simseed .ssr .ssmc{color:var(--model)}                  /* MAKE CFP chip */
+
+  /* ---- 4. OFFICIAL THIRD-PARTY STATS: classified, deliberately NOT recoloured.
+     These are neither Model nor user (CFBD leaders, poll ranks, stat-vs-stat winners).
+     Pointing them at --stat makes that classification executable: one line in :root
+     neutralises them all if the owner decides they should stop wearing an accent. */
+  .leadrow .lst,.ncard .nval,.lbmini .mvl,.t25row .trk,
+  .mrow .mval.win b,.row.top .rank{color:var(--stat)}
+  .rval{border-bottom-color:var(--stat)}   /* overridden inline on the model board only */
+
+  /* ---- 5. CAVEAT STATES: provisional / disputed / stale. Same hue as before —
+     this only stops them from reading as the user accent. ---- */
+  .simstale{color:var(--warn);background:rgba(232,182,87,.09);border-color:rgba(232,182,87,.5)}
+  .nilrow.hot{border-color:var(--warn)}
+  .nilconf.disputed{color:var(--warn)}
+
+  /* ---- 6. CONTRAST PAIRS: the surfaces whose entire job is Model vs crowd/user.
+     Both sides must read as two colours, so they are pinned explicitly. ---- */
+  .lknm .u-crowd{color:var(--user);font-weight:700}        /* crowd vs model radar */
+  .lknm .u-model{color:var(--model);font-weight:700}
+  .boxrow.is-model .bk{color:var(--model)}                 /* pick'em: the Model member */
+  .boxrow.is-model .bvb{color:var(--model)}
+  .strow.me,.boxrow.is-me .bk{color:var(--user)}           /* pick'em: you */
+  .simmeta .u-you{color:var(--user);font-weight:700}       /* sim: your scenario ... */
+  .simmeta .u-model{color:var(--model);font-weight:700}    /* ... vs the model default */
+  /* ══════════════════════════ end U49 remap ══════════════════════════ */
 </style>
 </head>
 <body>
@@ -1956,7 +2044,7 @@ function probitApprox(p){   // Acklam inverse-normal (display-only margin mappin
 function gameHeaderCard(g, st, ratings){
   const line=(id,name,pts,showPts)=>{ const t=teamMeta[id]||{school:name};
     const rec=(st&&st[id]&&st[id].wins!=null)?` <small>${st[id].wins}–${st[id].losses}</small>`:"";
-    const rat=(ratings&&ratings[id]!=null)?`<span class="favtag" style="background:var(--amber-tint);color:var(--amber)" data-tip="Hashmark power-rating rank (preseason board)">HASHMARK #${ratings[id]}</span>`:"";
+    const rat=(ratings&&ratings[id]!=null)?`<span class="favtag" style="background:var(--model-tint);color:var(--model)" data-tip="Hashmark power-rating rank (preseason board)">HASHMARK #${ratings[id]}</span>`:"";
     return `<div class="scteam" data-team="${id}">${crestEl("scc",t.school||name,oppColor(id))}
       <div class="nm">${esc(t.school||name||"TBD")}${rec} ${rat}</div>
       <div class="pts">${showPts&&pts!=null?pts:""}</div></div>`; };
@@ -2277,7 +2365,7 @@ async function injectSeasonExtras(){
       <div style="font-size:12.5px;margin-top:3px">Toughest ${SEASON_SCHED} slate: <b>${esc(sos[0].school)}</b> — difficulty ${Number(sos[0].sos).toFixed(1)}/100. See the full board <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></div></div>`;
     if(sig.length){ const tm=teamMeta[sig[0].team_id]||{};
       t+=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" data-cst="sig">
-      <div class="eyebrow" style="color:var(--amber)">Regression watch-list · ${sig[0].season}</div>
+      <div class="eyebrow" style="color:var(--model)">Regression watch-list · ${sig[0].season}</div>
       <div style="font-size:12.5px;margin-top:3px">The preseason top-10 team our factors flag hardest: <b>${esc(tm.school||"?")}</b></div></div>`; }
     host.innerHTML=t;
     const TGO={acc:openCheckingWork, sos:()=>{ standingsMode="sos"; sosSeason=SEASON_SCHED; openStandings(); }, sig:openSignature, quad:()=>openQuadrant()};
@@ -2586,7 +2674,7 @@ const shortConf = c => CONF_SHORT[c] || c;
 const mean = a => a.reduce((s,x)=>s+x,0)/(a.length||1);
 const OVERALL_TIP = "Hashmark Rating — the full results-aware blend: opponent-adjusted efficiency shrunk toward recruited talent, an Elo + résumé/head-to-head results signal, projected QB, returning production & portal, and coaching (including a scheme-defining coach taking his unit with him).";
 const MODES = {
-  overall:{short:"Overall", noun:"team",    metric:r=>r.overall, lbl:"proj rating", accent:"var(--amber)",
+  overall:{short:"Overall", noun:"team",    metric:r=>r.overall, lbl:"proj rating", accent:"var(--model-strong)",
     tip:(r,rk,n)=>`${OVERALL_TIP} ${esc(r.t.school)} ${f3(r.overall)}, #${rk} of ${n}. Higher is better.`},
   offense:{short:"Offense", noun:"offense", metric:r=>r.off, lbl:"off rtg", accent:"var(--teal)",
     tip:(r,rk,n)=>`Offense rating — ${esc(r.t.school)}'s opponent-adjusted offensive unit quality: points/yards-per-drive (finishing) + success rate + efficiency, garbage time removed, with the offensive coordinator's track record where the staff changed. ${f3(r.off)}, #${rk} best offense of ${n}. Higher is better.`},
@@ -2649,7 +2737,7 @@ async function injectYourTeam(){
   }catch(e){}
   const v=nxt?gameView(nxt,fav):null;
   host.innerHTML=`<div class="favcard big" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
-    <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--amber-tint);color:var(--amber)">HASHMARK #${rk}</span>`:""}${pollChip}</div>
+    <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--model-tint);color:var(--model)">HASHMARK #${rk}</span>`:""}${pollChip}</div>
       <div class="favsub">${st?`${st.wins}–${st.losses} ${SEASON_RESULTS} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}`:esc(t.conference||"")}${pre?` · ${SEASON_SCHED} SoS #${pre.sos_rank||"—"}`:""}</div>
       ${v?`<div class="favsub" ${nxt.id?`data-game="${nxt.id}" role="link" title="Open game page"`:""}>Next: ${v.home?"vs":"@"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""} <svg class="ic" style="width:10px;height:10px"><use href="#i-chev-r"/></svg></div>`:""}
       ${news?`<div class="favsub favnews" id="ytnews" role="link" title="Team news">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""} <svg class="ic" style="width:11px;height:11px"><use href="#i-chev-r"/></svg></div>`:""}</div>
@@ -3724,7 +3812,7 @@ async function openPickemBoard(groupId){
   if(!rows.length) h += `<div class="secsub">No scored weeks yet — standings appear after Week 1 finals.</div>`;
   rows.forEach((r,i)=>{
     const model = r.user_id===MODEL_UID;
-    h += `<div class="boxrow"><div class="bva">${i+1}</div>
+    h += `<div class="boxrow${model?" is-model":""}${authUser&&r.user_id===authUser.id?" is-me":""}"><div class="bva">${i+1}</div>
       <div class="bk">${model?'<svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg> ':""}${esc(r.display_name)}${r.streak_weeks>=3?` · <svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg>${r.streak_weeks}w`:""}${r.beat_model_ct?` · beat the Model ×${r.beat_model_ct}`:""}</div>
       <div class="bvb">${r.counted_points} <small>(${r.total_points} raw)</small></div></div>`;
   });
@@ -4265,7 +4353,7 @@ function renderSim(){
       <button class="navbtn" id="simbrowse"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg> Pick any game</button>
       <button class="navbtn" id="simreset"><svg class="ic" aria-hidden="true"><use href="#i-reset"/></svg> Reset picks</button></div>
     <div id="simteamchips" class="simchips" style="padding:2px 2px 4px"></div>
-    <div class="simmeta">${nPicked? `<b>${nPicked}</b> game${nPicked>1?"s":""} set by you · ${nLocked?`${nLocked} final${nLocked>1?"s":""} locked · `:""}the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:(nLocked?`${nLocked} final${nLocked>1?"s":""} locked to real results · no picks yet — the rest ${SHOW_PREDICTIONS?"= model favorites":"= home teams"}`:"No picks yet — showing "+(SHOW_PREDICTIONS?"model favorites":"home teams")+" for every game")}</div>`;
+    <div class="simmeta">${nPicked? `<b class="u-you">${nPicked}</b> game${nPicked>1?"s":""} <span class="u-you">set by you</span> · ${nLocked?`${nLocked} final${nLocked>1?"s":""} locked · `:""}the rest ${SHOW_PREDICTIONS?`= <span class="u-model">model favorites</span>`:"= home teams"}`:(nLocked?`${nLocked} final${nLocked>1?"s":""} locked to real results · no picks yet — the rest ${SHOW_PREDICTIONS?`= <span class="u-model">model favorites</span>`:"= home teams"}`:`No picks yet — showing ${SHOW_PREDICTIONS?`<span class="u-model">model favorites</span>`:"home teams"} for every game`)}</div>`;
   if(sim.view==="ccg"){
     // ---- U2: the Conference Championship simulator — every race, full page ----
     // The existing ccgSheet content generalized: projected pairing per the REAL
@@ -4583,7 +4671,7 @@ function simTeamSheet(teamId){
         const host=seed<=8;
         const qf=sc.field[(seed===5||seed===12)?3:(seed===6||seed===11)?2:(seed===7||seed===10)?1:0];
         path=`As the #${seed} seed: ${host?"hosts":"at"} #${oppSeed} ${esc(nm2(opp))}; the winner meets #${sc.field.indexOf(qf)+1} ${esc(nm2(qf))} in the quarterfinal.`; }
-      html+=`<div class="ha" style="padding:2px 0 8px;color:var(--amber)">${path}</div>`;
+      html+=`<div class="ha" style="padding:2px 0 8px;color:var(--model)">${path}</div>`;
     }
     // B1: FCS games render with the real opponent name, count in the record, and are
     // not pickable (they resolve at the historical base rate; a chalk win)
@@ -4979,7 +5067,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     if(td.excluded) return `<div class="sec"><div class="sectitle">Talent Dividend <small>${td.season} · descriptive</small></div>
       <div class="secsub"><span class="lowsample">INSUFFICIENT TALENT DATA</span> ${esc(td.excl_reason||"")}. ${esc(td.era_label||"")}.</div></div>`;
     return `<div class="sec"><div class="sectitle">Talent Dividend <small>${td.season} · descriptive, not a prediction</small></div>
-      <div class="boxrow"><div class="bva" style="font-size:20px;font-weight:800${Number(td.residual)>=0?";color:var(--amber)":""}">${Number(td.residual)>=0?"+":""}${Number(td.residual).toFixed(1)}</div>
+      <div class="boxrow"><div class="bva" style="font-size:20px;font-weight:800${Number(td.residual)>=0?";color:var(--model)":""}">${Number(td.residual)>=0?"+":""}${Number(td.residual).toFixed(1)}</div>
         <div class="bk">points per game vs talent-expected <small>· #${td.resid_rank} of ${td.n_ranked} FBS · ${Number(td.wins_above_talent)>=0?"+":""}${Number(td.wins_above_talent).toFixed(1)} wins above talent per 12 games${td.sustained?` · sustained ${td.sustained==="over"?"over":"under"}performance (${esc(td.coach||"")}, ${td.tenure_n} seasons)`:""}</small></div></div>
       <div class="secsub">${esc(td.era_label||"")}. <span data-go="tdboard" style="color:var(--amber);font-weight:600;cursor:pointer">Full board</span></div></div>`; };
   // U36b: the season's opponents' stat rows + games, for the OPP column. Opponents
@@ -5099,7 +5187,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
             return v==null||v===""?null:`${plFmt(v)} ${l}`; }).filter(Boolean);
           return bits.length?`${CAT_LABEL[c]||c} ${bits.join(" · ")}`:null; }).filter(Boolean).join(" — ");
         const gr=gradeOf(p.name);
-        const chip=gr?`<div style="flex:none;text-align:right"><span class="${gr.qualified?"":"gmuted"}" style="font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px${gr.qualified&&gr.rating>=70?";color:var(--amber)":""}">${Number(gr.rating).toFixed(0)}</span>${gr.qualified?"":`<br><span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`}</div>`:"";
+        const chip=gr?`<div style="flex:none;text-align:right"><span class="${gr.qualified?"":"gmuted"}" style="font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px${gr.qualified&&gr.rating>=70?";color:var(--model)":""}">${Number(gr.rating).toFixed(0)}</span>${gr.qualified?"":`<br><span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`}</div>`:"";
         h+=`<div class="stgame" data-player="${p.id}" style="cursor:pointer"><div class="stopp"><div style="flex:1;min-width:0">
           <div class="on">${esc(p.name)} <small>${esc(p.pos)}</small></div>
           <div class="ha">${line||"No counting stats recorded"}</div></div>${chip}</div></div>`;
@@ -8040,7 +8128,7 @@ async function openUpsetRadar(){
       <div class="secsub" style="padding:0 2px 8px"><b>The crowd board opens with Week 1</b> — every pick'em game plotted crowd-pick % vs model win %, plus a running season scoreboard. Until then: where the Model most disagrees with the ${SEASON_SCHED} preseason consensus (${cons.length} teams ranked by 2+ outlets).</div>
       ${rows.map(r=>{ const t=teamMeta[r.tid]||{school:"?"};
         return `<div class="nilrow" data-team="${r.tid}">${crestEl("glcr",t.school,hx(t.color))}
-        <div class="lknm">${esc(t.school)}<small>consensus #${Math.round(r.avg)} (${r.n} outlets) · Model #${r.model}</small></div>
+        <div class="lknm">${esc(t.school)}<small><span class="u-crowd">consensus #${Math.round(r.avg)}</span> (${r.n} outlets) · <span class="u-model">Model #${r.model}</span></small></div>
         <div class="lkv ${r.gap>0?"pos":"neg"}">${r.gap>0?`Model higher by ${Math.round(r.gap)}`:`Model lower by ${Math.round(-r.gap)}`}</div></div>`; }).join("")}
       <div class="note"><b>Crowd vs Model — ${SEASON_SCHED} preseason.</b> Consensus = average rank across the attributed preseason outlets on the Rankings page. In season this becomes the pick'em crowd vs the model's win probabilities, with a running scoreboard once results land. Probabilities and ranks only — no betting framing. ${BRAND_LINE}</div></div></div>`;
     document.querySelector(".back").onclick=navBack;
@@ -8059,7 +8147,7 @@ async function openUpsetRadar(){
     const th=teamMeta[g.home_team_id]||{}, ta=teamMeta[g.away_team_id]||{};
     const div=modelH==null?0:Math.abs(crowdH-modelH);
     rows+=`<div class="nilrow${div>0.25?" hot":""}">${crestEl("glcr",th.school||"?",hx(th.color))}
-      <div class="lknm"><span data-team="${g.away_team_id}" style="cursor:pointer">${esc(ta.school||"?")}</span> @ <span data-team="${g.home_team_id}" style="cursor:pointer">${esc(th.school||"?")}</span><small>crowd ${Math.round(crowdH*100)}% home · model ${modelH==null?"—":Math.round(modelH*100)+"%"}</small></div>
+      <div class="lknm"><span data-team="${g.away_team_id}" style="cursor:pointer">${esc(ta.school||"?")}</span> @ <span data-team="${g.home_team_id}" style="cursor:pointer">${esc(th.school||"?")}</span><small><span class="u-crowd">crowd ${Math.round(crowdH*100)}%</span> home · <span class="u-model">model ${modelH==null?"—":Math.round(modelH*100)+"%"}</span></small></div>
       ${div>0.25?`<div class="lkv neg">crowd walking into a trap?</div>`:""}</div>`;
   }
   app.innerHTML=`<div class="cmp">${backHeader("Crowd vs Model")}<div class="list" style="padding-top:6px">
@@ -8195,24 +8283,24 @@ function filmChartHTML(c,row){
   const F=(v,d)=>v==null?"—":Number(v).toFixed(d==null?2:d);
   if(c.type==="wp_line"&&(c.series||[]).length){
     const pts=c.series.map(p=>`${(p[0]*100).toFixed(1)},${(37-p[1]*32).toFixed(1)}`).join(" ");
-    const marks=(c.swings||[]).map(s=>`<circle cx="${(s.frac*100).toFixed(1)}" cy="${(37-(s.home_wp_after_n/100)*32).toFixed(1)}" r="1.7" fill="var(--amber)"/>`).join("");
+    const marks=(c.swings||[]).map(s=>`<circle cx="${(s.frac*100).toFixed(1)}" cy="${(37-(s.home_wp_after_n/100)*32).toFixed(1)}" r="1.7" fill="var(--model)"/>`).join("");
     return `<div class="fmchart"><svg viewBox="0 0 100 40" preserveAspectRatio="none" style="height:88px">
       <line x1="0" y1="21" x2="100" y2="21" stroke="rgba(148,163,184,.25)" stroke-width=".5" stroke-dasharray="2 2"/>
-      <polyline points="${pts}" fill="none" stroke="var(--amber)" stroke-width="1.1"/>${marks}</svg>
+      <polyline points="${pts}" fill="none" stroke="var(--model)" stroke-width="1.1"/>${marks}</svg>
       <div class="fmcap">${esc(c.home)} win chances (of 100), kickoff to final — dots mark the biggest swings · ${cap}</div></div>`;
   }
   if(c.type==="luck_dumbbell"){
     const n=c.win_exp_n==null?50:c.win_exp_n;
     return `<div class="fmchart"><svg viewBox="0 0 100 14" preserveAspectRatio="none" style="height:34px">
       <line x1="4" y1="7" x2="96" y2="7" stroke="rgba(148,163,184,.3)" stroke-width="1"/>
-      <line x1="${4+n*0.92}" y1="7" x2="96" y2="7" stroke="var(--amber)" stroke-width="1.6"/>
+      <line x1="${4+n*0.92}" y1="7" x2="96" y2="7" stroke="var(--model)" stroke-width="1.6"/>
       <circle cx="${4+n*0.92}" cy="7" r="3.2" fill="#94A3B8"/>
-      <circle cx="96" cy="7" r="3.6" fill="var(--amber)"/></svg>
+      <circle cx="96" cy="7" r="3.6" fill="var(--model)"/></svg>
       <div class="fmcap">Deserved vs banked: a team playing to ${esc(c.winner)}'s numbers wins ${n} of 100 times — this one counts as a full win anyway · ${cap}</div></div>`;
   }
   if((c.type==="epasr_bars"||c.type==="ff_panel")&&c.values){
     const A=c.home,B=c.away,v=c.values;
-    const bar=(val,max)=>`<div style="height:6px;border-radius:4px;background:var(--amber);width:${val==null?0:Math.min(100,Math.abs(val)/max*100)}%"></div>`;
+    const bar=(val,max)=>`<div style="height:6px;border-radius:4px;background:var(--model);width:${val==null?0:Math.min(100,Math.abs(val)/max*100)}%"></div>`;
     const bar2=(val,max)=>`<div style="height:6px;border-radius:4px;background:#94A3B8;width:${val==null?0:Math.min(100,Math.abs(val)/max*100)}%"></div>`;
     const rows=[["EPA/play","epa_play",0.6,x=>F(x,2)],["Success rate","success_rate",0.65,P],["Explosive rate","explosive_rate",0.28,P],["Pts per trip","pts_per_opp",7,x=>F(x,1)]]
       .filter(([,k])=>v[k]&&(v[k][A]!=null||v[k][B]!=null))
@@ -8221,7 +8309,7 @@ function filmChartHTML(c,row){
         <span style="text-align:right">${fmt(v[k][A])}<br>${fmt(v[k][B])}</span></div>`).join("");
     const wonRow=c.won?`<div class="fmcap">Factors won — ${Object.entries(c.won).filter(([,w])=>w).map(([f,w])=>`${f.replace("_"," ")}: ${esc(w)}`).join(" · ")||"split"}</div>`:"";
     const sw=col=>`<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${col};vertical-align:-1px"></span>`;
-    return `<div class="fmchart fmbars"><div class="fmcap" style="margin:0 0 5px">${sw("var(--amber)")} ${esc(A)} <span style="margin-left:8px">${sw("#94A3B8")}</span> ${esc(B)}</div>${rows}${wonRow}<div class="fmcap">${cap}</div></div>`;
+    return `<div class="fmchart fmbars"><div class="fmcap" style="margin:0 0 5px">${sw("var(--model)")} ${esc(A)} <span style="margin-left:8px">${sw("#94A3B8")}</span> ${esc(B)}</div>${rows}${wonRow}<div class="fmcap">${cap}</div></div>`;
   }
   if(c.type==="player_card"&&c.card){
     const p=c.card;
@@ -8232,7 +8320,7 @@ function filmChartHTML(c,row){
   if(c.type==="halves"){
     const mx=Math.max(Math.abs(c.h1_epa||0),Math.abs(c.h2_epa||0),0.3);
     const hb=v=>{const w=Math.abs(v||0)/mx*46; const x=v>=0?50:50-w;
-      return `<rect x="${x}" width="${w}" height="6" rx="2" fill="${v>=0?"var(--amber)":"#e2694f"}"/>`;};
+      return `<rect x="${x}" width="${w}" height="6" rx="2" fill="${v>=0?"var(--model)":"#e2694f"}"/>`;};
     return `<div class="fmchart"><svg viewBox="0 0 100 22" style="height:44px">
       <line x1="50" y1="0" x2="50" y2="22" stroke="rgba(148,163,184,.3)" stroke-width=".6"/>
       <g transform="translate(0,2)">${hb(c.h1_epa)}</g><g transform="translate(0,13)">${hb(c.h2_epa)}</g></svg>
@@ -8899,7 +8987,7 @@ async function openAdmin(){
       <div class="infocard"><div class="infocell"><div class="ik">DAU</div><div class="iv">${(g("dau",last)||{}).n??"&mdash;"}</div></div>
         <div class="infocell"><div class="ik">WAU</div><div class="iv">${(g("wau",last)||{}).n??"&mdash;"}</div></div>
         <div class="infocell"><div class="ik">MAU</div><div class="iv">${(g("mau",last)||{}).n??"&mdash;"}</div></div></div>
-      <div class="rdist" style="padding-top:8px"><div class="rdbars">${dau14.map(x=>`<div class="rdcol" data-tip="${x.d}: ${x.n} active"><i style="height:${Math.max(2,x.n/mx*34)}px"></i><small>${x.d.slice(8)}</small></div>`).join("")}</div>
+      <div class="rdist admin" style="padding-top:8px"><div class="rdbars">${dau14.map(x=>`<div class="rdcol" data-tip="${x.d}: ${x.n} active"><i style="height:${Math.max(2,x.n/mx*34)}px"></i><small>${x.d.slice(8)}</small></div>`).join("")}</div>
       <div class="secsub" style="padding:2px 2px 0">Daily actives, last ${dau14.length} days (signed-in uid or anonymous session key &mdash; one person, one count).</div></div></div>
     <div class="sec"><div class="sectitle">Activation <small>${last||""}</small></div>
       <div class="secsub">New visitors: <b>${act.new??0}</b> · set a favorite: <b>${act.favorite_pct??"&mdash;"}%</b> · returned for a 2nd session within 7 days: <b>${act.second_session_pct??"&mdash;"}%</b></div></div>
@@ -9093,7 +9181,7 @@ async function v2HomeExtras(){
       await ensureTeamMeta(); const t=teamMeta[sig[0].team_id]||{};
       const el=document.createElement("div");
       el.innerHTML=`<div class="card" style="margin:8px 2px;padding:12px;cursor:pointer" id="sig-teaser">
-        <div class="eyebrow" style="color:var(--amber)">Regression watch-list · ${sig[0].season}</div>
+        <div class="eyebrow" style="color:var(--model)">Regression watch-list · ${sig[0].season}</div>
         <div style="font-size:12.5px;margin-top:3px">The preseason top-10 team our factors flag hardest: <b>${esc(t.school||"?")}</b></div>
         <div class="eyebrow" style="margin-top:4px">${esc((sig[0].drivers||{}).poll_basis||"")} · openly tracked, no proven edge claimed</div></div>`;
       wrap.appendChild(el.firstChild);
@@ -9350,7 +9438,7 @@ async function renderTalentDividend(meta, era){
     <div style="flex:1;min-width:0"><span class="pteamlink" data-team="${r.team_id}"><b>${esc(r.school)}</b></span>
       <small> ${r.coach?esc(r.coach)+" · ":""}#${r.resid_rank} of ${r.n_ranked}${r.sustained?` · <span class="titchip">sustained ${r.sustained==="over"?"over":"under"}performance</span>`:""}</small>
       <div class="rivnote">${Number(r.wins_above_talent)>=0?"+":""}${Number(r.wins_above_talent).toFixed(1)} wins above talent per 12 games (schedule-sensitive, secondary)</div></div>
-    <div class="bva" style="font-size:16px;font-weight:800${Number(r.residual)>=0?";color:var(--amber)":""}">${Number(r.residual)>=0?"+":""}${Number(r.residual).toFixed(1)}</div></div>`;
+    <div class="bva" style="font-size:16px;font-weight:800${Number(r.residual)>=0?";color:var(--model)":""}">${Number(r.residual)>=0?"+":""}${Number(r.residual).toFixed(1)}</div></div>`;
   let h=`<div class="cmp">${backHeader(meta[0])}<div class="list" style="padding-top:6px">
     <div class="secsub" style="padding:0 2px 8px">${esc(meta[1])} Unit: <b>points per game vs talent-expected</b> — the residual off one national curve (year fixed effects, spline-adjusted). ${esc(lbl)}. ${esc(src)}.</div>
     <div class="lbtoggle" style="margin:2px 2px 10px">
@@ -9365,7 +9453,7 @@ async function renderTalentDividend(meta, era){
     <div class="sec"><div class="sectitle">Sustained <small>coach-tenure means · 3+ seasons · badge at 0.5 SD</small></div>
       ${tens.slice(0,12).map(r=>`<div class="histrow">${crestEl("glcr",(teamMeta[r.team_id]||{}).school||r.school,oppColor(r.team_id))}
         <div style="flex:1"><span class="pteamlink" data-team="${r.team_id}"><b>${esc(r.school)}</b></span> <small>${esc(r.coach||"")} · ${r.tenure_n} seasons</small></div>
-        <div class="bva" style="font-weight:800${Number(r.tenure_mean)>=0?";color:var(--amber)":""}">${Number(r.tenure_mean)>=0?"+":""}${Number(r.tenure_mean).toFixed(1)}</div></div>`).join("")}
+        <div class="bva" style="font-weight:800${Number(r.tenure_mean)>=0?";color:var(--model)":""}">${Number(r.tenure_mean)>=0?"+":""}${Number(r.tenure_mean).toFixed(1)}</div></div>`).join("")}
       <div class="secsub">A sustained badge describes a tenure — it does not promise persistence (overperforming coaches get hired away, and the residual doesn't travel).</div></div>`;
     if(excl.length) h+=`<div class="sec"><div class="sectitle">Insufficient talent data <small>${yr} · excluded, never numbered</small></div>
       <div class="secsub">${excl.map(x=>`${esc(x.school)} (${esc((x.excl_reason||"").split(" - ")[0])})`).join(" · ")}</div></div>`;
@@ -9398,7 +9486,7 @@ async function openSignature(){
     const p=Math.round(Number(collapse.value||0)*100);
     const arc=(pct)=>{ const r=26, c=2*Math.PI*r, f=c*pct/100;
       return `<svg viewBox="0 0 64 64" class="sigauge"><circle cx="32" cy="32" r="${r}" fill="none" stroke="rgba(148,163,184,.18)" stroke-width="7"/>
-        <circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--amber)" stroke-width="7" stroke-linecap="round"
+        <circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--model)" stroke-width="7" stroke-linecap="round"
           stroke-dasharray="${f} ${c-f}" transform="rotate(-90 32 32)"/>
         <text x="32" y="30" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="800">${pct}</text>
         <text x="32" y="42" text-anchor="middle" fill="var(--text3)" font-size="8">of 100</text></svg>`; };
