@@ -468,10 +468,32 @@
   .statnav button.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
   /* team stat profile */
   .statgrp{margin:0 0 16px}
-  .sgtitle{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;
-    text-transform:uppercase;color:var(--text2);margin:0 2px 7px;display:flex;align-items:center;gap:8px}
+  /* U36a+c: PROMINENT section sub-headers, sticky within their own section (the
+     .statgrp parent bounds the sticky, so each header naturally releases as its
+     section scrolls past). --tph = the team page's sticky .dtop height (setHdrH). */
+  .sgtitle{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:13.5px;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--text);margin:0 0 8px;display:flex;align-items:center;gap:8px;
+    padding:8px 11px;background:var(--surface);border:1px solid var(--line);border-radius:9px;
+    position:sticky;top:var(--tph,0px);z-index:4}
+  .sec.wopp .sgtitle{top:calc(var(--tph,0px) + 27px)}
   .sgtitle .sd{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
   .sgtitle .sd.off{color:var(--teal)} .sgtitle .sd.def{color:#7CA8FF}
+  /* U36c: the Team/Opponents column header — pinned for the WHOLE profile (sticky
+     against the .sec container, above every section's sub-header). */
+  .statcolhead{display:flex;align-items:center;gap:8px;padding:7px 12px 5px;position:sticky;
+    top:var(--tph,0px);z-index:6;background:var(--bg);font-family:"Barlow Condensed",sans-serif;
+    font-weight:800;font-size:10px;letter-spacing:.08em;color:var(--text2)}
+  .statcolhead .chs{flex:1;min-width:0} .statcolhead .cht{width:58px;text-align:right;flex:none}
+  .statcolhead .cho{width:52px;text-align:right;flex:none;color:var(--amber);cursor:help}
+  .statcolhead .chr{width:34px;text-align:right;flex:none} .statcolhead .chx{width:66px;flex:none}
+  /* U36b: the opponents column + tightened row metrics so 6 cells fit phone width */
+  .statrow .sopp{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:12px;width:52px;
+    text-align:right;flex:none;color:var(--text2);cursor:help}
+  .sec.wopp .statrow{gap:8px;padding:9px 12px}
+  .sec.wopp .statrow .sval{width:58px}
+  .sec.wopp .statrow .srk{width:34px}
+  .sec.wopp .statbar{width:34px}
+  .sec.wopp .statrow .dlt{width:24px}
   .statrow{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);
     border:1px solid var(--line);border-top:none}
   .statrow:first-of-type{border-top:1px solid var(--line);border-radius:12px 12px 0 0}
@@ -2582,6 +2604,10 @@ function wireHomeBubbles(){
 function setHdrH(){
   const hd=document.querySelector("header");
   document.documentElement.style.setProperty("--hdrh",(hd?hd.offsetHeight:0)+"px");
+  // U36c: the team page's own sticky header height — the stat table's pinned
+  // column header and sticky section sub-headers offset below it (--tph).
+  const dt=document.querySelector(".dtop");
+  document.documentElement.style.setProperty("--tph",(dt?dt.offsetHeight:0)+"px");
 }
 window.addEventListener("resize", setHdrH);
 function wireToggle(){
@@ -4667,10 +4693,34 @@ function wireTeamPanels(teamId, t, games, e, swap26){
   const loadViz=async()=>{ if(C.data.vizHtml==null)
       C.data.vizHtml=await teamVizSection(teamId).catch(()=>"");
     return C.data.vizHtml; };
+  // U36b: the season's opponents' stat rows + games, for the OPP column. Opponents
+  // come from the schedule (deduped — a rematch doesn't double a season; FCS
+  // opponents have no team_id/stat rows and are counted as excluded).
+  const loadOpp=async yr=>{
+    C.data.opp=C.data.opp||{};
+    if(C.data.opp[yr]===undefined){
+      const gs=(games||[]).filter(g=>g.season===yr);
+      const oppId=g=>String(g.home_team_id)===String(teamId)?g.away_team_id:g.home_team_id;
+      const ids=[...new Set(gs.map(oppId).filter(x=>x!=null))];
+      const fcs=gs.filter(g=>oppId(g)==null).length;
+      if(!ids.length) C.data.opp[yr]=null;
+      else{
+        const [vals,tseas]=await Promise.all([
+          J(`team_stat_season?select=team_id,stat_key,value&season=eq.${yr}&team_id=in.(${ids.join(",")})`),
+          J(`team_season?select=team_id,games_played&season=eq.${yr}&team_id=in.(${ids.join(",")})`)]);
+        const gmap={}; (tseas||[]).forEach(r=>gmap[r.team_id]=Number(r.games_played)||0);
+        const rows={}, seen=new Set();
+        (vals||[]).forEach(r=>{ const g=gmap[r.team_id]; if(!g) return; seen.add(r.team_id);
+          (rows[r.stat_key]=rows[r.stat_key]||[]).push({v:Number(r.value), g}); });
+        C.data.opp[yr]=seen.size?{rows, n:seen.size, fcs}:null;
+      }
+    }
+    return C.data.opp[yr];
+  };
   const tpStatsBody=async yr=>{
     if(yr!==SEASON_SCHED){
       const s=await loadStats();
-      return statProfile(s.cat, statsFor(s.rows, yr), t.school, yr) || emptyNote(`No ${yr} stat profile on file.`);
+      return statProfile(s.cat, statsFor(s.rows, yr), t.school, yr, await loadOpp(yr)) || emptyNote(`No ${yr} stat profile on file.`);
     }
     let body;
     if(!swap26)
@@ -4680,7 +4730,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
       const s=await loadStats();
       const rows=statsFor(s.rows, yr);
       body = rows.some(r=>Number(r.season)===SEASON_SCHED)
-        ? (statProfile(s.cat, rows, t.school, yr) || emptyNote(`No ${yr} stat profile on file.`))
+        ? (statProfile(s.cat, rows, t.school, yr, await loadOpp(yr)) || emptyNote(`No ${yr} stat profile on file.`))
         : emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`);
     }
     return hmBlock() + await loadViz() + body;
@@ -4835,6 +4885,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
       });
       const ob=panel.querySelector("#tpodds");
       if(ob) ob.onclick=()=>openOddsTimeline(teamId);
+      setHdrH();   // U36c: refresh --tph so the pinned column header offsets under .dtop
     }
     // U29: the Schedule + Recruiting sub-toggles — same in-panel swap, no history push;
     // wirePanel re-runs after each swap so the new body's handlers (schedule-row
@@ -5591,13 +5642,45 @@ function renderPlayer(aid, idx, seasons, games, grades){
 }
 
 // ---------- Part 2: team stat profile + leaders + preseason honors (on the team page) ----------
-function statProfile(cat, statsRows, school, season){
+// U36b: one opponents-aggregate cell for a stat row. Honest math from what the
+// rows actually are: stored stats are per-game/rate values, so PER-GAME stats
+// combine exactly as (sum of opponents' implied totals) / (their combined games)
+// — the tooltip carries the combined total; RATE stats get a games-weighted
+// average, said out loud; turnover_margin (the one season total) sums. Opponents
+// are deduped (a rematch doesn't double a season) and FBS-only (no stat rows
+// exist for FCS — the header note states the exclusion).
+function oppAggCell(d, opp, school){
+  if(!opp || !opp.n || d.stat_group==="Schedule") return null;
+  const rows=opp.rows[d.stat_key];
+  if(!rows || !rows.length) return null;
+  const G=rows.reduce((a,r)=>a+r.g,0);
+  if(!G) return null;
+  const wmean=rows.reduce((a,r)=>a+r.v*r.g,0)/G;
+  const sgn=v=>(v>0&&/margin/.test(d.stat_key)?"+":"")+Math.round(v).toLocaleString();
+  if(d.stat_key==="turnover_margin"){
+    const tot=rows.reduce((a,r)=>a+r.v,0);
+    return {val:fmtStat(tot,d.format),
+      tip:`Combined ${d.display_name} of ${school}'s ${rows.length} FBS opponents: ${sgn(tot)} total across ${G} games (${(tot/G>0?"+":"")+(tot/G).toFixed(2)} per game).`};
+  }
+  if(/_pg$|per_game/.test(d.stat_key)||d.stat_key==="possession_time"||d.stat_key==="scoring_margin"){
+    const tot=rows.reduce((a,r)=>a+r.v*r.g,0);
+    return {val:fmtStat(wmean,d.format),
+      tip:`${school}'s ${rows.length} FBS opponents combined: ${d.stat_key==="possession_time"?fmtStat(wmean,d.format)+" per game":sgn(tot)+" total, "+fmtStat(wmean,d.format)+" per game"} across their ${G} games.`};
+  }
+  return {val:fmtStat(wmean,d.format),
+    tip:`Games-weighted average ${d.display_name} across ${school}'s ${rows.length} FBS opponents (${G} combined games).`};
+}
+function statProfile(cat, statsRows, school, season, opp){
   season = season || STAT_SEASON;
   const cur={}, prior={};
   statsRows.forEach(r=>{ if(Number(r.season)===season) cur[r.stat_key]=r;
     else if(Number(r.season)===season-1) prior[r.stat_key]=r; });
-  let h=`<div class="sec"><div class="sectitle">${season} stat profile</div>
-    <div class="secsub">Official season stats with national rank + percentile. Tap a label for what it means. Source: CFBD.</div>`;
+  const hasOpp=!!(opp&&opp.n);
+  let h=`<div class="sec${hasOpp?" wopp":""}"><div class="sectitle">${season} stat profile</div>
+    <div class="secsub">Official season stats with national rank + percentile. Tap a label for what it means.${hasOpp?` <b>OPP</b> = the same stat combined across the ${opp.n} FBS opponents on the ${season} schedule (games-weighted; tap a value for the math${opp.fcs?`; ${opp.fcs} FCS game${opp.fcs>1?"s":""} excluded — no FBS stat rows exist`:""}).`:""} Source: CFBD.</div>`;
+  if(hasOpp) h+=`<div class="statcolhead"><div class="chs">STAT</div><div class="cht">TEAM</div>
+    <div class="cho" data-tip="What ${esc(school)}'s ${season} FBS opponents did in the same stat, combined across their own seasons (games-weighted). Schedule context: us vs what our opponents did.">OPP</div>
+    <div class="chr">RANK</div><div class="chx"></div></div>`;
   let any=false;
   STAT_GROUPS.forEach(grp=>{
     const defs=(cat.groups[grp]||[]).filter(d=>cur[d.stat_key]);
@@ -5613,9 +5696,12 @@ function statProfile(cat, statsRows, school, season){
       let dlt=`<div class="dlt"></div>`;
       if(pr){ const dv=Number(pr.rank)-Number(r.rank);
         dlt = dv ? `<div class="dlt ${dv>0?"up":"down"}" data-tip="2024 rank #${pr.rank} to 2025 #${r.rank}.">${dv>0?'<svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>':'<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg>'}${Math.abs(dv)}</div>` : `<div class="dlt">—</div>`; }
+      const oc=hasOpp?oppAggCell(d, opp, school):null;
+      const oppCell=hasOpp?`<div class="sopp"${oc?` data-tip="${esc(oc.tip)}"`:""}>${oc?oc.val:"—"}</div>`:"";
       h+=`<div class="statrow">
         <div class="snm" data-tip="${tip}">${esc(d.display_name)}</div>
         <div class="sval">${val}</div>
+        ${oppCell}
         <div class="srk r-${bkt}">#${r.rank}</div>
         <div class="statbar"><i class="bg-${bkt}" style="width:${Math.max(4,pct)}%"></i></div>
         ${dlt}</div>`;
