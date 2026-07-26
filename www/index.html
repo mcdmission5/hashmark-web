@@ -962,6 +962,8 @@
   .honor .hstack{display:flex;flex-wrap:wrap;gap:4px;padding-top:4px}  /* batch 12 #4: chip-stacked lists */
   .honor .hstack .srcpill{font-size:10px}
   /* UG1: the VISIBLE low-sample confidence badge + muted small-sample grade number */
+  .gradenote{font-size:12px;line-height:1.55;color:var(--text2);padding:6px 2px 8px;border-bottom:1px solid var(--line)}
+  .gradenote small{display:block;padding-top:4px;color:var(--text3);font-size:9.5px}
   .lowsample{display:inline-flex;align-items:center;font-size:8.5px;font-weight:800;letter-spacing:.05em;
     color:#E8B657;border:1px solid rgba(232,182,87,.45);border-radius:999px;padding:2px 7px;
     margin-left:4px;cursor:default}
@@ -5171,17 +5173,20 @@ async function openPlayer(aid){
     let grades=[];
     if(SHOW_HASHMARK_RATINGS && idx[0] && idx[0].player){
       const nm=encodeURIComponent(idx[0].player);
-      const [qb, pv] = await Promise.all([
+      const [qb, pv, gn] = await Promise.all([
         api(`qb_value_rating?select=season,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]),
-        api(`player_value_rating?select=season,role,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]) ]);
+        api(`player_value_rating?select=season,role,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]),
+        api(`player_grade_narratives?select=season,role,team,narrative,narration_mode&player=eq.${nm}&order=season.desc`).catch(()=>[]) ]);
       grades=[...qb.map(r=>({...r, role:"qb"})), ...pv];
+      window._gradeNarr=gn;   // UG2: scoped below with the same own-team filter
       // UG1: the grade tables key on (player, team) — a bare name match could hang a
       // same-named OTHER player's grades on this page. Keep only rows whose team is one
       // of THIS player's own teams (any season, so transfers keep their history).
       try{ await ensureTeamMeta();
         const own=new Set([idx[0].team_id, ...seasons.map(s2=>s2.team_id)]
           .map(tid=>(teamMeta[tid]||{}).school).filter(Boolean));
-        if(own.size) grades=grades.filter(g=>own.has(g.team));
+        if(own.size){ grades=grades.filter(g=>own.has(g.team));
+          window._gradeNarr=(window._gradeNarr||[]).filter(g=>own.has(g.team)); }   // UG2: same collision guard
       }catch(_e){}
     }
     renderPlayer(aid, idx[0], seasons, games, grades);
@@ -5244,6 +5249,15 @@ function renderPlayer(aid, idx, seasons, games, grades){
         <div class="bk">${latestSeason} Hashmark Grade · ${esc((ROLE_LBL[prim.role]||prim.role).split(" — ")[0])} ${lowChip}
           <small>${prim.qualified?`${Math.round(prim.percentile||0)}th percentile · ${tier(prim.rating)}`:"shrunk toward 50 until it qualifies"}</small></div>
         <div class="bvb"><small>${prim.plays} plays</small></div></div>`;
+    }
+    // UG2: "why this grade" — the stored narrative for the PRIMARY role-season,
+    // rendered under the composite. Closed-world generated + machine-verified
+    // server-side (U12 discipline); low-sample rows carry the shrinkage framing
+    // in prose, matching the badge above.
+    if(prim){
+      const gn=(window._gradeNarr||[]).find(n=>Number(n.season)===latestSeason && n.role===prim.role);
+      if(gn&&gn.narrative) h+=`<div class="gradenote">${esc(gn.narrative)}
+        <small>Why this grade — written from the grade's own components; every number machine-verified against the engine.</small></div>`;
     }
     if(curG.length>1) h+=`<div class="ha" style="padding:4px 2px 2px"><b>Components — value by role</b></div>`;
     curG.slice(prim?1:0,4).forEach(g=>{
