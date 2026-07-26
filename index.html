@@ -507,6 +507,17 @@
   .r-elite{color:#4ED88A} .r-good{color:#9BD86B} .r-avg{color:var(--text2)} .r-below{color:#E8A84C} .r-poor{color:#E2685F}
   .bg-elite{background:#4ED88A} .bg-good{background:#9BD86B} .bg-avg{background:#6b7888} .bg-below{background:#E8A84C} .bg-poor{background:#E2685F}
   .up{color:#4ED88A} .down{color:#E2685F}
+  /* U13 history & records */
+  .histrow{display:flex;align-items:center;gap:9px;padding:8px 2px;border-bottom:1px solid rgba(42,53,66,.5)}
+  .histrow .bva{font-family:"IBM Plex Mono",monospace;font-size:13px;flex:none}
+  .titchips{display:flex;flex-wrap:wrap;gap:4px;padding-top:4px}
+  .titchip{font-family:"IBM Plex Mono",monospace;font-size:10px;padding:2px 7px;border-radius:999px;
+    border:1px solid var(--line);background:var(--surface);color:var(--text2)}
+  .titchip.vac{text-decoration:line-through;opacity:.55;cursor:help}
+  .rivrow{padding:9px 2px;border-bottom:1px solid rgba(42,53,66,.5)}
+  .rivhd{font-size:13px} .rivrec{font-size:12.5px;padding-top:2px}
+  .rivrec .rawtag{color:var(--text3)}
+  .rivnote{font-size:10.5px;color:var(--text2);padding-top:2px}
   /* team leaders + honors */
   .leadrow{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--surface);
     border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
@@ -1793,11 +1804,14 @@ async function openGame(gameId){
 }
 async function renderGamePre(g){
   const a=g.home_team_id, b=g.away_team_id, lo=Math.min(+a,+b), hi=Math.max(+a,+b);
-  const [stRows, pr, wpRow, hh] = await Promise.all([
+  const [stRows, pr, wpRow, hh, allTime, rivRow] = await Promise.all([
     api(`standings?select=team_id,wins,losses&season=eq.${g.season}&team_id=in.(${a},${b})`).catch(()=>[]),
     SHOW_HASHMARK_RATINGS?ensureBoard().catch(()=>null):null,
     api(`matchup_winprob?select=win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&team_a=eq.${lo}&team_b=eq.${hi}`).catch(()=>[]),
     fetchH2H(a,b).catch(()=>[]),
+    // U13: the all-time series hook U37's PRE state was built to consume
+    api(`h2h_alltime?select=*&team_a_id=eq.${lo}&team_b_id=eq.${hi}`).catch(()=>[]),
+    api(`rivalries?select=*&or=(and(team_a_id.eq.${a},team_b_id.eq.${b}),and(team_a_id.eq.${b},team_b_id.eq.${a}))`).catch(()=>[]),
     loadMarketLines() ]);
   const st={}; stRows.forEach(r=>st[r.team_id]=r);
   // U37 fix: the chip shows the PUBLIC board RANK (the favcard pattern) — never the
@@ -1838,10 +1852,26 @@ async function renderGamePre(g){
         <div class="bk">${esc(r.player)} <small>${esc(r.team)} · ${esc(r.role)} · ${Math.round(r.percentile||0)}th pct</small></div></div>`).join("")}
       <div class="secsub">Prior-season value grades — returning status per each team's page.</div></div>`;
   }catch(e){}
+  // U13: all-time series line (dual-labeled) above the recent meetings
+  let seriesLine="";
+  if(rivRow&&rivRow[0]){
+    let r=rivRow[0];
+    if(String(r.team_a_id)!==String(a))    // render from the HOME team's perspective
+      r={...r, school_a:r.school_b, school_b:r.school_a,
+         official_w:r.official_l, official_l:r.official_w,
+         derived_w:r.derived_l==null?null:r.derived_l, derived_l:r.derived_w==null?null:r.derived_w};
+    seriesLine=`<div class="rivrec" style="padding:2px 0 4px">${rivRecordLine(r)}</div>`+
+      (r.note?`<div class="rivnote" style="padding-bottom:4px">${esc(r.note)}</div>`:"");
+  } else if(allTime&&allTime[0]){
+    const s2=allTime[0];
+    const mineA=String(s2.team_a_id)===String(a);
+    const w=mineA?s2.a_wins:s2.b_wins, l=mineA?s2.b_wins:s2.a_wins;
+    seriesLine=`<div class="rivrec" style="padding:2px 0 4px"><b>${esc(tH.school)} ${_lead(w,l)} ${w}&ndash;${l}&ndash;${s2.ties}</b> <small>all-time per CFBD since ${s2.first_season} &mdash; raw results (vacaturs not applied; pre-1900 coverage incomplete)</small></div>`;
+  }
   let hhCard="";
-  if(hh&&hh.length){
-    hhCard=`<div class="sec"><div class="sectitle">Recent meetings</div>
-      ${hh.slice(0,3).map(m2=>{ const hw=m2.home_points>m2.away_points;
+  if((hh&&hh.length)||seriesLine){
+    hhCard=`<div class="sec"><div class="sectitle">${seriesLine?"The series":"Recent meetings"}</div>${seriesLine}
+      ${(hh||[]).slice(0,3).map(m2=>{ const hw=m2.home_points>m2.away_points;
         return `<div class="boxrow"><div class="bk">${m2.season} · ${esc(m2.away_team)} ${m2.away_points} @ ${esc(m2.home_team)} ${m2.home_points}</div>
           <div class="bvb"><small>${esc(hw?m2.home_team:m2.away_team)} W</small></div></div>`; }).join("")}</div>`;
   }
@@ -2543,6 +2573,7 @@ const FEATURE_TILES=[
   ["movers","trend","Weekly Movers",null,false,"Who rose, who fell — updated Sundays.",()=>openMovers()],
   ["filmroom","flame","Film Room",null,true,"Monday-morning game analyses — every number traces to the play-by-play.",()=>openFilmRoom()],
   ["reportcard","chart","Weekly Report Card",null,false,"Studs, duds and Player of the Week — graded from the play-by-play.",()=>openReportCard()],
+  ["history","list","History & Records",null,false,"All-time ledgers, national titles, rivalries — era-labeled, sourced.",()=>openHistory()],
 ];
 const EXPLORE_EXTRA=[
   ["teams","star","Teams","amber",false,"Every FBS team — search, pick your favorite.",()=>openTeams()],
@@ -4619,7 +4650,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   const BUBS = [["sched","Schedule"],["news","News"],["standings","Standings"],["stats","Stats"]]
     .concat(swap26?[["splits","Splits"]]:[])
     .concat([["players","Players"],["recruit","Recruiting"],["avail","Injuries"],["portal","Transfer portal"],["nil","NIL"],
-      ["leaders","Returning leaders"],["splits25",`${SEASON_RESULTS} Splits`],["honors","Honors"],["staff","Coaching"]]);
+      ["leaders","Returning leaders"],["splits25",`${SEASON_RESULTS} Splits`],["hist","History"],["honors","Honors"],["staff","Coaching"]]);
   let h = `<div class="detail">
     <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
@@ -4888,6 +4919,18 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     splits25: async()=>{ const sp=await loadSplits();
       return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_RESULTS), t.school, SEASON_RESULTS)
         || emptyNote(`No ${SEASON_RESULTS} situational splits on file.`); },
+    // U13: the team History bubble — all-time ledger, poll-era + claimed titles,
+    // conference titles (honest empty until the records-book ingest), rivalry cards
+    hist: async()=>{ if(!C.data.hist){
+        const [th, ch, cl, rv, ct]=await Promise.all([
+          J(`team_history?select=*&team_id=eq.${teamId}`),
+          J(`championships?select=*&school=eq.${encodeURIComponent(t.school)}&order=season.asc`),
+          J(`championship_claims?select=*&school=eq.${encodeURIComponent(t.school)}`),
+          J(`rivalries?select=*&or=(team_a_id.eq.${teamId},team_b_id.eq.${teamId})`),
+          J(`conference_titles?select=*&school=eq.${encodeURIComponent(t.school)}&order=season.asc`)]);
+        C.data.hist={th:th[0], ch, cl:cl[0], rv, ct};
+      }
+      return teamHistoryPanel(C.data.hist, t, teamId); },
     honors: async()=>{ if(!C.data.honors)
         C.data.honors=await J(`external_rankings?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`);
       return teamHonors(C.data.honors||[])
@@ -4900,6 +4943,8 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     if(k==="avail") wireInjGate(panel, C.data.intel);
     if(k==="standings"){ const fb=panel.querySelector('[data-go="standings"]');
       if(fb) fb.onclick=()=>openStandings(); }   // U28: full-standings link
+    if(k==="hist"){ const hb=panel.querySelector('[data-go="historyview"]');
+      if(hb) hb.onclick=()=>openHistory(); }     // U13: full History & Records view
     // U11+U31: in-panel sub-tabs (Commits/Prospects/News, Moves/News) — swap only,
     // no history push (U17 policy: bubbles are content panels, not destinations)
     if(k==="recruit"||k==="portal") panel.querySelectorAll("[data-rectab]").forEach(b=>b.onclick=()=>{
@@ -6447,6 +6492,7 @@ const NAV_ROUTES={
   sim:   ()=>openSimulator(),
   pickem:()=>openPickem(),
   method:()=>openMethodology(),
+  history:()=>openHistory(),
   checking:()=>openCheckingWork(),
   accuracy:()=>openAccuracy(),
   signature:()=>openSignature(),
@@ -6568,7 +6614,7 @@ setTimeout(()=>{
  ["openBox","box",(id,team)=>({id,team})],["openGame","game",id=>({id})],["openPickemBoard","pickemboard"],
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
- ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],
+ ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],["openHistory","history"],
  ["openFilmRoom","filmroom",wk=>({wk})],["openReportCard","reportcard",wk=>({wk})],
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
@@ -6714,6 +6760,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   gauntlet:"stats", gauntletwall:"stats", oddstime:"stats", movers:"stats", nileconomy:"stats",
   nileff:"stats", nilperf:"stats", nilmethod:"stats", modelhub:"stats", injuries:"stats",
   whyrating:"stats", rosterecon:"stats", filmroom:"stats", reportcard:"stats",
+  history:"stats",   // U13 (U38 rule: every new view maps a section)
   explore:"explore", teams:"explore", newsarchive:"explore", method:"explore",
   checking:"explore", accuracy:"explore" };
   // team/player/playercard are reachable from every section, so they are STICKY (keep the current set)
@@ -8362,6 +8409,123 @@ async function openWhatWins(){
 }
 
 /* ---------------- Explore hub ---------------- */
+// ============ U13 — History & Records (research-U7 discipline) ============
+// EVERY figure here renders with an era + source label, and anywhere raw CFBD
+// aggregation diverges from an official record the display is DUAL-labeled
+// ("official (raw)"). Raw CFBD is never presented as official.
+const HIST_DEFINITION="Hashmark counts national titles from the poll-and-playoff era only: "+
+  "AP poll (1936&ndash;), Coaches poll (1950&ndash;), BCS (1998&ndash;2013) and CFP (2014&ndash;); split poll titles "+
+  "credit both teams, labeled; vacated titles are shown struck-through, not counted; earlier or "+
+  "other-selector titles appear separately as claimed titles, attributed to the claiming school. "+
+  "The NCAA itself awards no FBS national championship.";
+const _lead=(w,l)=>w>l?"leads":(w<l?"trails":"is tied");
+// one rivalry record line, school_a perspective, dual-labeled when raw diverges
+function rivRecordLine(r){
+  const off=r.official_w!=null, der=r.derived_w!=null;
+  if(off){
+    const dual = der && (r.derived_w!==r.official_w||r.derived_l!==r.official_l||r.derived_t!==r.official_t);
+    return `<b>${esc(r.school_a)} ${_lead(r.official_w,r.official_l)} ${r.official_w}&ndash;${r.official_l}&ndash;${r.official_t}</b> <small>official${r.first_year?` · since ${r.first_year}`:""}</small>`+
+      (dual?` <small class="rawtag">raw CFBD: ${r.derived_w}&ndash;${r.derived_l}&ndash;${r.derived_t}</small>`:"");
+  }
+  if(der) return `<b>${esc(r.school_a)} ${_lead(r.derived_w,r.derived_l)} ${r.derived_w}&ndash;${r.derived_l}&ndash;${r.derived_t}</b> <small>per CFBD since ${r.derived_first||"&mdash;"} &mdash; not yet verified against official media guides</small>`;
+  return `<small>No meetings on file.</small>`;
+}
+const rivLastLine=r=>r.last_season?`Last: ${r.last_season} · ${esc(r.last_away||"")} ${r.last_away_points} @ ${esc(r.last_home||"")} ${r.last_home_points}`:"";
+const titleChip=c=>`<span class="titchip${c.vacated?" vac":""}" ${c.vacated||c.note?`data-tip="${esc(c.note||"Vacated - shown, never counted.")}"`:""}>${c.season}${c.selector!=="consensus"?" "+esc(c.selector):""}${c.split?" · split":""}</span>`;
+async function openHistory(){
+  window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading history &amp; records…</div>`;
+  await ensureTeamMeta();
+  const [champs, claims, th, riv, vreg] = await Promise.all([
+    api(`championships?select=*&order=season.asc`).catch(()=>[]),
+    api(`championship_claims?select=*&order=claimed_count.desc`).catch(()=>[]),
+    api(`team_history?select=*&order=wins.desc`).catch(()=>[]),
+    api(`rivalries?select=*`).catch(()=>[]),
+    api(`vacated_registry?select=*`).catch(()=>[]) ]);
+  const bySchool={};
+  champs.forEach(c=>{(bySchool[c.school]=bySchool[c.school]||[]).push(c);});
+  const nT=s=>bySchool[s].filter(c=>!c.vacated).length;
+  const schools=Object.keys(bySchool).sort((x,y)=>(nT(y)-nT(x))||x.localeCompare(y));
+  const claimBy={}; claims.forEach(c=>claimBy[c.school]=c);
+  let h=`<div class="cmp">${backHeader("History & Records")}<div class="list" style="padding-top:6px">`;
+  // --- national championships ---
+  h+=`<div class="sec"><div class="sectitle">National championships <small>poll &amp; playoff era · 1936&ndash;2025</small></div>
+    <div class="secsub">${HIST_DEFINITION} <b>Sources:</b> the poll-era championships compilation + the NCAA records book; curated, every row source-linked.</div>`;
+  schools.forEach(s=>{ const rows=bySchool[s], cl=claimBy[s];
+    h+=`<div class="histrow"><div class="bva" style="font-size:18px;font-weight:800;width:30px;flex:none;text-align:right">${nT(s)}</div>
+      <div style="flex:1;min-width:0"><b><span class="pteamlink" data-team="${rows[0].team_id}">${esc(s)}</span></b>${cl?` <small style="color:var(--text3)">· claims ${cl.claimed_count}</small>`:""}
+      <div class="titchips">${rows.map(titleChip).join("")}</div></div></div>`; });
+  h+=`<div class="secsub" style="padding-top:8px"><b>Claimed titles &mdash; the separate tier, never summed with poll-era:</b> ${claims.map(c=>`${esc(c.school)} ${c.claimed_count}`).join(" · ")}. School-attributed claims (any selector, any era); other schools' claims aren't cataloged yet &mdash; only source-verified counts appear.</div></div>`;
+  // --- winningest programs (raw CFBD, dual-labeled) ---
+  const gap=vreg.find(v=>v.kind==="coverage_gap"&&v.school_a==="Michigan");
+  h+=`<div class="sec"><div class="sectitle">Winningest programs <small>raw CFBD ledger</small></div>
+    <div class="secsub">${esc((th[0]&&th[0].era_label)||"")}. ${gap?`<b>Official-record note:</b> ${esc(gap.note)}`:""}</div>`;
+  th.slice(0,20).forEach((r,i)=>h+=`<div class="histrow"><div class="srk" style="width:26px">${i+1}</div>
+    ${crestEl("glcr",(teamMeta[r.team_id]||{}).school||r.school,oppColor(r.team_id))}
+    <div style="flex:1"><span class="pteamlink" data-team="${r.team_id}"><b>${esc(r.school)}</b></span> <small>since ${r.first_season}</small></div>
+    <div class="bva">${r.wins.toLocaleString()}&ndash;${r.losses.toLocaleString()}&ndash;${r.ties}</div>
+    <div class="bvb"><small>${(Number(r.win_pct)*100).toFixed(1)}%</small></div></div>`);
+  h+=`</div>`;
+  // --- longest win streaks ---
+  const streaks=th.slice().sort((x,y)=>y.longest_win_streak-x.longest_win_streak).slice(0,10);
+  h+=`<div class="sec"><div class="sectitle">Longest win streaks <small>raw CFBD ledger</small></div>
+    <div class="secsub">Longest all-time win run per program (ties break streaks). ${esc((th[0]&&th[0].era_label)||"")}.</div>
+    ${streaks.map(r=>`<div class="histrow"><div class="bva" style="width:34px;flex:none;text-align:right">${r.longest_win_streak}</div>
+      <div style="flex:1"><span class="pteamlink" data-team="${r.team_id}"><b>${esc(r.school)}</b></span> <small>${r.streak_start}${r.streak_end!==r.streak_start?`&ndash;${r.streak_end}`:""}</small></div></div>`).join("")}</div>`;
+  // --- rivalry explorer ---
+  const rg=r=>r.official_games!=null?r.official_games:(r.derived_games||0);
+  const rivs=riv.slice().sort((x,y)=>rg(y)-rg(x));
+  h+=`<div class="sec"><div class="sectitle">Rivalries <small>${rivs.length} series · curated registry</small></div>
+    <div class="secsub">Official records per the NCAA most-played-series compilation (vacated games excluded where the source excludes them); Tier-B majors show the raw CFBD series until verified against media guides. Disputed series carry both counts.</div>`;
+  rivs.forEach(r=>{ h+=`<div class="rivrow">
+      <div class="rivhd"><span class="pteamlink" data-team="${r.team_a_id}"><b>${esc(r.school_a)}</b></span> vs <span class="pteamlink" data-team="${r.team_b_id}"><b>${esc(r.school_b)}</b></span>${r.trophy?` <small>· ${esc(r.trophy)}</small>`:""}${r.official_games?` <small>· ${r.official_games} games</small>`:""}</div>
+      <div class="rivrec">${rivRecordLine(r)}</div>
+      ${r.note?`<div class="rivnote">${esc(r.note)}</div>`:""}
+      ${r.last_season?`<div class="rivnote" style="color:var(--text3)">${rivLastLine(r)}</div>`:""}</div>`; });
+  h+=`</div>
+    <div class="note"><b>History &amp; Records.</b> Game results per CFBD (reliable to 1869; pre-1900 coverage incomplete); championships, official series records and adjustment notes are curated with a source on every row. Raw CFBD aggregates are labeled raw &mdash; they do not apply NCAA vacaturs and can miss early games. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+}
+// team-page History bubble body (perspective-flipped to THIS team)
+function teamHistoryPanel(d, t, teamId){
+  const th=d.th;
+  let h="";
+  if(th) h+=`<div class="sec" style="padding-top:2px"><div class="sectitle">All-time record <small>raw CFBD ledger</small></div>
+    <div class="boxrow"><div class="bva" style="font-size:20px;font-weight:800">${th.wins.toLocaleString()}&ndash;${th.losses.toLocaleString()}&ndash;${th.ties}</div>
+      <div class="bk">${(Number(th.win_pct)*100).toFixed(1)}% <small>· ${th.games.toLocaleString()} games since ${th.first_season} · longest win streak ${th.longest_win_streak} (${th.streak_start}${th.streak_end!==th.streak_start?`&ndash;${th.streak_end}`:""})</small></div></div>
+    <div class="secsub">${esc(th.era_label||"")}. Source: ${esc(th.source||"CFBD")}.</div></div>`;
+  else h+=`<div class="secsub" style="padding:6px 2px">No all-time ledger on file for this team.</div>`;
+  const titles=(d.ch||[]);
+  h+=`<div class="sec"><div class="sectitle">National titles <small>poll &amp; playoff era</small></div>`;
+  if(titles.length){
+    const n=titles.filter(c=>!c.vacated).length;
+    h+=`<div class="boxrow"><div class="bva win" style="font-size:20px;font-weight:800">${n}</div>
+      <div class="bk">poll-era title${n===1?"":"s"}${d.cl?` <small>· the school claims ${d.cl.claimed_count} across all selectors/eras</small>`:""}</div></div>
+    <div class="titchips">${titles.map(titleChip).join("")}</div>`;
+  } else h+=`<div class="secsub">No poll-era national titles on file (AP 1936&ndash; · Coaches 1950&ndash; · BCS · CFP).${d.cl?` The school claims ${d.cl.claimed_count} titles across other selectors/eras.`:""}</div>`;
+  h+=`<div class="secsub">${HIST_DEFINITION}</div></div>`;
+  h+=`<div class="sec"><div class="sectitle">Conference titles</div>
+    <div class="secsub">${(d.ct&&d.ct.length)?d.ct.map(x=>`${x.conference} ${x.season}${x.shared?" (shared)":""}`).join(" · ")
+      :"Conference title history arrives with the NCAA records-book ingest &mdash; not yet on file (never derived from game data alone)."}</div></div>`;
+  const mine=(d.rv||[]).map(r=>{
+    if(String(r.team_a_id)===String(teamId)) return r;
+    // flip to this team's perspective (official AND raw)
+    return {...r, school_a:r.school_b, school_b:r.school_a, team_a_id:r.team_b_id, team_b_id:r.team_a_id,
+      official_w:r.official_l, official_l:r.official_w,
+      derived_w:r.derived_l==null?null:r.derived_l, derived_l:r.derived_w==null?null:r.derived_w};
+  }).sort((x,y)=>((y.official_games??y.derived_games)||0)-((x.official_games??x.derived_games)||0));
+  if(mine.length){
+    h+=`<div class="sec"><div class="sectitle">Rivalries <small>curated registry</small></div>`;
+    mine.slice(0,6).forEach(r=>{ h+=`<div class="rivrow">
+      <div class="rivhd">vs <span class="pteamlink" data-team="${r.team_b_id}"><b>${esc(r.school_b)}</b></span>${r.trophy?` <small>· ${esc(r.trophy)}</small>`:""}</div>
+      <div class="rivrec">${rivRecordLine(r)}</div>
+      ${r.note?`<div class="rivnote">${esc(r.note)}</div>`:""}
+      ${r.last_season?`<div class="rivnote" style="color:var(--text3)">${rivLastLine(r)}</div>`:""}</div>`; });
+    h+=`<div class="navrow" style="padding-top:6px"><button class="navbtn" data-go="historyview">All history &amp; records</button></div></div>`;
+  }
+  return h;
+}
+
 async function openExplore(){
   window.scrollTo(0,0);
   let h=`<div class="cmp"><div class="cmptop"><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
