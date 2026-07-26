@@ -9542,8 +9542,15 @@ async function v2HomeExtras(){
   // anchor INSIDE the home container, above the National-leaders section (.hsec)
   const t0=[...app.querySelectorAll(".hsectitle")].find(e=>/national leaders/i.test(e.textContent||""));
   const anchor=t0?t0.closest(".hsec"):null;
-  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor);
-  else (app.firstElementChild||app).appendChild(wrap);
+  // U47: this block belongs to the LEGACY home (the prior-season tab), which is the only
+  // page with a "National leaders" .hsec to anchor to. The banded home already carries all
+  // three of these modules as first-class bands (your-team, the proof row's accuracy line,
+  // the today rail's signature + SoS cards), so there is nothing to add there.
+  // The old fallback appended into app.firstElementChild — on the banded home that is the
+  // STICKY HEADER, which is exactly where the duplicate cards were turning up, pinned and
+  // unscrollable. No anchor now means no injection.
+  if(!(anchor && anchor.parentNode)) return;
+  anchor.parentNode.insertBefore(wrap, anchor);
   await ensureTeamMeta();
   const t=fav?teamMeta[fav]:null;
   if(t){
@@ -9954,11 +9961,11 @@ refreshMyTeamTab();
 // load() begins before this block parses — if the first home render won the race
 // (microtasks run between script blocks), patch the extras in after the fact.
 setTimeout(()=>{ try{
-  if(!document.getElementById("v2hero")
+  if(!document.getElementById("v2hero") && !app.querySelector(".band")
      && /national leaders/i.test(app.textContent||"")){ v2HomeExtras(); liveArm(); }
 }catch(e){} }, 1200);
 setTimeout(()=>{ try{
-  if(!document.getElementById("v2hero")
+  if(!document.getElementById("v2hero") && !app.querySelector(".band")
      && /national leaders/i.test(app.textContent||"")){ v2HomeExtras(); liveArm(); }
 }catch(e){} }, 3500);
 // U47: the views declared in THIS block are invisible to the wrap loop in the first block
