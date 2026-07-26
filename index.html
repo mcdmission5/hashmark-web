@@ -323,6 +323,12 @@
   .schedrow{display:flex;align-items:center;gap:11px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer}
   .schedrow.bowl{background:rgba(246,180,60,.05)}
   .schedres{width:22px;flex:none;font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:13px;text-align:center}
+  /* U21 market chip — deliberately MUTED: context, never a call-to-action */
+  .mktchip{display:inline-block;font-size:10px;font-weight:600;color:var(--text3);
+    border:1px solid var(--line2);border-radius:4px;padding:1px 6px;letter-spacing:.02em;
+    font-family:"IBM Plex Mono",monospace;cursor:help}
+  .mktchip small{font-size:9px;color:var(--text3);opacity:.8}
+  .mktline{padding-top:2px}
   .schedres.w{color:#5BD39A} .schedres.l{color:#E5705C} .schedres.wk{color:var(--text2);font-size:12px;font-weight:600}
   .schedcr{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:9.5px;letter-spacing:.2px;border:1px solid rgba(255,255,255,.14)}
   .schedopp{flex:1;min-width:0}
@@ -1146,12 +1152,17 @@ const KEY = "sb_publishable_3zRtup_n7j9E3aNxcmBsCw_TyZGUhTl"; // browser-safe (R
 const app = document.getElementById("app");
 
 // Universal brand/legal disclaimer — one source of truth, appended to every screen's note.
-// Names & stats only (no team logos, no player photos, no implied endorsement); gambling-free
-// (no betting lines, spreads, or wagering advice); independent of every official body.
+// Names & stats only (no team logos, no player photos, no implied endorsement); gambling-free;
+// independent of every official body.
+/* U21-MARKET-BEGIN (disclaimer copy — scoped vocab-linter exception) */
+// U21 owner decision: a market consensus line may appear as NEUTRAL CONTEXT, so the
+// legal line says exactly that instead of claiming lines are never shown.
 const BRAND_LINE = "<b>Entertainment only — not gambling advice.</b> Independent analytics — team &amp; player names and statistics only; no team " +
-  "logos, no player photos, no implied endorsement. Gambling-free: no betting lines, spreads, or " +
-  "wagering advice. Not affiliated with or endorsed by any school, conference, the NCAA, or the AP. " +
+  "logos, no player photos, no implied endorsement. Gambling-free: no wagering, no sportsbook " +
+  "names or links; any market line shown is third-party consensus context only — never advice. " +
+  "Not affiliated with or endorsed by any school, conference, the NCAA, or the AP. " +
   "<a href=\"privacy.html\" style=\"color:var(--amber);text-decoration:none;font-weight:600\">Privacy Policy</a>.";
+/* U21-MARKET-END */
 // RATINGS VISIBILITY — single switch. When false (preview), every Hashmark-derived number — the
 // 2026 projection board, the offense/defense/conference leaderboards, the team-detail rating
 // breakdown, and the Compare projection — is hidden behind this flag, showing only official info
@@ -1479,6 +1490,44 @@ function gameView(g, teamId){
 function crestEl(cls, name, color){
   return `<div class="${cls}" style="background:${color};color:${textOn(color)}">${monogram(name||"?")}</div>`;
 }
+/* U21-MARKET-BEGIN (market-context chip — scoped vocab-linter exception).
+   Owner-decided informational display: ONE muted consensus chip on game surfaces,
+   ALWAYS alongside Hashmark's own numbers, never advice. Hard guardrails:
+   consensus/aggregate only (market_lines stores no sportsbook identity), no book
+   names/logos/links anywhere, betting vocabulary stays banned outside this block
+   + the BRAND_LINE disclaimer (sync_web check_market_vocab enforces the scope). */
+let marketMap = null;
+async function loadMarketLines(){
+  if(marketMap) return marketMap;
+  marketMap = {};
+  try{
+    const rows = await api(`market_lines?select=game_id,spread,over_under,asof&season=eq.${SEASON_SCHED}&limit=2000`);
+    rows.forEach(r=>marketMap[r.game_id]=r);
+  }catch(e){}
+  return marketMap;
+}
+const MKT_TIP = "Market consensus line, shown for context. Not betting advice — "
+  + "Hashmark is gambling-free and doesn't facilitate betting.";
+const MKT_NOTE = `<b>Market chip.</b> ${MKT_TIP} The number is a consensus/average `
+  + `across books — no individual sportsbook is shown or linked.`;
+function marketChip(g){
+  const m = marketMap && marketMap[g.id];
+  if(!m || g.completed) return "";
+  const s = m.spread==null ? null : Number(m.spread);   // CFBD: negative = home favored
+  let side = "";
+  if(s!=null && s!==0){
+    const fav = s<0 ? g.home_team : g.away_team;
+    if(fav) side = `${esc(fav)} −${Math.abs(s).toFixed(1).replace(/\.0$/,"")}`;
+  } else if(s===0) side = "Pick 'em";
+  const ouN = m.over_under==null ? null : Number(m.over_under);
+  const ou = ouN!=null ? `${side?" · ":""}O/U ${ouN.toFixed(1).replace(/\.0$/,"")}` : "";
+  if(!side && !ou) return "";
+  const d = m.asof ? new Date(m.asof) : null;
+  const when = d ? ` · ${d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}` : "";
+  return `<span class="mktchip" title="${esc(MKT_TIP)}" aria-label="${esc(MKT_TIP)}">`
+    + `Market: ${side}${ou}<small>${when}</small></span>`;
+}
+/* U21-MARKET-END */
 function schedRow(g, teamId, mode){
   const v = gameView(g, teamId);
   const ha = v.neutral?"Neutral":(v.home?"vs":"@");
@@ -1489,9 +1538,10 @@ function schedRow(g, teamId, mode){
   const tap = v.oppId?(mode==="matchup"
     ?` data-mopp="${v.oppId}" data-mven="${v.neutral?"neutral":(v.home?"aHome":"bHome")}"`
     :` data-team="${v.oppId}"`):"";
+  const mkt = !v.done ? marketChip(g) : "";
   return `<div class="schedrow${v.bowl?" bowl":""}"${tap}>${res}
     ${crestEl("schedcr", v.oppName, oppColor(v.oppId))}
-    <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}${!v.done&&gameTimeLine(g)?` · ${esc(gameTimeLine(g))}`:""}</div><div class="on">${esc(v.oppName||"TBD")}</div></div>
+    <div class="schedopp"><div class="ha">${ha}${v.bowl?" · Bowl / CFP":""}${!v.done&&gameTimeLine(g)?` · ${esc(gameTimeLine(g))}`:""}</div><div class="on">${esc(v.oppName||"TBD")}</div>${mkt?`<div class="mktline">${mkt}</div>`:""}</div>
     ${score}</div>`;
 }
 function recordCard(ts, ap){
@@ -1532,11 +1582,13 @@ function scGameRow(g){
       ${crestEl("scc", name, oppColor(id))}<div class="nm">${esc(name||"TBD")}</div>
       <div class="pts">${done?score:""}</div></div>`;
   const boxLink = (done && g.id) ? `<div class="scbox" data-box="${g.id}" data-bteam="${g.home_team_id}">Box score ›</div>` : "";
+  const mkt = !done ? marketChip(g) : "";
   return `<div class="scgame">
     ${when||meta?`<div class="gm"><span>${esc(when)}</span><span>${meta}</span></div>`:""}
     ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
     ${done?"":`<div class="scvs">${g.neutral_site?"vs":"@"}</div>`}
     ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}
+    ${mkt?`<div class="mktline">${mkt}</div>`:""}
     ${boxLink}</div>`;
 }
 async function openScores(){
@@ -1549,6 +1601,7 @@ async function openScores(){
 }
 async function drawScores(){
   const games = await fetchSeasonGames(scoresSeason);
+  if(scoresSeason===SEASON_SCHED) await loadMarketLines();   // U21 chip data (upcoming games only)
   const regWeeks = [...new Set(games.filter(g=>g.season_type!=="postseason").map(g=>g.week))].sort((a,b)=>a-b);
   const hasPost = games.some(g=>g.season_type==="postseason");
   const keys = regWeeks.map(w=>({key:"R"+w, label:""+w, f:g=>g.season_type!=="postseason"&&g.week===w}))
@@ -1580,7 +1633,8 @@ async function drawScores(){
       : "Official 2026 schedule — dates, kickoff times &amp; TV shown as they're announced. Tap a team to open it."}</div>`;
   list.forEach(g=>h+=scGameRow(g));
   if(!list.length) h+=`<div class="loading" style="padding:30px">No games.</div>`;
-  h += `<div class="note"><b>Official ${scoresSeason} ${scoresSeason===SEASON_RESULTS?"results":"schedule"}.</b> Source: CFBD game data. ${BRAND_LINE}</div></div></div>`;
+  const hasMkt = scoresSeason===SEASON_SCHED && list.some(g=>!g.completed && marketMap && marketMap[g.id]);
+  h += `<div class="note"><b>Official ${scoresSeason} ${scoresSeason===SEASON_RESULTS?"results":"schedule"}.</b> Source: CFBD game data. ${hasMkt?MKT_NOTE+" ":""}${BRAND_LINE}</div></div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-ss]").forEach(b=>b.onclick=()=>{ const s=+b.dataset.ss;
@@ -1847,6 +1901,10 @@ function openMethodology(){
       <span data-go="checking" style="color:var(--amber);font-weight:600">Checking Our Work</span>.</div></div>
     <div class="note"><b>Performance evaluation only.</b> Grades are analysis of past play — not
       projections of player futures and not framed for wagering of any kind. ${BRAND_LINE}</div>
+    <div class="sec"><div class="sectitle">The market chip</div><div class="secsub">
+      ${MKT_NOTE} It appears on upcoming games only, next to Hashmark's own numbers — context
+      for how the market sees a game, refreshed daily (more often on gamedays) with its date shown.
+      Hashmark's model never uses it as an input.</div></div>
   </div></div>`;
   document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-go]").forEach(el=>el.onclick=()=>{ const f=HOME_GO[el.dataset.go]; if(f) f(); });
@@ -2426,7 +2484,8 @@ async function drawMatchup(){
   const [statsRows, wp, hh] = await Promise.all([
     api(`team_stat_season?select=team_id,stat_key,value,rank,percentile&season=eq.${S}&team_id=in.(${a},${b})&stat_key=in.(${MATCHUP_STATS.join(",")})`),
     (SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?fetchWinProb(a,b):Promise.resolve(null),
-    fetchH2H(a,b) ]);
+    fetchH2H(a,b), loadMarketLines(),
+    fetchSeasonGames(SEASON_SCHED) ]);   // U21: chip when a real game is scheduled
   renderMatchup(statsRows, wp, hh, S);
   if(MATCHUP_SHOW_MODEL) setTimeout(()=>{ try{ injectMatchupGrid(a,b); }catch(_e){} }, 0);   // P1 heat-grid seam
 }
@@ -2443,6 +2502,13 @@ function renderMatchup(statsRows, wp, hh, S){
   let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div><div class="cmptag">Matchup</div></div>
     <div class="pickrow">${mPickCard("a")}<div class="pickvs">VS</div>${mPickCard("b")}</div>`;
+  // U21: market chip in the matchup header — only when these two teams have a REAL
+  // scheduled game (a hypothetical pairing has no market context)
+  const schedGame = (scoresCache[SEASON_SCHED]||[]).find(g=>!g.completed &&
+    ((String(g.home_team_id)===String(a)&&String(g.away_team_id)===String(b)) ||
+     (String(g.home_team_id)===String(b)&&String(g.away_team_id)===String(a))));
+  const mkchip = schedGame ? marketChip(schedGame) : "";
+  if(mkchip) h+=`<div class="mktline" style="text-align:center;padding:2px 0 6px">${mkchip}</div>`;
   // win probability (ONLY thing from the model; never a rating or margin)
   if(SHOW_PREDICTIONS && MATCHUP_SHOW_MODEL && wp){
     const pA=pWinA(wp,a,b,matchup.venue), paPct=Math.round(pA*100), pbPct=100-paPct;
@@ -2456,7 +2522,7 @@ function renderMatchup(statsRows, wp, hh, S){
         <div class="mwpteam b">${esc(tB.school)}</div></div>
       <div class="mwpbar"><i style="width:${paPct}%"></i></div>
       <div class="venue"><div class="toggle">${venues.map(([v,l])=>`<button data-mv="${v}" class="${matchup.venue===v?"on":""}">${l}</button>`).join("")}</div></div>
-      <div class="mwpnote">Model estimate of how often <b>${esc(fav.school)}</b> wins this matchup (${favPct}%). A probability only — not a prediction, spread, or score. Entertainment only, not gambling advice. Independent &amp; gambling-free.</div>
+      <div class="mwpnote">Model estimate of how often <b>${esc(fav.school)}</b> wins this matchup (${favPct}%). A probability only — not a prediction or a score. Entertainment only, not gambling advice. Independent &amp; gambling-free.</div>
     </div>`;
   }
   // side-by-side official stats with national rank context
@@ -2491,7 +2557,7 @@ function renderMatchup(statsRows, wp, hh, S){
         <div class="h2hw">${esc(winner)} W</div></div>`; });
   } else { h+=`<div class="secsub">No meetings since 2015.</div>`; }
   h+=`</div><div class="navrow" style="padding:4px 2px"><button class="navbtn" id="mshare"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Share matchup card</button></div>`;
-  h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${(SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?" The win probability is a model estimate (percentage only) — no rating, projected score, or betting line is shown.":""} ${BRAND_LINE}</div></div>`;
+  h+=`<div class="note"><b>Matchup — official ${S} stats + historical results.</b> Side-by-side team stats with national ranks, and the head-to-head series (2015–25), from CFBD.${(SHOW_PREDICTIONS&&MATCHUP_SHOW_MODEL)?" The win probability is a model estimate (percentage only) — no rating or projected score is shown.":""} ${mkchip?MKT_NOTE+" ":""}${BRAND_LINE}</div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=navBack;
   const mup=document.querySelector("[data-mup]");
@@ -3988,7 +4054,8 @@ async function openDetail(teamId){
     // batch 12 #3: the page-load fetch carries only what's visible on open (hero, record,
     // chips, the default Schedule panel, ratings) — every bubble panel lazy-loads its own
     // data on first tap and caches it (see wireTeamPanels).
-    const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId)]);
+    const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId),
+      loadMarketLines()]);   // U21: chip data for upcoming schedule rows
     const [team, ap, standing] = await Promise.all([
       api(`teams?select=school,mascot,conference,classification,color,alt_color&id=eq.${teamId}`),
       api(`poll_rankings?select=rank,points&season=eq.2025&poll=eq.AP%20Top%2025&team_id=eq.${teamId}`),
@@ -6514,7 +6581,7 @@ async function openNILEconomy(){
 }
 
 // Batch 8 #2: NIL 2025 — performance vs the money. Reads nil_performance_2025 (robust
-// fit of final-2025 rating percentile ~ log est. spend; bands from residual spread).
+// fit of final-2025 rating percentile ~ log est. spend; bands from residual dispersion).
 // Free teaser = the Indiana headline card; the full board rides the NIL Hashmark+ lane.
 async function openNILPerformance(){
   window.scrollTo(0,0); app.innerHTML=skelView(8);

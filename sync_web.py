@@ -151,6 +151,50 @@ def check_vocab():
     return rc
 
 
+def check_market_vocab():
+    """U21 SCOPED exception linter (owner-decided market chip): market vocabulary
+    ('spread', 'O/U', 'over/under', 'point spread') may appear ONLY inside
+    U21-MARKET-BEGIN/END regions (the chip component + the BRAND_LINE disclaimer);
+    everywhere else in the app it stays banned — the existing pick'em check_vocab,
+    the model-side signature-stats copy linter and the Film Room narration
+    banned-lexicon are unchanged on top of this. Sportsbook NAMES are banned
+    absolutely, with NO region exception (consensus only; ad-policy hygiene)."""
+    import re
+    rc = 0
+    region = re.compile(r"/\* U21-MARKET-BEGIN[\s\S]*?U21-MARKET-END \*/")
+    market = re.compile(r"\bspreads?\b|\bover/under\b|\bO/U\b|point[- ]spread", re.I)
+    books = re.compile(r"draftkings|fanduel|betmgm|caesars|bet365|espn bet|pointsbet|"
+                       r"hard rock bet|fanatics sportsbook", re.I)
+    for rel in LINT_FILES:
+        p = os.path.join(ROOT, rel)
+        if not os.path.exists(p):
+            continue
+        html = open(p).read()
+        regions = region.findall(html)
+        if len(regions) < 2:
+            print(f"MARKET LINT FAIL [{rel}]: expected >=2 U21-MARKET regions "
+                  f"(chip component + disclaimer), found {len(regions)}")
+            rc = 1
+            continue
+        outside = region.sub("", html)
+        hits = sorted(set(m.group(0).lower() for m in market.finditer(outside)))
+        if hits:
+            lines = [i + 1 for i, ln in enumerate(outside.splitlines())
+                     if market.search(ln)][:5]
+            print(f"MARKET LINT FAIL [{rel}]: market vocabulary outside the U21 "
+                  f"regions: {hits} (approx lines {lines})")
+            rc = 1
+        bhits = sorted(set(m.group(0) for m in books.finditer(html)))
+        if bhits:
+            print(f"MARKET LINT FAIL [{rel}]: sportsbook name present "
+                  f"(banned absolutely): {bhits}")
+            rc = 1
+    if not rc:
+        print("market-vocab linter OK — market terms confined to the U21 chip/disclaimer "
+              "regions; zero sportsbook names")
+    return rc
+
+
 # UX batch 4 #2: every full-screen view function (open*) MUST be registered in the
 # nav-stack wrap list, or the Back button silently regresses to Home. Overlays/sheets
 # that never replace the app root are allowlisted. New views fail the build until wired.
@@ -268,8 +312,8 @@ def check():
         return 1
     print("sync check OK — deployed copies match the canonical hashmark-app.html")
     rc = check_engine()
-    return (rc or check_vocab() or check_emoji() or check_nav_registry() or check_nav_policy()
-            or check_sim_tests())
+    return (rc or check_vocab() or check_market_vocab() or check_emoji()
+            or check_nav_registry() or check_nav_policy() or check_sim_tests())
 
 
 def check_sim_tests():
