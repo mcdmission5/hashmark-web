@@ -1657,8 +1657,8 @@ function probitApprox(p){   // Acklam inverse-normal (display-only margin mappin
 }
 function gameHeaderCard(g, st, ratings){
   const line=(id,name,pts,showPts)=>{ const t=teamMeta[id]||{school:name};
-    const rec=st&&st[id]?` <small>${st[id].wins}–${st[id].losses}</small>`:"";
-    const rat=(ratings&&ratings[id]!=null)?`<span class="favtag" data-tip="Hashmark rating (0–100 scale)">HM ${Number(ratings[id]).toFixed(1)}</span>`:"";
+    const rec=(st&&st[id]&&st[id].wins!=null)?` <small>${st[id].wins}–${st[id].losses}</small>`:"";
+    const rat=(ratings&&ratings[id]!=null)?`<span class="favtag" style="background:var(--amber-tint);color:var(--amber)" data-tip="Hashmark power-rating rank (preseason board)">HASHMARK #${ratings[id]}</span>`:"";
     return `<div class="scteam" data-team="${id}">${crestEl("scc",t.school||name,oppColor(id))}
       <div class="nm">${esc(t.school||name||"TBD")}${rec} ${rat}</div>
       <div class="pts">${showPts&&pts!=null?pts:""}</div></div>`; };
@@ -1667,7 +1667,7 @@ function gameHeaderCard(g, st, ratings){
     ${line(g.away_team_id,g.away_team,g.away_points,done)}
     <div class="scvs">${g.neutral_site?"vs · neutral":"@"}</div>
     ${line(g.home_team_id,g.home_team,g.home_points,done)}
-    <div class="gm" style="padding-top:6px"><span>${esc(gameTimeLine(g)||"")}</span><span>${g.season} · ${g.season_type==="postseason"?"Bowl / CFP":"Week "+g.week}</span></div>
+    <div class="gm" style="padding-top:6px;display:flex;justify-content:space-between"><span>${esc(gameTimeLine(g)||"")}</span><span>${g.season} · ${g.season_type==="postseason"?"Bowl / CFP":"Week "+g.week}</span></div>
   </div>`;
 }
 async function openGame(gameId){
@@ -1694,12 +1694,16 @@ async function renderGamePre(g){
   const a=g.home_team_id, b=g.away_team_id, lo=Math.min(+a,+b), hi=Math.max(+a,+b);
   const [stRows, pr, wpRow, hh] = await Promise.all([
     api(`standings?select=team_id,wins,losses&season=eq.${g.season}&team_id=in.(${a},${b})`).catch(()=>[]),
-    SHOW_HASHMARK_RATINGS?api(`power_ratings?select=team_id,overall&season=eq.${SEASON_SCHED}&week=eq.0&team_id=in.(${a},${b})`).catch(()=>[]):[],
+    SHOW_HASHMARK_RATINGS?ensureBoard().catch(()=>null):null,
     api(`matchup_winprob?select=win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&team_a=eq.${lo}&team_b=eq.${hi}`).catch(()=>[]),
     fetchH2H(a,b).catch(()=>[]),
     loadMarketLines() ]);
   const st={}; stRows.forEach(r=>st[r.team_id]=r);
-  const ratings={}; (pr||[]).forEach(r=>ratings[r.team_id]=r.overall);
+  // U37 fix: the chip shows the PUBLIC board RANK (the favcard pattern) — never the
+  // raw internal overall value (published presentation only)
+  const ratings={};
+  if(SHOW_HASHMARK_RATINGS&&Array.isArray(board2026)) [a,b].forEach(id=>{
+    const i=board2026.findIndex(r=>String(r.team_id)===String(id)); if(i>=0) ratings[id]=i+1; });
   const tH=teamMeta[a]||{school:g.home_team}, tA=teamMeta[b]||{school:g.away_team};
   let wpCard="";
   if(SHOW_PREDICTIONS && wpRow[0]){
