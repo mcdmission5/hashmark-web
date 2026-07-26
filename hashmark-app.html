@@ -4493,7 +4493,8 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   if(window._scrollNews){ window._scrollNews=false;
     setTimeout(()=>{ try{ const b=document.querySelector('[data-bub="news"]');
       if(b){ b.click(); b.scrollIntoView({behavior:"smooth", block:"center"}); } }catch(_e){} }, 400); }
-  setTimeout(()=>{ try{ injectTeamViz(teamId); }catch(_e){} }, 0);   // V4/V5 team-page embeds
+  // U33: the V4/V5 gauntlet embed moved INSIDE the Stats bubble's 2026 side
+  // (teamVizSection via tpStatsBody) — no page-level injection anymore.
   // Ask Hashmark entry (P2-E5, now LIVE): injected only when the edge function answers
   // the probe — the section simply never appears while the feature is dark.
   setTimeout(async()=>{ try{
@@ -4554,14 +4555,6 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div></div>
     <div id="tp-panel">${tpSeasonToggle("scseg", SEASON_SCHED)}<div id="tp-schedbody">${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
       || `<div class="secsub" style="padding:10px 2px">No ${SEASON_SCHED} schedule on file yet.</div>`}</div></div>
-    ${hmSection(e.hm, t)}
-    ${e.hm?"":`<div class="sec" style="padding-top:6px">
-      <div class="soon" style="padding:22px 20px 6px">
-        <div class="soonbadge">COMING SOON</div>
-        <div class="soontitle" style="font-size:17px">Hashmark rating — coming soon</div>
-        <div class="soontext" style="font-size:12.5px">${esc(t.school)}'s Hashmark power rating, offense &amp; defense grades and projection will appear here above the official stats when the ratings go live.</div>
-      </div>
-    </div>`}
     <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   document.querySelector(".back").onclick=navBack;
@@ -4641,15 +4634,37 @@ function wireTeamPanels(teamId, t, games, e, swap26){
   // U1 (B1 #2): the Stats panel body for one season — behind the 2026/2025 sub-toggle.
   // U29: this toggle IS the stats archive now (the standalone "2025 Stats" bubble is
   // retired). Season labels ride statProfile's own titles.
+  // U33: the 2026 side LEADS with the Hashmark rating hero + factor bars and the
+  // gauntlet/projections embed (moved from the page body — same renderers, no
+  // recompute); the official profile (or its honest preseason note) follows. The
+  // 2025 side stays the pure final profile, so the season label rides the toggle.
+  const hmBlock=()=> hmSection(e.hm, t) || `<div class="sec" style="padding-top:6px">
+      <div class="soon" style="padding:22px 20px 6px">
+        <div class="soonbadge">COMING SOON</div>
+        <div class="soontitle" style="font-size:17px">Hashmark rating — coming soon</div>
+        <div class="soontext" style="font-size:12.5px">${esc(t.school)}'s Hashmark power rating, offense &amp; defense grades and projection will appear here above the official stats when the ratings go live.</div>
+      </div>
+    </div>`;
+  const loadViz=async()=>{ if(C.data.vizHtml==null)
+      C.data.vizHtml=await teamVizSection(teamId).catch(()=>"");
+    return C.data.vizHtml; };
   const tpStatsBody=async yr=>{
-    if(yr===SEASON_SCHED && !swap26)
-      return `<div class="sec"><div class="sectitle">${SEASON_SCHED} stats</div>
+    if(yr!==SEASON_SCHED){
+      const s=await loadStats();
+      return statProfile(s.cat, statsFor(s.rows, yr), t.school, yr) || emptyNote(`No ${yr} stat profile on file.`);
+    }
+    let body;
+    if(!swap26)
+      body=`<div class="sec"><div class="sectitle">${SEASON_SCHED} stats</div>
         <div class="secsub">${SEASON_SCHED} stats populate as games are played — once ${esc(t.school)} has 3 completed games, this panel carries the current-season profile (ranks + percentiles). Until then, flip the toggle above to <b>${SEASON_RESULTS}</b> for the final ${SEASON_RESULTS} profile.</div></div>`;
-    const s=await loadStats();
-    const rows=statsFor(s.rows, yr);
-    if(yr===SEASON_SCHED && !rows.some(r=>Number(r.season)===SEASON_SCHED))
-      return emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`);
-    return statProfile(s.cat, rows, t.school, yr) || emptyNote(`No ${yr} stat profile on file.`);
+    else{
+      const s=await loadStats();
+      const rows=statsFor(s.rows, yr);
+      body = rows.some(r=>Number(r.season)===SEASON_SCHED)
+        ? (statProfile(s.cat, rows, t.school, yr) || emptyNote(`No ${yr} stat profile on file.`))
+        : emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`);
+    }
+    return hmBlock() + await loadViz() + body;
   };
   // U29: the Schedule panel's sub-toggle bodies — 2026 = the upcoming schedule,
   // 2025 = the final game log (the retired "2025 Schedule" bubble's body, verbatim)
@@ -4712,13 +4727,19 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     });
     if(k==="nil") wireNILPanel(panel, C.data.nil, t);
     // U1 (B1 #2): the Stats panel's 2026/2025 sub-toggle — in-panel swap, no history push
-    if(k==="stats") panel.querySelectorAll("[data-stseg]").forEach(b=>b.onclick=async()=>{
-      panel.querySelectorAll("[data-stseg]").forEach(x=>x.classList.toggle("on",x===b));
-      const body=panel.querySelector("#tp-statsbody");
-      if(!body) return;
-      body.innerHTML=`<div class="loading">Loading…</div>`;
-      body.innerHTML=await tpStatsBody(Number(b.dataset.stseg));
-    });
+    // U33: wirePanel re-runs after the swap so the moved-in #tpodds button re-attaches
+    if(k==="stats"){
+      panel.querySelectorAll("[data-stseg]").forEach(b=>b.onclick=async()=>{
+        panel.querySelectorAll("[data-stseg]").forEach(x=>x.classList.toggle("on",x===b));
+        const body=panel.querySelector("#tp-statsbody");
+        if(!body) return;
+        body.innerHTML=`<div class="loading">Loading…</div>`;
+        body.innerHTML=await tpStatsBody(Number(b.dataset.stseg));
+        wirePanel("stats");
+      });
+      const ob=panel.querySelector("#tpodds");
+      if(ob) ob.onclick=()=>openOddsTimeline(teamId);
+    }
     // U29: the Schedule + Recruiting sub-toggles — same in-panel swap, no history push;
     // wirePanel re-runs after each swap so the new body's handlers (schedule-row
     // matchup taps, the Commits/Prospects/News sub-tabs) re-attach.
@@ -6965,18 +6986,18 @@ function wireNILPanel(panel, n, t){
       The full board lives in NIL Economy under ${SEASON_RESULTS} performance.</div>`;
   };
 }
-async function injectTeamViz(teamId){
-  const host=app.querySelector(".detail .note");   // batch 7 #2: gauntlet embed sits below the rating hero
-  if(!host || !SHOW_HASHMARK_RATINGS || !SHOW_PREDICTIONS) return;
+// U33: the team-page gauntlet/projections embed, as a SECTION STRING for the Stats
+// bubble's 2026 side (was injectTeamViz's page-level DOM insertion — same markup,
+// same gauntletData/gauntletHTML, no recompute). The #tpodds button is wired by
+// wirePanel("stats") since this html lands inside the swappable panel body.
+async function teamVizSection(teamId){
+  if(!SHOW_HASHMARK_RATINGS || !SHOW_PREDICTIONS) return "";
   const {games, wpm}=await gauntletData(teamId);
-  if(!games.length || !wpm.size) return;
-  const d=document.createElement("div");
-  d.innerHTML=`<div class="sec"><div class="sectitle">The gauntlet <small>${SEASON_SCHED} · win odds per game</small></div>
+  if(!games.length || !wpm.size) return "";
+  return `<div class="sec"><div class="sectitle">The gauntlet <small>${SEASON_SCHED} · win odds per game</small></div>
     <div class="secsub">Greener = safer, redder = tougher. Tap a cell for the number; heavy outlines mark the coin-flip-or-worse games.</div>
     ${gauntletHTML(teamId, games, wpm)}
     <div class="navrow" style="padding-top:6px"><button class="navbtn" id="tpodds"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg> Playoff odds over time</button></div></div>`;
-  host.parentNode.insertBefore(d.firstChild, host);
-  const b=document.getElementById("tpodds"); if(b) b.onclick=()=>openOddsTimeline(teamId);
 }
 async function openGauntlet(teamId){
   await ensureTeamMeta(); await ensureBoard();

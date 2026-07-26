@@ -4,7 +4,7 @@
 //   • Navigations: serve cached index.html when offline (SPA fallback).
 //   • Everything cross-origin (Supabase REST data, Google Fonts): straight to the network
 //     (never cache live ratings — data freshness wins). Fonts get an opportunistic cache.
-const VERSION = "hashmark-v62";   // v62: U29 - 2026/2025 sub-toggles in Stats/Schedule/Recruiting; standalone 2025 Stats/Schedule bubbles retired   // v61b: U28 - division-TBD group for unassigned new members   // v60: U27 - honest lookahead watch (board + scores strip)   // v56: U11+U31 - recruiting Commits/Prospects/News sub-tabs + portal News (ungated)
+const VERSION = "hashmark-v63";   // v63: U33 - rating hero + factor bars + gauntlet projections moved INSIDE the Stats bubble (2026 side)   // v62: U29 - 2026/2025 sub-toggles in Stats/Schedule/Recruiting; standalone 2025 Stats/Schedule bubbles retired   // v61b: U28 - division-TBD group for unassigned new members   // v60: U27 - honest lookahead watch (board + scores strip)   // v56: U11+U31 - recruiting Commits/Prospects/News sub-tabs + portal News (ungated)
 const SHELL = [
   "./",
   "./index.html",
