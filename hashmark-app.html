@@ -4537,7 +4537,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   const swap26 = done26>=3;
   const BUBS = [["sched","Schedule"],["news","News"],["standings","Standings"],["stats","Stats"]]
     .concat(swap26?[["splits","Splits"]]:[])
-    .concat([["recruit","Recruiting"],["avail","Injuries"],["portal","Transfer portal"],["nil","NIL"],
+    .concat([["players","Players"],["recruit","Recruiting"],["avail","Injuries"],["portal","Transfer portal"],["nil","NIL"],
       ["leaders","Returning leaders"],["splits25",`${SEASON_RESULTS} Splits`],["honors","Honors"],["staff","Coaching"]]);
   let h = `<div class="detail">
     <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
@@ -4677,17 +4677,94 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     return gameLogSection((C.data.gamelog||[]).filter(g=>g.season<SEASON_SCHED), teamId)
       || emptyNote(`No ${SEASON_RESULTS} results on file.`);
   };
+  // U35: the Players panel — every player's official season stats (player_season),
+  // grouped by position, sortable, with the UG1 composite Hashmark Grade chip where
+  // graded: same primary pick as the player page (qualified-first, then most plays)
+  // and the same LOW SAMPLE badge + SHRINK_TIP, so the chip always matches the page
+  // it taps through to (global [data-player] delegate -> openPlayer).
+  const PL_LINE={passing:[["YDS","yds"],["TD","TD"],["INT","INT"]],
+    rushing:[["CAR","car"],["YDS","yds"],["TD","TD"]],
+    receiving:[["REC","rec"],["YDS","yds"],["TD","TD"]],
+    defensive:[["TOT","tkl"],["TFL","TFL"],["SACKS","sacks"],["INT","INT"]],
+    kicking:[["FGM","FG"],["FGA","att"],["PTS","pts"]]};
+  const PL_GROUPS=[["QB",["QB"]],["Running backs",["RB","FB","HB","TB"]],["Receivers",["WR"]],
+    ["Tight ends",["TE"]],["Offensive line",["OL","OT","OG","C","G","T"]],
+    ["Defensive line",["DL","DE","DT","NT","EDGE"]],["Linebackers",["LB","ILB","OLB","MLB"]],
+    ["Secondary",["DB","CB","S","FS","SS","NB"]],["Special teams",["K","P","LS","PK"]]];
+  const plFmt=v=>{ const n=Number(v); return n%1?n.toFixed(1):n.toLocaleString(); };
+  const loadPlayers=async yr=>{
+    C.data.pl35=C.data.pl35||{};
+    if(!C.data.pl35[yr]){
+      const rows=await J(`player_season?select=athlete_id,player,position,category,stats,headline&team_id=eq.${teamId}&season=eq.${yr}`);
+      let grades=[];
+      if(SHOW_HASHMARK_RATINGS && rows.length){
+        const school=encodeURIComponent(t.school);
+        const [qb,pv]=await Promise.all([
+          J(`qb_value_rating?select=player,plays,rating,percentile,qualified&season=eq.${yr}&team=eq.${school}`),
+          J(`player_value_rating?select=player,role,plays,rating,percentile,qualified&season=eq.${yr}&team=eq.${school}`)]);
+        grades=[...qb.map(r=>({...r,role:"qb"})),...pv];
+      }
+      C.data.pl35[yr]={rows,grades};
+    }
+    return C.data.pl35[yr];
+  };
+  const tpPlayersBody=async yr=>{
+    const {rows,grades}=await loadPlayers(yr);
+    if(!rows.length)
+      return yr===SEASON_SCHED
+        ? emptyNote(`${SEASON_SCHED} player stats populate as games are played — flip the toggle above to <b>${SEASON_RESULTS}</b> for the final ${SEASON_RESULTS} numbers.`)
+        : emptyNote(`No ${yr} player stats on file for this team.`);
+    const P={};
+    rows.forEach(r=>{ const p=P[r.athlete_id]=P[r.athlete_id]||{id:r.athlete_id,name:r.player,
+        pos:String(r.position||"").toUpperCase(),cats:{},top:0};
+      p.cats[r.category]=r.stats||{}; p.top=Math.max(p.top, Number(r.headline)||0); });
+    const G={};
+    grades.forEach(g=>{ const k2=String(g.player||"").toLowerCase(); (G[k2]=G[k2]||[]).push(g); });
+    const gradeOf=nm=>{ const a=G[String(nm||"").toLowerCase()]; if(!a) return null;
+      return a.slice().sort((x,y)=>(y.qualified-x.qualified)||(y.plays-x.plays))[0]; };
+    const sort=C.data.plSort||"prod";
+    const players=Object.values(P).sort(sort==="name"
+      ? (a,b)=>a.name.localeCompare(b.name) : (a,b)=>b.top-a.top);
+    const grp={};
+    players.forEach(p=>{
+      const g=(PL_GROUPS.find(([,codes])=>codes.includes(p.pos))||["Other"])[0];
+      (grp[g]=grp[g]||[]).push(p);
+    });
+    let h=`<div class="sec" style="padding-top:2px"><div class="sectitle">Players — ${yr} season stats${yr===SEASON_RESULTS?" · final":""}</div>
+      <div class="secsub">Official season totals per player, grouped by position; "by production" sorts on each player's top counting stat. Tap a player for the full page${SHOW_HASHMARK_RATINGS&&grades.length?"; the chip is the composite Hashmark Grade (0&ndash;100, 50 = FBS average)":""}. Source: CFBD.</div>
+      <div class="toggle" style="margin:0 0 6px"><button data-plsort="prod"${sort==="prod"?' class="on"':""}>By production</button><button data-plsort="name"${sort==="name"?' class="on"':""}>A&ndash;Z</button></div>`;
+    [...PL_GROUPS.map(x=>x[0]),"Other"].filter(g=>grp[g]).forEach(g=>{
+      h+=`<div class="glseason">${g} (${grp[g].length})</div>`;
+      grp[g].forEach(p=>{
+        const line=CAT_ORDER.filter(c=>p.cats[c]).slice(0,2).map(c=>{
+          const bits=(PL_LINE[c]||[]).map(([k2,l])=>{ const v=p.cats[c][k2];
+            return v==null||v===""?null:`${plFmt(v)} ${l}`; }).filter(Boolean);
+          return bits.length?`${CAT_LABEL[c]||c} ${bits.join(" · ")}`:null; }).filter(Boolean).join(" — ");
+        const gr=gradeOf(p.name);
+        const chip=gr?`<div style="flex:none;text-align:right"><span class="${gr.qualified?"":"gmuted"}" style="font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px${gr.qualified&&gr.rating>=70?";color:var(--amber)":""}">${Number(gr.rating).toFixed(0)}</span>${gr.qualified?"":`<br><span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`}</div>`:"";
+        h+=`<div class="stgame" data-player="${p.id}" style="cursor:pointer"><div class="stopp"><div style="flex:1;min-width:0">
+          <div class="on">${esc(p.name)} <small>${esc(p.pos)}</small></div>
+          <div class="ha">${line||"No counting stats recorded"}</div></div>${chip}</div></div>`;
+      });
+    });
+    return h+`</div>`;
+  };
   const BUILD={
     sched: async()=> tpSeasonToggle("scseg", SEASON_SCHED)
       +`<div id="tp-schedbody">${await tpSchedBody(SEASON_SCHED)}</div>`,
-    // U29: the batch-7 >=3-completed-games swap is the toggle DEFAULT — the panel
-    // lands on 2026 once real games exist, on the final 2025 profile until then.
-    stats: async()=>{ const yr = swap26 ? SEASON_SCHED : SEASON_RESULTS;
-      return tpSeasonToggle("stseg", yr)
-        +`<div id="tp-statsbody">${await tpStatsBody(yr)}</div>`; },
+    // U35 (owner-decided): the Stats panel ALWAYS lands on the 2026 side — the U33
+    // rating hero lives there and should be visible immediately; the final 2025
+    // profile stays one toggle tap away. (Supersedes the U29 swap-based default;
+    // swap26 still picks the 2026 side's CONTENT: profile vs preseason note.)
+    stats: async()=> tpSeasonToggle("stseg", SEASON_SCHED)
+      +`<div id="tp-statsbody">${await tpStatsBody(SEASON_SCHED)}</div>`,
     splits: async()=>{ const sp=await loadSplits();
       return teamSplitsSection((sp||[]).filter(x=>Number(x.season||STAT_SEASON)===SEASON_SCHED), t.school, SEASON_SCHED)
         || emptyNote(`${SEASON_SCHED} situational splits are still processing.`); },
+    // U35: Players bubble — U29-style toggle default (the final season lands until
+    // the team has real current-season games; player_season data follows that swap)
+    players: async()=>{ const yr = swap26 ? SEASON_SCHED : SEASON_RESULTS;
+      return tpSeasonToggle("plseg", yr)+`<div id="tp-playersbody">${await tpPlayersBody(yr)}</div>`; },
     news: async()=> (await teamNewsHTML(teamId))
       || emptyNote("No recent headlines on file for this team."),
     standings: async()=> teamStandingsPanel(teamId, t),
@@ -4759,6 +4836,26 @@ function wireTeamPanels(teamId, t, games, e, swap26){
       body.innerHTML = Number(b.dataset.rcseg)===SEASON_SCHED ? i.rec : i.recPast;
       wirePanel("recruit");
     });
+    // U35: the Players panel's season toggle + in-panel sort chips (both swap-only,
+    // no history push; player taps ride the global [data-player] delegate)
+    if(k==="players"){
+      const plRender=async yr=>{
+        const body=panel.querySelector("#tp-playersbody"); if(!body) return;
+        body.innerHTML=`<div class="loading">Loading…</div>`;
+        body.innerHTML=await tpPlayersBody(yr);
+        wirePanel("players");
+      };
+      const plYr=()=>{ const on=panel.querySelector("[data-plseg].on");
+        return on?Number(on.dataset.plseg):(swap26?SEASON_SCHED:SEASON_RESULTS); };
+      panel.querySelectorAll("[data-plseg]").forEach(b=>b.onclick=async()=>{
+        panel.querySelectorAll("[data-plseg]").forEach(x=>x.classList.toggle("on",x===b));
+        plRender(Number(b.dataset.plseg));
+      });
+      panel.querySelectorAll("[data-plsort]").forEach(b=>b.onclick=()=>{
+        C.data.plSort=b.dataset.plsort;
+        plRender(plYr());
+      });
+    }
   };
   const show=async k=>{
     if(!BUILD[k]) return;
@@ -5290,6 +5387,9 @@ const GLOG_SHOW = {passing:[["YDS","yds"],["TD","TD"]],rushing:[["CAR","car"],["
   receiving:[["REC","rec"],["YDS","yds"],["TD","TD"]],defensive:[["TOT","tot"],["TFL","TFL"],["SACKS","sk"]],
   kicking:[["FGM","FG"],["PTS","pts"]]};
 const CAT_ORDER = ["passing","rushing","receiving","defensive","kicking"];
+// UG1 shrinkage explainer — ONE source for the player page and the U35 team
+// Players panel (the badge must mean the same thing everywhere it appears).
+const SHRINK_TIP="Below the qualifying floor (150 QB plays · 100 carries · 40 targets · 10 kicks), the number shown is shrunk toward 50 — the FBS average — in proportion to sample size, and it ranks nowhere until it qualifies. Small samples lie; the shrinkage says so out loud.";
 
 async function openPlayer(aid){
   window.scrollTo(0,0);
@@ -5362,7 +5462,6 @@ function renderPlayer(aid, idx, seasons, games, grades){
                     rush:"Rush value — includes OL/scheme context",
                     receiving:"Target value — includes QB/scheme context",
                     kicker:"Kicking — points vs distance-based expectation"};
-    const SHRINK_TIP="Below the qualifying floor (150 QB plays · 100 carries · 40 targets · 10 kicks), the number shown is shrunk toward 50 — the FBS average — in proportion to sample size, and it ranks nowhere until it qualifies. Small samples lie; the shrinkage says so out loud.";
     h+=`<div class="sec"><div class="sectitle">Hashmark Grade <small>0–100 · 50 = FBS average · opponent-adjusted</small></div>`;
     const latestSeason=Math.max(...grades.map(g=>Number(g.season)));
     const curG=grades.filter(g=>Number(g.season)===latestSeason)
