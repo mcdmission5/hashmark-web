@@ -786,7 +786,18 @@
     letter-spacing:.03em;cursor:pointer;min-height:88px}
   .ccgpick button small{font-family:"Barlow",sans-serif;font-weight:600;font-size:10.5px;color:var(--text2);letter-spacing:0}
   .ccgpick button:active{border-color:var(--amber)}
-  #statsfab{position:fixed;right:14px;bottom:92px;z-index:55;background:var(--amber);color:#10130c;
+  /* U32 float map (the reconciled design, stated): the Ask bubble OWNS the
+     bottom-right corner on every view; the stats HASHMARK+ pill STACKS directly
+     above it on stats views; the sim RUN pill stays bottom-center; the preview
+     pill stays bottom-left; the U23 search icon lives in the top header. */
+  #askfab{position:fixed;right:14px;bottom:92px;z-index:56;display:flex;align-items:center;
+    gap:7px;background:var(--surface);border:1px solid var(--amber);color:var(--amber);
+    border-radius:999px;padding:13px;min-height:46px;cursor:pointer;max-width:64vw;
+    box-shadow:0 8px 22px rgba(0,0,0,.5);font-family:"Barlow Condensed",sans-serif;
+    font-weight:800;font-size:13px;letter-spacing:.05em}
+  #askfab .ic{width:17px;height:17px;flex:none}
+  #askfab .asklbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #statsfab{position:fixed;right:14px;bottom:148px;z-index:55;background:var(--amber);color:#10130c;
     border:0;border-radius:999px;padding:12px 18px;font-family:"Barlow Condensed",sans-serif;
     font-weight:800;font-size:13px;letter-spacing:.06em;cursor:pointer;
     box-shadow:0 6px 22px rgba(232,182,87,.35)}
@@ -6325,6 +6336,33 @@ function mountHeaderSearch(){
 }
 new MutationObserver(()=>{ try{ mountHeaderSearch(); }catch(_e){} }).observe(app, {childList:true});
 setTimeout(mountHeaderSearch, 0);
+
+// U32: the floating Ask Hashmark bubble — ONE body-level element, re-synced on every
+// view render (same observer pattern as the U23 header icon). Contextual on team
+// pages ("Ask Hashmark about {team}", question pre-scoped); icon-only elsewhere;
+// hidden on the landing splash and while the Ask edge function is dark (probe).
+// Tap -> askGate (Ask stays HASHMARK+; PREVIEW_UNLOCK passes with the pill) ->
+// openAsk, whose sheet already registers navOverlay (U17). The attribute is
+// data-askteam, NEVER data-team — a button with data-team double-fires the body
+// delegate and trips the nav lint (U24 rule).
+async function syncAskFab(){
+  const dark = !(await askProbe());
+  const st=history.state||{};
+  let f=document.getElementById("askfab");
+  if(dark || document.querySelector(".landing")){ if(f) f.remove(); return; }
+  const teamId = (st.v==="team" && st.p && st.p.id!=null) ? st.p.id : null;
+  const tm = (teamId!=null && teamMeta) ? teamMeta[teamId] : null;
+  if(!f){ f=document.createElement("button"); f.id="askfab";
+    f.onclick=async()=>{ if(await askGate()) openAsk(f.dataset.askteam||null); };
+    document.body.appendChild(f); }
+  f.dataset.askteam = teamId!=null ? String(teamId) : "";
+  f.setAttribute("aria-label", tm?`Ask Hashmark about ${tm.school}`:"Ask Hashmark");
+  f.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg>${
+    tm?`<span class="asklbl">Ask Hashmark about ${esc(tm.school)}</span>`:""}`;
+}
+new MutationObserver(()=>{ try{ syncAskFab(); }catch(_e){} }).observe(app, {childList:true});
+window.addEventListener("popstate", ()=>setTimeout(()=>{ try{ syncAskFab(); }catch(_e){} }, 60));
+setTimeout(()=>{ try{ syncAskFab(); }catch(_e){} }, 0);
 
 // batch 12 #2: the HASHMARK. wordmark is a home link from every header variant (main,
 // detail .dtop, compare .cmptop, landing) — pushes a history state like any nav.
