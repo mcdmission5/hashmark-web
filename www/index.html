@@ -4760,6 +4760,17 @@ function wireTeamPanels(teamId, t, games, e, swap26){
   const loadViz=async()=>{ if(C.data.vizHtml==null)
       C.data.vizHtml=await teamVizSection(teamId).catch(()=>"");
     return C.data.vizHtml; };
+  // U14: the team-page Talent Dividend line (latest roster-era season; descriptive)
+  const loadTD=async()=>{ if(C.data.td===undefined){
+      const r=await J(`talent_performance?select=season,residual,resid_rank,n_ranked,wins_above_talent,sustained,coach,tenure_n,excluded,excl_reason,era_label&era=eq.roster&team_id=eq.${teamId}&order=season.desc&limit=1`);
+      C.data.td=r[0]||null; } return C.data.td; };
+  const tdLine=td=>{ if(!td) return "";
+    if(td.excluded) return `<div class="sec"><div class="sectitle">Talent Dividend <small>${td.season} · descriptive</small></div>
+      <div class="secsub"><span class="lowsample">INSUFFICIENT TALENT DATA</span> ${esc(td.excl_reason||"")}. ${esc(td.era_label||"")}.</div></div>`;
+    return `<div class="sec"><div class="sectitle">Talent Dividend <small>${td.season} · descriptive, not a prediction</small></div>
+      <div class="boxrow"><div class="bva" style="font-size:20px;font-weight:800${Number(td.residual)>=0?";color:var(--amber)":""}">${Number(td.residual)>=0?"+":""}${Number(td.residual).toFixed(1)}</div>
+        <div class="bk">points per game vs talent-expected <small>· #${td.resid_rank} of ${td.n_ranked} FBS · ${Number(td.wins_above_talent)>=0?"+":""}${Number(td.wins_above_talent).toFixed(1)} wins above talent per 12 games${td.sustained?` · sustained ${td.sustained==="over"?"over":"under"}performance (${esc(td.coach||"")}, ${td.tenure_n} seasons)`:""}</small></div></div>
+      <div class="secsub">${esc(td.era_label||"")}. <span data-go="tdboard" style="color:var(--amber);font-weight:600;cursor:pointer">Full board</span></div></div>`; };
   // U36b: the season's opponents' stat rows + games, for the OPP column. Opponents
   // come from the schedule (deduped — a rematch doesn't double a season; FCS
   // opponents have no team_id/stat rows and are counted as excluded).
@@ -4800,7 +4811,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
         ? (statProfile(s.cat, rows, t.school, yr, await loadOpp(yr)) || emptyNote(`No ${yr} stat profile on file.`))
         : emptyNote(`${SEASON_SCHED} stats are still processing — check back after this week's rebuild.`);
     }
-    return hmBlock() + await loadViz() + body;
+    return hmBlock() + await loadViz() + tdLine(await loadTD()) + body;
   };
   // U29: the Schedule panel's sub-toggle bodies — 2026 = the upcoming schedule,
   // 2025 = the final game log (the retired "2025 Schedule" bubble's body, verbatim)
@@ -4966,6 +4977,8 @@ function wireTeamPanels(teamId, t, games, e, swap26){
       });
       const ob=panel.querySelector("#tpodds");
       if(ob) ob.onclick=()=>openOddsTimeline(teamId);
+      const tb=panel.querySelector('[data-go="tdboard"]');
+      if(tb) tb.onclick=()=>openSignatureBoard("talent_dividend");   // U14
       setHdrH();   // U36c: refresh --tph so the pinned column header offsets under .dtop
     }
     // U29: the Schedule + Recruiting sub-toggles — same in-panel swap, no history push;
@@ -8832,13 +8845,15 @@ const SIG_META={
   model_vs_poll:["Model vs Poll","Where we rank furthest from the voters.","final poll closer to the model than the poll's preseason rank"],
   gauntlet:["The Gauntlet","The toughest three-game stretch in football.","descriptive — no hit rate"],
   collapse_index:["The Collapse Index","The preseason top-10 regression watch-list.","flagged team finishes outside the final AP Top 25"],
-  lookahead_watch:["Lookahead Watch","Scheduling spots where a top-10 team meets an unranked opponent next to a ranked one — history says watch, not bank.","verified history — no hit rate; never an upset call"]};
+  lookahead_watch:["Lookahead Watch","Scheduling spots where a top-10 team meets an unranked opponent next to a ranked one — history says watch, not bank.","verified history — no hit rate; never an upset call"],
+  talent_dividend:["Talent Dividend","Points per game vs what that roster's talent typically produces — descriptive of the past, never a prediction.","descriptive — no hit rate"]};
 async function openSignatureBoard(key){
   window.scrollTo(0,0); app.innerHTML=skelView(6);
   await ensureTeamMeta();
   const meta=SIG_META[key]||[key,"",""];
   if(PLUS_GATED.signature_full && key!=="collapse_index" &&
      !(await plusUpsell(meta[0], meta[1]+" The full board is a Hashmark+ view; free while we're in preview."))){ openSignature(); return; }
+  if(key==="talent_dividend"){ await renderTalentDividend(meta); return; }   // U14: era-toggle board
   const rows=await api(`signature_stats?select=*&stat_key=eq.${key}&order=rank.asc`).catch(()=>[]);
   // U25: the gauntlet board's stretch is THREE games — the generic 2-driver crop was
   // hiding the third leg. Look the legs up (games by drivers.weeks + the model win prob
@@ -8895,6 +8910,57 @@ async function openSignatureBoard(key){
   app.innerHTML=h;
   document.querySelector(".back").onclick=navBack;
 }
+// U14 — the Talent Dividend board: era toggle (roster 2015+ / class 2002-14,
+// separate fits, NEVER spliced), the two top-10 lists, sustained-tenure badges,
+// floor exclusions listed, and the research's honesty box. Every figure carries
+// its row's own era_label + source (labels ride as data). U26's Talent Bomb is
+// intentionally NOT coupled — it keeps its own simpler definition.
+async function renderTalentDividend(meta, era){
+  era=era||"roster";
+  window.scrollTo(0,0); app.innerHTML=skelView(6);
+  await ensureTeamMeta();
+  const latest=(await api(`talent_performance?select=season&era=eq.${era}&excluded=eq.false&order=season.desc&limit=1`).catch(()=>[]))[0];
+  const yr=latest&&latest.season;
+  const [rows, sus, excl]=await Promise.all([
+    yr?api(`talent_performance?select=*&era=eq.${era}&season=eq.${yr}&excluded=eq.false&order=residual.desc`).catch(()=>[]):[],
+    api(`talent_performance?select=school,team_id,coach,tenure_n,tenure_mean,sustained,season&era=eq.${era}&sustained=not.is.null&order=season.desc&limit=600`).catch(()=>[]),
+    yr?api(`talent_performance?select=school,team_id,excl_reason&era=eq.${era}&season=eq.${yr}&excluded=eq.true`).catch(()=>[]):[] ]);
+  const lbl=rows[0]?rows[0].era_label:"", src=rows[0]?rows[0].source:"";
+  const tenBy={};   // latest row per (school, coach) tenure
+  sus.forEach(r=>{ const k2=r.school+"|"+(r.coach||""); if(!tenBy[k2]) tenBy[k2]=r; });
+  const tens=Object.values(tenBy).sort((x,y)=>Math.abs(Number(y.tenure_mean))-Math.abs(Number(x.tenure_mean)));
+  const line=r=>`<div class="histrow">${crestEl("glcr",(teamMeta[r.team_id]||{}).school||r.school,oppColor(r.team_id))}
+    <div style="flex:1;min-width:0"><span class="pteamlink" data-team="${r.team_id}"><b>${esc(r.school)}</b></span>
+      <small> ${r.coach?esc(r.coach)+" · ":""}#${r.resid_rank} of ${r.n_ranked}${r.sustained?` · <span class="titchip">sustained ${r.sustained==="over"?"over":"under"}performance</span>`:""}</small>
+      <div class="rivnote">${Number(r.wins_above_talent)>=0?"+":""}${Number(r.wins_above_talent).toFixed(1)} wins above talent per 12 games (schedule-sensitive, secondary)</div></div>
+    <div class="bva" style="font-size:16px;font-weight:800${Number(r.residual)>=0?";color:var(--amber)":""}">${Number(r.residual)>=0?"+":""}${Number(r.residual).toFixed(1)}</div></div>`;
+  let h=`<div class="cmp">${backHeader(meta[0])}<div class="list" style="padding-top:6px">
+    <div class="secsub" style="padding:0 2px 8px">${esc(meta[1])} Unit: <b>points per game vs talent-expected</b> — the residual off one national curve (year fixed effects, spline-adjusted). ${esc(lbl)}. ${esc(src)}.</div>
+    <div class="lbtoggle" style="margin:2px 2px 10px">
+      <button data-tdera="roster"${era==="roster"?' class="on"':""}>Roster era 2015+</button>
+      <button data-tdera="class"${era==="class"?' class="on"':""}>Class era 2002&ndash;14</button></div>`;
+  if(!rows.length) h+=`<div class="sec"><div class="secsub">No ${era}-era rows on file.</div></div>`;
+  else{
+    h+=`<div class="sec"><div class="sectitle">Did more with less <small>${yr} season · top 10</small></div>
+      ${rows.slice(0,10).map(line).join("")}</div>
+    <div class="sec"><div class="sectitle">Did less with more <small>${yr} season · bottom 10</small></div>
+      ${rows.slice(-10).reverse().map(line).join("")}</div>
+    <div class="sec"><div class="sectitle">Sustained <small>coach-tenure means · 3+ seasons · badge at 0.5 SD</small></div>
+      ${tens.slice(0,12).map(r=>`<div class="histrow">${crestEl("glcr",(teamMeta[r.team_id]||{}).school||r.school,oppColor(r.team_id))}
+        <div style="flex:1"><span class="pteamlink" data-team="${r.team_id}"><b>${esc(r.school)}</b></span> <small>${esc(r.coach||"")} · ${r.tenure_n} seasons</small></div>
+        <div class="bva" style="font-weight:800${Number(r.tenure_mean)>=0?";color:var(--amber)":""}">${Number(r.tenure_mean)>=0?"+":""}${Number(r.tenure_mean).toFixed(1)}</div></div>`).join("")}
+      <div class="secsub">A sustained badge describes a tenure — it does not promise persistence (overperforming coaches get hired away, and the residual doesn't travel).</div></div>`;
+    if(excl.length) h+=`<div class="sec"><div class="sectitle">Insufficient talent data <small>${yr} · excluded, never numbered</small></div>
+      <div class="secsub">${excl.map(x=>`${esc(x.school)} (${esc((x.excl_reason||"").split(" - ")[0])})`).join(" · ")}</div></div>`;
+  }
+  h+=`<div class="sec"><div class="sectitle">Read this honestly</div><div class="secsub">
+    Talent explains a minority of performance — and less every year (recruiting's weight in public preseason models fell from ~20-25% to ~1-2% over the last decade). 247 prices transfers at their high-school rating, so in the portal era a positive number also means finding underpriced portal production — Indiana's 2025 title run is the marquee case. Scheme and development both move this number ("system + development + acquisition," never just coaching). The composite is thinnest for G5 and new-FBS rosters — hence the floor rule and the exclusions above, not fake precision. Recruit ratings partly reflect brand-program offers, so ranks are safer than absolute values. Pre-2013 class points are retroactive reconstructions. Single seasons contain bounce luck — the multi-year badges are the antidote.</div></div>
+    <div class="note"><b>Talent Dividend — descriptive only.</b> It scores past seasons; it predicts nothing and is not coupled to the model's forecasts (which price the portal directly). ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-tdera]").forEach(b=>b.onclick=()=>{ if(b.dataset.tdera!==era) renderTalentDividend(meta, b.dataset.tdera); });
+}
+
 async function openSignature(){
   window.scrollTo(0,0);
   app.innerHTML=`<div class="loading">Loading signature stats…</div>`;
@@ -8945,7 +9011,8 @@ async function openSignature(){
     ["model_vs_poll","Model vs Poll","The teams we rank furthest from the voters — tracked to a verdict."],
     ["gauntlet","The Gauntlet","The single toughest three-game stretch in football this season."],
     ["talent_bomb","Talent Bomb","Top-25 talent coming off a bottom-60% scoring-margin season — the usual bounce-back list."],
-    ["lookahead_watch","Lookahead Watch","The remaining-schedule sandwich spots — with the honest 91-of-100 history attached."]];
+    ["lookahead_watch","Lookahead Watch","The remaining-schedule sandwich spots — with the honest 91-of-100 history attached."],
+    ["talent_dividend","Talent Dividend","Who did more with less — points per game vs what that roster's talent typically produces."]];
   h+=`<div class="sect-h">The full set</div><div class="xgrid" style="padding:0 2px">`;
   LOCKED.forEach(([key,t2,p])=>{ h+=`<div class="xcard" data-lock="${key}"><svg class="ic" style="color:var(--amber)"><use href="#i-flame"/></svg>
     <h4>${t2} <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></h4><p>${p}</p></div>`; });
