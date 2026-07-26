@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- U46: the display face is SELF-HOSTED from our own origin (fonts/hashmark-display.woff2,
+     31.2 KB subset of Bricolage Grotesque, OFL — see fonts/README.md). No third-party font CDN
+     call for it; relative path so it resolves under the GitHub Pages project subpath too. -->
+<link rel="preload" as="font" type="font/woff2" href="fonts/hashmark-display.woff2" crossorigin>
 <style>
   /* PRIMETIME (games-ux sprint, decided): deep navy under-the-lights base, gold primary,
      teal accent. Semantics unchanged: amber=user, teal=Model, green/red=stat good/bad.
@@ -19,6 +23,8 @@
     --teal:#31E0C8; --teal-tint:rgba(49,224,200,.12);
     --live:#FF5C5C; --loss:#E05B5B;
   }
+
+
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);
     font-family:"Barlow",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
@@ -1148,8 +1154,141 @@
 
   /* PRIMETIME finishing layer: card gradients + restrained glow (lighting, not neon) */
   .sec,.card,.lbcard,.scgame,.recordcard,.xcard{background:linear-gradient(165deg,#151f36,#101828)}
-  .recbig,.dbig{color:var(--amber);text-shadow:0 0 18px rgba(255,190,61,.45)}
+  .dbig{color:var(--amber);text-shadow:0 0 18px rgba(255,190,61,.45)}
+  /* U46 accent discipline: a W-L record is a plain fact - it is neither the user/crowd
+     (amber) nor the Model (teal), so it wears the warm display tier and no glow. */
+  .recbig{color:var(--textw);text-shadow:none}
   .mwprow .mwppct.win{color:#6DF2D8;text-shadow:0 0 16px rgba(49,224,200,.4)}
+
+  /* ══════════════ U46 "PRIMETIME POLISH" — app-wide token pass ══════════════
+     RESTYLE ONLY. Nothing here moves, reorders or adds a layout box; every rule
+     re-dresses markup that already existed (the home rebuild is U47).
+
+     ACCENT CONTRACT (the one rule that governs colour in this app):
+       --amber  = the USER and the CROWD — your team, your picks, what the crowd
+                  thinks, and the primary interactive state.
+       --teal   = the MODEL — anything Hashmark itself computed or predicted.
+       green/red = a stat being good/bad. Team colours = a team's own identity.
+       Nothing else earns an accent. Accents are NEVER decoration: no accent-tinted
+       borders, glows or fills that don't carry one of the meanings above.
+     Set-dressing therefore has to come from LIGHT, not colour - hence the veil /
+     texture / watermark layer below, which is white-on-navy at 2-4% and colourless. */
+  @font-face{
+    font-family:"Hashmark Display";
+    src:url("fonts/hashmark-display.woff2") format("woff2-variations");
+    font-weight:600 800;font-style:normal;font-display:swap;
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,
+      U+2013-2014,U+2018-201A,U+201C-201E,U+2020-2022,U+2026,U+2030,U+2039-203A,
+      U+2044,U+2122,U+2212;
+  }
+  :root{
+    /* display face — always falls back to the existing condensed stack, so a missing
+       font file changes nothing but the texture of the headlines */
+    --display:"Hashmark Display","Barlow Condensed",system-ui,sans-serif;
+    /* warm the TYPE, not the background (dark-first adaptation of the cream comp) */
+    --textw:#F2EFE7;
+    /* display type scale — tight leading, slight negative tracking */
+    --d1:30px; --d2:22px; --d3:18px; --d4:15px;
+    --lh-d:.94; --tr-d:-.018em;
+    /* micro-caps voice (eyebrows, ALL pills, chips, table heads) */
+    --caps-size:9.5px; --caps-track:.16em;
+    /* spacing rhythm */
+    --s1:4px; --s2:8px; --s3:12px; --s4:18px; --s5:26px;
+    /* radius + shadow */
+    --r-chip:999px; --r-card:14px; --r-panel:18px;
+    --sh-card:0 6px 22px rgba(0,0,0,.34); --sh-pop:0 12px 30px rgba(0,0,0,.5);
+    /* band tone (U47 alternates --bg against this) + the amber-to-teal band hairline */
+    --band:#0E1626;
+    /* atmosphere: yard lines every 40px + a hash-mark tick row — white at 2-3.5%, no hue */
+    --tex-yard:repeating-linear-gradient(90deg,rgba(255,255,255,.030) 0 1px,transparent 1px 40px);
+    --tex-hash:repeating-linear-gradient(90deg,transparent 0 18px,rgba(255,255,255,.022) 18px 19px,transparent 19px 40px);
+    --veil:linear-gradient(180deg,rgba(11,17,32,0) 0%,rgba(11,17,32,.55) 62%,rgba(11,17,32,.92) 100%);
+  }
+
+  /* ---- atmosphere layer: one fixed, pointer-transparent stage behind the app.
+     Sub-perceptual by design (a 3% yard-line grid + a 2% hash-tick row + one very
+     soft amber corner flare). Fixed + transform-free, so it can never shift layout. */
+  .wrap{position:relative;isolation:isolate}
+  .wrap::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:var(--tex-yard),var(--tex-hash),
+      radial-gradient(70% 42% at 50% -6%,rgba(255,255,255,.045),transparent 70%);}
+  /* a reusable bottom veil for any stacked/overlaid surface (U47/U48 reuse this) */
+  .veil{position:absolute;inset:0;pointer-events:none;background:var(--veil)}
+  /* ghost display-type watermark — huge, 3.5% white, clipped, never interactive */
+  .ghostwm{position:absolute;pointer-events:none;user-select:none;z-index:0;
+    font-family:var(--display);font-weight:800;letter-spacing:-.04em;line-height:.8;
+    color:rgba(242,239,231,.035);white-space:nowrap;text-transform:uppercase}
+  /* team surface: the school name set huge behind its own header. Absolutely positioned
+     inside an overflow-clipped, already-existing header row -> it occupies no space and
+     cannot move anything; the row keeps its own height. */
+  .dhead{position:relative;overflow:hidden}
+  /* line-height must be >=1 here: the base .ghostwm rule squeezes the line box to .8,
+     which pushes ascenders above the box and the clipped header crops them */
+  .dhead .ghostwm{left:-2px;top:2px;font-size:44px;line-height:1.3;z-index:0}
+  /* the shared veil token, used for real: the watermark dissolves into the page rather
+     than ending on a hard clip edge (same gradient U47/U48 use on band + stage edges) */
+  .dhead::after{content:"";position:absolute;left:0;right:0;bottom:0;height:36px;
+    pointer-events:none;background:var(--veil);z-index:0}
+  .dhead > *:not(.ghostwm){position:relative;z-index:1}
+
+  /* ---- display type: applied to HEADLINE surfaces only. Tabular numerals stay
+     IBM Plex Mono (swapping them would break column alignment) and the wordmark
+     stays Barlow Condensed (a logo is not a token). */
+  .sectitle,.hsectitle,.sechead h2,.dschool,.acchdr,.cmp h2,.card h2,.sec h2{
+    font-family:var(--display);letter-spacing:var(--tr-d);color:var(--textw)}
+  .sectitle{font-weight:700;font-size:var(--d3);line-height:var(--lh-d);margin:16px 0 3px}
+  .hsectitle{font-weight:700;font-size:var(--d3);line-height:var(--lh-d)}
+  .dschool{font-weight:800;font-size:24px;line-height:.96}
+  .acchdr{font-weight:700;font-size:var(--d4);letter-spacing:-.005em}
+  /* the contextual <small> that ~40 section titles already carry becomes ONE
+     micro-caps voice everywhere (no uppercase forcing — several are sentences) */
+  .sectitle small,.hsectitle small{font-family:"IBM Plex Mono",monospace;font-weight:500;
+    font-size:9.5px;letter-spacing:.06em;color:var(--text3);text-transform:none}
+
+  /* ---- micro-caps eyebrow (the "HASHMARK · X" drumbeat) */
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:var(--caps-size);font-weight:600;
+    letter-spacing:var(--caps-track);text-transform:uppercase;color:var(--text3)}
+  .eyebrow.brand{color:var(--text2)}
+  .eyebrow.brand::before{content:"";display:inline-block;width:5px;height:5px;border-radius:999px;
+    background:currentColor;opacity:.55;margin-right:6px;vertical-align:2px}
+
+  /* ---- section grammar: eyebrow / display H2 / count-freshness chip / "ALL" pill */
+  .sechead{display:flex;align-items:flex-end;gap:10px;margin:var(--s4) 2px var(--s2)}
+  .sechead .shl{flex:1;min-width:0}
+  /* h2 is uppercase app-wide (the global h1,h2 rule) - display caps want tracking near
+     zero, not the negative tracking that suits mixed-case display type */
+  .sechead h2{font-weight:700;font-size:var(--d2);line-height:var(--lh-d);margin:4px 0 0;
+    text-transform:uppercase;letter-spacing:-.008em}
+  .sechead .chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .allpill{flex:none;display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 12px;
+    font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--text2);background:var(--surface);
+    border:1px solid var(--line2);border-radius:var(--r-chip);cursor:pointer;white-space:nowrap}
+  .allpill:hover{border-color:var(--amber);color:var(--text)}
+  .allpill .ic{width:11px;height:11px;flex:none}
+
+  /* ---- standardized count / freshness chips ("136 TEAMS", "UPDATED SUNDAY").
+     Neutral by default; .fresh is the only tinted variant and it is teal because
+     freshness is a statement about the MODEL's own pipeline. */
+  .cchip{display:inline-flex;align-items:center;gap:5px;font-family:"IBM Plex Mono",monospace;
+    font-size:9px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);
+    border:1px solid var(--line);border-radius:var(--r-chip);padding:3px 9px;white-space:nowrap}
+  .cchip.count{color:var(--text2)}
+  .cchip.fresh{color:var(--teal);border-color:rgba(49,224,200,.30);background:var(--teal-tint)}
+  .cchip.dot::before{content:"";width:5px;height:5px;border-radius:999px;background:currentColor;
+    flex:none;animation:hmPulse 2.4s infinite}
+
+  /* ---- scroll-reveal: opacity ONLY. A transform would create a containing block
+     and break the sticky sub-headers inside stat panels (U36), and opacity can
+     never move a box — so this contributes exactly 0 to CLS. */
+  .reveal{opacity:0;transition:opacity .5s ease}
+  .reveal.on{opacity:1}
+  /* reduced motion: no fade, no pulse, nothing hidden — content is simply THERE */
+  @media (prefers-reduced-motion: reduce){
+    .reveal{opacity:1!important;transition:none!important}
+    .cchip.dot::before{animation:none!important}
+  }
+  /* ══════════════════════════ end U46 tokens ══════════════════════════ */
 </style>
 </head>
 <body>
@@ -2081,7 +2220,10 @@ async function render2026Home(){
   await ensureTeamMeta();
   let h = header() + `<div class="list">
     <div class="previewbar"><span class="pb-badge">COMING SOON</span><b>Hashmark ratings</b> land here once they're solid — everything below is live ${SEASON_SCHED} data.</div>
-    <div class="hsec" id="cs-anchor"><div class="hsectitle">${SEASON_SCHED} season <small>schedule · strength · signals</small></div></div>
+    <div class="hsec" id="cs-anchor">${secHead("Hashmark · The season", `${SEASON_SCHED} season`,
+      {chip:[{t:"Schedule · strength · signals"},
+             {t:`${Object.keys(teamMeta||{}).length} teams`, kind:"count"}],
+       all:"explore", allLabel:"All tools"})}</div>
     <div class="xgrid" style="padding:0 2px">
       <div class="xcard" data-cs="scores"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg><h4>${SEASON_SCHED} schedule</h4><p>Every game — dates, kickoff times &amp; TV as they're announced.</p></div>
       <div class="xcard" data-cs="sos"><svg class="ic" aria-hidden="true"><use href="#i-ruler"/></svg><h4>Toughest schedules</h4><p>The ${SEASON_SCHED} preseason strength-of-schedule board.</p></div>
@@ -3220,7 +3362,11 @@ async function injectNews(){
     else{ const anchor = app.querySelector(".hsec"); if(!anchor) return;
       div = document.createElement("div"); div.className = "hsec";
       anchor.parentNode.insertBefore(div, anchor.nextSibling); }
-    div.innerHTML = `<div class="hsectitle">Latest <small>around college football</small></div>`
+    // U46: the section grammar (eyebrow / display H2 / count chip / ALL pill). Same
+    // position, same content, same destination as the strip below — dressed properly.
+    div.innerHTML = secHead("Hashmark · News", "Latest",
+        {chip:[{t:"Around college football"},{t:`${items.length} stories`, kind:"count"}],
+         all:"news", allLabel:"All news"})
       + items.slice(0,6).map(newsRow).join("")   // U30: 6 stories free, bar cycles the rest
       + `<div class="newsstrip" id="nsbar" role="button" tabindex="0" aria-label="More headlines — open the news archive">
           <svg class="ic" style="flex:none;color:var(--amber)"><use href="#i-flame"/></svg>
@@ -3263,7 +3409,17 @@ async function openNewsArchive(teamId){
     const teamF=teamId?`&team_tags=cs.{${teamId}}`:"";
     let items=[];
     try{ items=await api(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&published_at=gte.${from}&published_at=lt.${to}${teamF}&order=published_at.desc&limit=500`); }catch(e){}
+    // U46: section grammar with a DERIVED count chip and a freshness chip read off the
+    // newest item actually in this month's result set (never a typed-in claim)
+    const fresh = items.length
+      ? (()=>{ const hrs=Math.round((Date.now()-new Date(items[0].published_at))/36e5);
+               return hrs<1?"Updated just now":hrs<24?`Updated ${hrs}h ago`
+                     :`Newest ${new Date(items[0].published_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}`; })()
+      : null;
     let h=`<div class="cmp">${backHeader("News archive")}<div class="list" style="padding-top:6px">
+      ${secHead("Hashmark · News", "News archive",
+        {chip:[{t:`${items.length}${items.length===500?"+":""} stories`, kind:"count"}]
+              .concat(fresh?[{t:fresh, kind:"fresh", dot:true}]:[])})}
       <div id="newsmonth"></div>`;
     let lastDay=null;
     items.forEach(it=>{ const day=new Date(it.published_at).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
@@ -4689,6 +4845,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
   let h = `<div class="detail">
     <div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
     <div class="dhead">
+      <div class="ghostwm" aria-hidden="true">${esc(t.school)}</div>
       <div class="dcrest" style="background:${c};color:${textOn(t.color)}">${monogram(t.school)}</div>
       <div style="flex:1"><div class="dschool">${esc(t.school)}</div>
         <div class="dconf">${esc(t.mascot?t.mascot+" · ":"")}${esc(t.conference||"")}</div></div>
@@ -5973,8 +6130,12 @@ async function renderStats(){
   // preseason SOS) must never sit under a "2025 season" banner
   const hdrSeason=(statTab==="explorer" && STAT_SEASON_OVERRIDE[exploreStat])
     ? `${STAT_SEASON_OVERRIDE[exploreStat]} preseason` : `${STAT_SEASON} season`;
+  // U46: the data-desk section grammar. Same copy, same position — the counts are DERIVED
+  // (team count from the loaded meta, stat count from the catalog), never typed in.
   let h=`<div class="cmp">`+backHeader("Stats")+`<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 10px">Official stats &amp; analytics · <b>${hdrSeason}</b> · all FBS teams · source CFBD.</div>
+    ${secHead("Hashmark · Data desk", "Official stats",
+      {chip:[{t:hdrSeason},{t:`${Object.keys(teamMeta||{}).length} FBS teams`, kind:"count"},
+             {t:"Source CFBD"}]})}
     <div class="statnav">`;
   [["explorer","Stat explorer"],["leaders","Leaderboards"],["players","Player leaders"],["splits","Splits"],["conf","Conferences"]]
     .forEach(([k,l])=>h+=`<button data-stab="${k}" class="${statTab===k?"on":""}">${l}</button>`);
@@ -6456,6 +6617,88 @@ async function syncAskFab(){
 new MutationObserver(()=>{ try{ syncAskFab(); }catch(_e){} }).observe(app, {childList:true});
 window.addEventListener("popstate", ()=>setTimeout(()=>{ try{ syncAskFab(); }catch(_e){} }, 60));
 setTimeout(()=>{ try{ syncAskFab(); }catch(_e){} }, 0);
+
+// ═══════════════ U46 "Primetime Polish" — the shared section grammar ═══════════════
+// One renderer for the eyebrow / display-H2 / count-chip / "ALL" pill header. Returns a
+// string so every existing template-literal renderer can adopt it in place; nothing here
+// creates or moves a layout box (U47 recomposes the page, this unit only re-dresses it).
+//
+// The ALL pill routes through data-allgo + ONE body delegate rather than each view's local
+// data-go map, so a header can be dropped into any view and its link just works. It is a
+// <span role=button>, not a <button>, and it never carries data-team (the U24 double-fire
+// rule); the arrow is the monoline chevron symbol, never an arrow glyph (emoji linter).
+const ALL_GO = {
+  news:      ()=>openNewsArchive(),
+  leaders:   ()=>openPlayerRankings(),
+  explore:   ()=>openExplore(),
+  standings: ()=>openStandings(),
+  history:   ()=>openHistory(),
+  stats:     ()=>openStats(),
+  signature: ()=>openSignature(),
+};
+// chip: string | {t, kind} | array of either. kind: "count" | "fresh" | "" (neutral)
+function cChip(c){
+  if(c==null || c==="") return "";
+  if(Array.isArray(c)) return c.map(cChip).join("");
+  const o = (typeof c==="string") ? {t:c} : c;
+  const kind = o.kind ? ` ${o.kind}` : "";
+  const dot = o.dot ? " dot" : "";
+  return `<span class="cchip${kind}${dot}">${esc(o.t)}</span>`;
+}
+function secHead(eyebrow, title, opts){
+  const o = opts||{};
+  const eb = eyebrow ? `<div class="eyebrow brand">${esc(eyebrow)}</div>` : "";
+  const chips = o.chip ? `<div class="chiprow">${cChip(o.chip)}</div>` : "";
+  const all = (o.all && ALL_GO[o.all])
+    ? `<span class="allpill" role="button" tabindex="0" data-allgo="${esc(o.all)}"
+         aria-label="${esc(o.allLabel||"See all")}">${esc(o.allLabel||"All")}<svg class="ic"
+         aria-hidden="true"><use href="#i-chev-r"/></svg></span>` : "";
+  // .hsectitle is kept on the H2 so the existing home lookups keep resolving
+  return `<div class="sechead"><div class="shl">${eb}<h2 class="${esc(o.cls||"")}">${esc(title)}</h2>${chips}</div>${all}</div>`;
+}
+document.addEventListener("click", e=>{
+  const p = e.target.closest && e.target.closest("[data-allgo]");
+  if(!p) return;
+  const f = ALL_GO[p.dataset.allgo]; if(f) f();
+});
+document.addEventListener("keydown", e=>{
+  if(e.key!=="Enter" && e.key!==" ") return;
+  const p = e.target.closest && e.target.closest("[data-allgo]");
+  if(!p) return;
+  e.preventDefault(); const f = ALL_GO[p.dataset.allgo]; if(f) f();
+});
+
+// U46 motion: scroll-reveal FADES (opacity only — a transform would create a containing
+// block and break the sticky stat sub-headers, and opacity can never shift a box, so this
+// adds exactly 0 to CLS). Runs on the same #app observer as the header icon / Ask bubble,
+// so future views inherit it. Three safety properties:
+//   • prefers-reduced-motion: the observer is never created at all and no element is ever
+//     marked .reveal — content renders opaque, exactly as before this unit.
+//   • anything already in view reveals on the observer's first synchronous callback.
+//   • a 1.2s failsafe reveals everything regardless, so a missed callback can never leave
+//     a section invisible.
+const HM_REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let _revealIO = null;
+function markReveals(){
+  if(HM_REDUCED) return;
+  if(!_revealIO) _revealIO = new IntersectionObserver(es=>{
+    es.forEach(x=>{ if(x.isIntersecting){ x.target.classList.add("on"); _revealIO.unobserve(x.target); } });
+  }, {rootMargin:"0px 0px -4% 0px", threshold:0.01});
+  // direct children of a view's scroll body only — nested .sec inside .accbody panels and
+  // anything inside an overlay are deliberately not observed
+  app.querySelectorAll(".list > .sec, .list > .card, .list > .hsec, .list > .acc, "
+    + ".detail > .sec, .detail > .recordcard")
+    .forEach(el=>{
+      if(el.dataset.rv) return;
+      el.dataset.rv="1"; el.classList.add("reveal"); _revealIO.observe(el);
+    });
+  // the failsafe is deliberately NOT cancellable: a chatty view (home injects your-team,
+  // teasers and news after its first paint) kept resetting a single shared timer, which
+  // delayed the fade by seconds. Each pass now owns its own 1.2s timer instead.
+  setTimeout(()=>app.querySelectorAll(".reveal").forEach(el=>el.classList.add("on")), 1200);
+}
+new MutationObserver(()=>{ try{ markReveals(); }catch(_e){} }).observe(app, {childList:true});
+setTimeout(()=>{ try{ markReveals(); }catch(_e){} }, 0);
 
 // batch 12 #2: the HASHMARK. wordmark is a home link from every header variant (main,
 // detail .dtop, compare .cmptop, landing) — pushes a history state like any nav.
