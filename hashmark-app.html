@@ -1516,9 +1516,11 @@ function schedRow(g, teamId, mode){
                      : `<div class="schedres wk">${v.bowl?"PS":("W"+v.week)}</div>`;
   const score = v.done ? `<div class="schedsc"><b>${v.ms}</b>–${v.os}</div>`
                        : `<div class="schedsc"><span class="up">${v.home?"home":v.neutral?"neutral":"away"}</span></div>`;
-  const tap = v.oppId?(mode==="matchup"
-    ?` data-mopp="${v.oppId}" data-mven="${v.neutral?"neutral":(v.home?"aHome":"bHome")}"`
-    :` data-team="${v.oppId}"`):"";
+  // U37: schedule rows now open the GAME PAGE (supersedes batch-7's tap=matchup and
+  // the older tap=opponent; both remain one hop away — the game page carries data-team
+  // crests and, pre-game, Hashmark's view of the matchup). Rows without a game id
+  // (rare TBD placeholders) keep the old opponent tap.
+  const tap = g.id?` data-game="${g.id}"`:(v.oppId?` data-team="${v.oppId}"`:"");
   const mkt = !v.done ? marketChip(g) : "";
   return `<div class="schedrow${v.bowl?" bowl":""}"${tap}>${res}
     ${crestEl("schedcr", v.oppName, oppColor(v.oppId))}
@@ -1564,7 +1566,7 @@ function scGameRow(g){
       <div class="pts">${done?score:""}</div></div>`;
   const boxLink = (done && g.id) ? `<div class="scbox" data-box="${g.id}" data-bteam="${g.home_team_id}">Box score ›</div>` : "";
   const mkt = !done ? marketChip(g) : "";
-  return `<div class="scgame">
+  return `<div class="scgame" data-game="${g.id||""}">
     ${when||meta?`<div class="gm"><span>${esc(when)}</span><span>${meta}</span></div>`:""}
     ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
     ${done?"":`<div class="scvs">${g.neutral_site?"vs":"@"}</div>`}
@@ -1622,6 +1624,230 @@ async function drawScores(){
     if(s!==scoresSeason){ scoresSeason=s; scoresWeek=null; drawScores(); window.scrollTo(0,0); } });
   document.querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>{ if(b.dataset.wk!==scoresWeek){
     scoresWeek=b.dataset.wk; drawScores(); window.scrollTo(0,0); } });
+}
+
+// ---------- U37: GAME DETAIL PAGE — one view, pre / live / post off game status ----------
+// Assembled from EXISTING systems: matchup win-prob math + sigma mapping, U21 market chip,
+// value-rating tables (key players), games_history meetings, live_win_prob/live_stat_pace/
+// live_recent_plays (Mac poller tables — the client NEVER calls CFBD), team_game_stats box
+// (openBox), and the U12 game_analysis row REUSED verbatim (never regenerated).
+let _gamePollTimer=null, _gameCur=null;
+function stopGamePoll(reason){
+  if(_gamePollTimer){ clearInterval(_gamePollTimer); _gamePollTimer=null;
+    console.log("[game] live poll STOP ("+(reason||"nav")+")"); }
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden) stopGamePoll("hidden");
+  else if(_gameCur && _gameCur.live && !_gamePollTimer) startGamePoll(_gameCur.id);
+});
+function probitApprox(p){   // Acklam inverse-normal (display-only margin mapping)
+  p=Math.min(0.999,Math.max(0.001,Number(p)));
+  const a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.357751867269,-30.66479806614716,2.506628277459239],
+        b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572],
+        c=[-0.007784894002430293,-0.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783],
+        d=[0.007784695709041462,0.3224671290700398,2.445134137142996,3.754408661907416];
+  const pl=0.02425;
+  let q,r;
+  if(p<pl){ q=Math.sqrt(-2*Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if(p<=1-pl){ q=p-0.5; r=q*q;
+    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1); }
+  q=Math.sqrt(-2*Math.log(1-p));
+  return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+function gameHeaderCard(g, st, ratings){
+  const line=(id,name,pts,showPts)=>{ const t=teamMeta[id]||{school:name};
+    const rec=st&&st[id]?` <small>${st[id].wins}–${st[id].losses}</small>`:"";
+    const rat=(ratings&&ratings[id]!=null)?`<span class="favtag" data-tip="Hashmark rating (0–100 scale)">HM ${Number(ratings[id]).toFixed(1)}</span>`:"";
+    return `<div class="scteam" data-team="${id}">${crestEl("scc",t.school||name,oppColor(id))}
+      <div class="nm">${esc(t.school||name||"TBD")}${rec} ${rat}</div>
+      <div class="pts">${showPts&&pts!=null?pts:""}</div></div>`; };
+  const done=g.completed&&g.home_points!=null;
+  return `<div class="sec" style="padding-bottom:6px">
+    ${line(g.away_team_id,g.away_team,g.away_points,done)}
+    <div class="scvs">${g.neutral_site?"vs · neutral":"@"}</div>
+    ${line(g.home_team_id,g.home_team,g.home_points,done)}
+    <div class="gm" style="padding-top:6px"><span>${esc(gameTimeLine(g)||"")}</span><span>${g.season} · ${g.season_type==="postseason"?"Bowl / CFP":"Week "+g.week}</span></div>
+  </div>`;
+}
+async function openGame(gameId){
+  window.scrollTo(0,0);
+  stopGamePoll("reopen");
+  app.innerHTML=`<div class="loading">Loading game…</div>`;
+  try{
+    await ensureTeamMeta();
+    const g=(await api(`games?select=${GAME_SEL}&id=eq.${gameId}`))[0];
+    if(!g) throw new Error("game not found");
+    const lw=(await api(`live_win_prob?select=fetched_at,status&game_id=eq.${gameId}&order=fetched_at.desc&limit=1`).catch(()=>[]))[0];
+    const liveNow=!g.completed && lw && lw.status==="in_progress"
+      && (Date.now()-new Date(lw.fetched_at).getTime() < 20*60e3);
+    _gameCur={id:gameId, live:liveNow};
+    if(g.completed) await renderGamePost(g);
+    else if(liveNow) await renderGameLive(g);
+    else await renderGamePre(g);
+  }catch(e){
+    app.innerHTML=backHeader("Game")+`<div class="list"><div class="err">Couldn't load this game: ${esc(e.message)}</div></div>`;
+    document.querySelector(".back").onclick=navBack;
+  }
+}
+async function renderGamePre(g){
+  const a=g.home_team_id, b=g.away_team_id, lo=Math.min(+a,+b), hi=Math.max(+a,+b);
+  const [stRows, pr, wpRow, hh] = await Promise.all([
+    api(`standings?select=team_id,wins,losses&season=eq.${g.season}&team_id=in.(${a},${b})`).catch(()=>[]),
+    SHOW_HASHMARK_RATINGS?api(`power_ratings?select=team_id,overall&season=eq.${SEASON_SCHED}&week=eq.0&team_id=in.(${a},${b})`).catch(()=>[]):[],
+    api(`matchup_winprob?select=win_prob_a,win_prob_a_home,win_prob_a_away&season=eq.${SEASON_SCHED}&team_a=eq.${lo}&team_b=eq.${hi}`).catch(()=>[]),
+    fetchH2H(a,b).catch(()=>[]),
+    loadMarketLines() ]);
+  const st={}; stRows.forEach(r=>st[r.team_id]=r);
+  const ratings={}; (pr||[]).forEach(r=>ratings[r.team_id]=r.overall);
+  const tH=teamMeta[a]||{school:g.home_team}, tA=teamMeta[b]||{school:g.away_team};
+  let wpCard="";
+  if(SHOW_PREDICTIONS && wpRow[0]){
+    // venue-aware P(home wins) via the existing matchup math; margin via the
+    // calibrated sigma mapping (a monotone transform of the PUBLIC win prob —
+    // no new precision leaks), phrased as a range, gambling-free
+    const pHome=(+a===lo)
+      ? Number(g.neutral_site?wpRow[0].win_prob_a:wpRow[0].win_prob_a_home)
+      : 1-Number(g.neutral_site?wpRow[0].win_prob_a:wpRow[0].win_prob_a_away);
+    const fav=pHome>=0.5?tH:tA, favP=Math.round(100*Math.max(pHome,1-pHome));
+    const m=Math.abs(probitApprox(Math.max(pHome,1-pHome))*16.75);
+    const rng=`${Math.max(1,Math.round(m-2))}–${Math.round(m+2)}`;
+    wpCard=`<div class="sec"><div class="sectitle">Hashmark's view</div>
+      <div class="boxrow"><div class="bva win">${favP}%</div>
+        <div class="bk"><b>${esc(fav.school)}</b> wins this one ${favP} times in 100
+          <small>projects to a ${rng}-point edge · ${g.neutral_site?"neutral site":"at "+esc(tH.school)}</small></div></div>
+      <div class="secsub">Model estimate — a probability and projected range, not a certainty. Entertainment only.</div></div>`;
+  }
+  const mkt=marketChip(g);
+  let kpCard="";
+  try{
+    const schools=[tH.school,tA.school].map(encodeURIComponent).join(",");
+    const [qb, pv] = await Promise.all([
+      api(`qb_value_rating?select=player,team,rating,percentile&season=eq.${SEASON_RESULTS}&qualified=eq.true&team=in.(${schools})&order=rating.desc&limit=4`).catch(()=>[]),
+      api(`player_value_rating?select=player,team,role,rating,percentile&season=eq.${SEASON_RESULTS}&qualified=eq.true&team=in.(${schools})&order=rating.desc&limit=6`).catch(()=>[]) ]);
+    const rows=[...qb.map(r=>({...r,role:"qb"})),...pv].sort((x,y)=>y.rating-x.rating);
+    const per={}; const picks=[];
+    rows.forEach(r=>{ per[r.team]=(per[r.team]||0); if(per[r.team]<2){ per[r.team]++; picks.push(r); } });
+    if(picks.length) kpCard=`<div class="sec"><div class="sectitle">Key players <small>final ${SEASON_RESULTS} Hashmark Grades</small></div>
+      ${picks.slice(0,4).map(r=>`<div class="boxrow"><div class="bva ${r.rating>=70?"win":""}">${Number(r.rating).toFixed(0)}</div>
+        <div class="bk">${esc(r.player)} <small>${esc(r.team)} · ${esc(r.role)} · ${Math.round(r.percentile||0)}th pct</small></div></div>`).join("")}
+      <div class="secsub">Prior-season value grades — returning status per each team's page.</div></div>`;
+  }catch(e){}
+  let hhCard="";
+  if(hh&&hh.length){
+    hhCard=`<div class="sec"><div class="sectitle">Recent meetings</div>
+      ${hh.slice(0,3).map(m2=>{ const hw=m2.home_points>m2.away_points;
+        return `<div class="boxrow"><div class="bk">${m2.season} · ${esc(m2.away_team)} ${m2.away_points} @ ${esc(m2.home_team)} ${m2.home_points}</div>
+          <div class="bvb"><small>${esc(hw?m2.home_team:m2.away_team)} W</small></div></div>`; }).join("")}</div>`;
+  }
+  app.innerHTML=`<div class="cmp">${backHeader("Game")}<div class="list" style="padding-top:4px">
+    ${gameHeaderCard(g,st,ratings)}
+    ${mkt?`<div class="mktline" style="text-align:center;padding:0 0 6px">${mkt}</div>`:""}
+    ${wpCard}${kpCard}${hhCard}
+    <div class="note"><b>Game preview.</b> Official schedule data (date, time &amp; TV as announced). ${mkt?MKT_NOTE+" ":""}${BRAND_LINE}</div>
+  </div></div>`;
+  document.querySelector(".back").onclick=navBack;
+}
+function wpSparkline(series, color){
+  const W=340,H=120,P=8, n=series.length;
+  if(n<2) return "";
+  const X=i=>P+(i/(n-1))*(W-2*P), Y=v=>H-P-(v*(H-2*P));
+  let path="", dark=false;
+  series.forEach((r,i)=>{ if(r.home_wp==null){ dark=true; return; }
+    path+=(path?" L":"M")+X(i).toFixed(1)+" "+Y(Number(r.home_wp)).toFixed(1); });
+  return `<svg class="quad" viewBox="0 0 ${W} ${H}" style="max-height:130px">
+    <line x1="${P}" y1="${Y(0.5)}" x2="${W-P}" y2="${Y(0.5)}" stroke="var(--line2)" stroke-dasharray="3 3"/>
+    <path d="${path}" fill="none" stroke="${color}" stroke-width="2.2"/>
+    ${dark?`<text x="${W-P}" y="12" text-anchor="end" fill="var(--text3)" font-size="8">OT: probability dark (calibration gate)</text>`:""}
+  </svg>`;
+}
+async function fetchLiveBundle(id){
+  const [series, pace, plays] = await Promise.all([
+    api(`live_win_prob?select=fetched_at,period,clock,status,home_points,away_points,home_wp,leverage,segment&game_id=eq.${id}&order=fetched_at.asc&limit=600`).catch(()=>[]),
+    api(`live_stat_pace?select=fetched_at,team,side,subject_type,subject,stat,so_far,projected,band&game_id=eq.${id}&order=fetched_at.desc&limit=40`).catch(()=>[]),
+    api(`live_recent_plays?select=payload,fetched_at&game_id=eq.${id}&limit=1`).catch(()=>[]) ]);
+  const newest=pace.length?pace[0].fetched_at:null;
+  return {series, pace:pace.filter(p=>p.fetched_at===newest), plays:(plays[0]||{}).payload||null};
+}
+function liveSection(g, bundle){
+  const tH=teamMeta[g.home_team_id]||{school:g.home_team}, tA=teamMeta[g.away_team_id]||{school:g.away_team};
+  const last=bundle.series[bundle.series.length-1];
+  if(!last) return `<div class="sec"><div class="secsub">Live data warming up — first snapshot lands within a few minutes of kickoff.</div></div>`;
+  const wpTxt=last.home_wp==null?"—":Math.round(100*Number(last.home_wp))+"%";
+  return `<div class="sec"><div class="sectitle">Live · Q${last.period} ${esc(last.clock||"")}</div>
+    <div class="mwprow"><div class="mwpteam a">${esc(tA.school)} ${last.away_points}</div>
+      <div class="mwppct b win" style="font-size:13px">${esc(tH.school)} ${last.home_points}</div></div>
+    <div class="boxrow"><div class="bva win">${wpTxt}</div>
+      <div class="bk">${esc(tH.school)} live win probability<small>updated ${new Date(last.fetched_at).toLocaleTimeString()} · house model, probabilities only</small></div></div>
+    ${wpSparkline(bundle.series, hx(tH.color))}
+    ${bundle.plays&&bundle.plays.plays&&bundle.plays.plays.length?`
+      <div class="sectitle" style="padding-top:8px">Recent plays</div>
+      ${bundle.plays.plays.slice(-5).reverse().map(p=>`<div class="boxrow"><div class="bk">${esc(p.text)}<small>${p.down?`Q${p.period||""} · ${["1st","2nd","3rd","4th"][p.down-1]||p.down} &amp; ${p.distance}`:""}</small></div></div>`).join("")}`:""}
+    ${bundle.pace.length?`
+      <div class="sectitle" style="padding-top:8px">On-Track Pace <small>projected finals at current pace</small></div>
+      ${bundle.pace.slice(0,6).map(p=>`<div class="boxrow"><div class="bva">${p.so_far==null?"—":Number(p.so_far).toFixed(0)}</div>
+        <div class="bk">${esc(p.subject||p.team)} ${esc(p.stat)}<small>on track for ~${Number(p.projected).toFixed(0)}${p.band?` ±${Number(p.band).toFixed(0)}`:""}</small></div></div>`).join("")}`:""}
+  </div>`;
+}
+function startGamePoll(id){
+  if(_gamePollTimer) return;
+  console.log("[game] live poll START (45s, Supabase tables only — zero client CFBD)");
+  _gamePollTimer=setInterval(async()=>{
+    const host=document.getElementById("liveout");
+    if(!host || !_gameCur || String(_gameCur.id)!==String(id)){ stopGamePoll("view gone"); return; }
+    try{
+      const g=_gameCur.g, bundle=await fetchLiveBundle(id);
+      const lastRow=bundle.series[bundle.series.length-1];
+      if(lastRow && lastRow.status!=="in_progress"){ stopGamePoll("final"); openGame(id); return; }
+      host.innerHTML=liveSection(g, bundle);
+    }catch(e){}
+  }, 45000);
+}
+async function renderGameLive(g){
+  const bundle=await fetchLiveBundle(g.id);
+  _gameCur={id:g.id, live:true, g};
+  app.innerHTML=`<div class="cmp">${backHeader("Game · LIVE")}<div class="list" style="padding-top:4px">
+    ${gameHeaderCard(g,null,null)}
+    <div id="liveout">${liveSection(g,bundle)}</div>
+    <div class="note"><b>Live.</b> House win-probability + pace models, updated ~every 5 minutes on gamedays; this page refreshes while open. Probabilities and paces only — never a rating. ${BRAND_LINE}</div>
+  </div></div>`;
+  document.querySelector(".back").onclick=navBack;
+  startGamePoll(g.id);
+}
+async function renderGamePost(g){
+  const [tg, fa] = await Promise.all([
+    api(`team_game_stats?select=team_id,points,opp_points,off_epa,off_plays,stats&game_id=eq.${g.id}`).catch(()=>[]),
+    api(`game_analysis?select=season,week,game_id,lead_angle,headline,body,bullets,charts,player_card,narration_mode&game_id=eq.${g.id}`).catch(()=>[]) ]);
+  const row=fa[0]||null;
+  let filmCard;
+  if(row){
+    // U12 analysis row REUSED VERBATIM — never regenerated here. Headline free,
+    // full analysis rides the existing Film Room gate (gatedFilm).
+    filmCard=`<div class="fmcard" id="gpfilm">
+      <span class="fmangle">${FILM_ANGLES[row.lead_angle]||esc(row.lead_angle||"")}</span>
+      <div class="fmhead">${esc(row.headline||"")}</div>
+      <div class="fmmeta">${row.season}, Week ${row.week} · Film Room</div>
+      ${(row.charts&&row.charts[0])?filmChartHTML(row.charts[0],row):""}
+      ${(row.charts&&row.charts[1])?filmChartHTML(row.charts[1],row):""}
+      ${row.player_card?filmChartHTML({kind:"player_card"},row):""}
+      <button class="navbtn" style="width:100%;min-height:38px;margin-top:4px">Full analysis <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div>`;
+  }else{
+    filmCard=`<div class="secsub">No Film Room analysis exists for this game (analyses run Monday mornings in-season, 2025 season onward).</div>`;
+  }
+  const epa=tg.length===2?`<div class="sec"><div class="sectitle">Efficiency</div>
+    ${tg.map(r=>{ const t=teamMeta[r.team_id]||{school:"?"};
+      return `<div class="boxrow"><div class="bva">${r.off_epa!=null?Number(r.off_epa).toFixed(2):"—"}</div>
+        <div class="bk">${esc(t.school)} offense EPA/play<small>${r.off_plays||"—"} plays</small></div></div>`; }).join("")}</div>`:"";
+  app.innerHTML=`<div class="cmp">${backHeader("Game · Final")}<div class="list" style="padding-top:4px">
+    ${gameHeaderCard(g,null,null)}
+    <div class="sec"><div class="sectitle">What happened</div>${filmCard}</div>
+    ${epa}
+    <div class="navrow"><button class="navbtn primary" id="gpbox" style="flex:1">Full box score</button></div>
+    <div class="note"><b>Final.</b> Official result + box from CFBD; the analysis is Hashmark's Film Room read of the play-by-play — every number traces to the computed record. ${BRAND_LINE}</div>
+  </div></div>`;
+  document.querySelector(".back").onclick=navBack;
+  const bx=document.getElementById("gpbox"); if(bx) bx.onclick=()=>openBox(g.id, g.home_team_id);
+  const fc=document.getElementById("gpfilm"); if(fc&&row) fc.onclick=ev=>{ if(ev.target.closest("[data-team]")) return; gatedFilm(row,false); };
 }
 
 function header(){
@@ -2064,7 +2290,7 @@ async function injectYourTeam(){
   host.innerHTML=`<div class="favcard big" data-team="${fav}">${crestEl("favcr",t.school,hx(t.color))}
     <div class="favmeta"><div class="favnm">${esc(t.school)} <span class="favtag">YOUR TEAM</span>${rk?` <span class="favtag" style="background:var(--amber-tint);color:var(--amber)">HASHMARK #${rk}</span>`:""}${pollChip}</div>
       <div class="favsub">${st?`${st.wins}–${st.losses} ${SEASON_RESULTS} · ${esc(shortConf(st.conference||""))} #${st.conf_rank||"—"}`:esc(t.conference||"")}${pre?` · ${SEASON_SCHED} SoS #${pre.sos_rank||"—"}`:""}</div>
-      ${v?`<div class="favsub">Next: ${v.home?"vs":"@"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""}</div>`:""}
+      ${v?`<div class="favsub" ${nxt.id?`data-game="${nxt.id}" role="link" title="Open game page"`:""}>Next: ${v.home?"vs":"@"} ${esc(v.oppName||"TBD")}${gameTimeLine(nxt)?` · ${esc(gameTimeLine(nxt))}`:""} <svg class="ic" style="width:10px;height:10px"><use href="#i-chev-r"/></svg></div>`:""}
       ${news?`<div class="favsub favnews" id="ytnews" role="link" title="Team news">${esc(decodeEnt(news.headline)).slice(0,80)}${news.headline.length>80?"…":""} <svg class="ic" style="width:11px;height:11px"><use href="#i-chev-r"/></svg></div>`:""}</div>
     <div class="favgo">View <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg><small id="ytchange" role="button" style="display:block;color:var(--text3);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding-top:3px">Change</small></div></div>`;
   const yc=document.getElementById("ytchange");
@@ -2890,7 +3116,8 @@ function renderPickem(){
     const res = g.result_team ? ` · <b>${esc(t(g.result_team))} won</b>` : (g.voided ? " · voided (postponed)" : "");
     h += `<div class="sec" style="padding:8px 10px;margin:6px 0">
       <div class="secsub" style="padding:0 0 6px">${new Date(g.kickoff).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"})}
-        ${locked?' · <svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked':""}${crowd}${upset}${res}</div>
+        ${locked?' · <svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked':""}${crowd}${upset}${res}
+        ${g.game_id?` · <span data-game="${g.game_id}" role="link" style="color:var(--amber);font-weight:600;cursor:pointer">Game page ›</span>`:""}</div>
       <div class="navrow">
         <button class="navbtn ${my===g.away_team_id?"primary":""}" data-pk="${g.game_id}" data-pkteam="${g.away_team_id}" ${locked||!signedIn?"disabled":""}>${esc(g.away_team)}</button>
         <span style="align-self:center;color:var(--text2)">@</span>
@@ -5622,6 +5849,15 @@ document.body.addEventListener("click", e=>{
     const open=ah.getAttribute("aria-expanded")==="true";
     ah.setAttribute("aria-expanded", String(!open));
     if(body) body.hidden=open; return; }
+  // U37: delegated game-tile routing (modeled on data-team). Inner interactive
+  // elements ALWAYS win — team links, box links, pick'em PICK buttons (U24 lesson:
+  // action buttons never double-fire), buttons/anchors — the tile background opens
+  // the game page. Sim results carry no data-game (batch-9 exception preserved).
+  const gtile=e.target.closest("[data-game]");
+  if(gtile && gtile.dataset.game && gtile.dataset.game!=="undefined" && gtile.dataset.game!=="null"){
+    const inner=e.target.closest("[data-team],[data-box],[data-pk],[data-pkteam],[data-mopp],[data-fc],button,a");
+    if(!inner || inner===gtile || !gtile.contains(inner)){ openGame(gtile.dataset.game); return; }
+  }
   const row=e.target.closest("[data-team]");
   if(row && row.dataset.team && row.dataset.team!=="undefined" && row.dataset.team!=="null"){   // U24: FCS/TBD opponents template a literal "null"
     // B3 (PRESERVED by U24): inside the simulator, tapping a team (bracket seed, champ
@@ -5644,6 +5880,7 @@ const NAV_ROUTES={
   team:  p=>openDetail(p.id),
   player:p=>openPlayer(p.id),
   scores:()=>openScores(),
+  game:  p=>openGame(p.id),
   stats: p=>openStats(p.tab),
   standings:()=>openStandings(),
   sim:   ()=>openSimulator(),
@@ -5718,6 +5955,7 @@ function navBack(){
 }
 function navPush(v,p){
   if(typeof simHideFab==="function") simHideFab();   // U2: the sim RUN button never outlives its page
+  if(v!=="game"&&typeof stopGamePoll==="function") stopGamePoll("nav");   // U37: live poll never outlives the game page
   navPurgeOverlays();
   if(_navRestoring) return;
   try{
@@ -5729,6 +5967,7 @@ function navPush(v,p){
 }
 window.addEventListener("popstate", e=>{
   if(typeof simHideFab==="function") simHideFab();   // U2: Back off the sim clears the RUN button
+  if(typeof stopGamePoll==="function"&&!(e.state&&e.state.hm&&e.state.v==="game")) stopGamePoll("popstate");   // U37
   if(_ovConsuming){ _ovConsuming=false; return; }     // an ovDismiss consumed this pop
   const st=e.state;
   const depth=(st&&st.hm&&st.ov)||0;
@@ -5764,7 +6003,7 @@ setTimeout(()=>{
  ["openRosterEconomy","rosterecon",id=>({id})],["openPlayerCard","playercard",(a,b2)=>({a,b:b2})],
  // UX batch 4 #2: the views that were missing history states (Back regressed to Home)
  ["openCompare","compare",(a,b2)=>({a,b:b2})],["openMovers","movers"],
- ["openBox","box",(id,team)=>({id,team})],["openPickemBoard","pickemboard"],
+ ["openBox","box",(id,team)=>({id,team})],["openGame","game",id=>({id})],["openPickemBoard","pickemboard"],
  ["openMatchupGrid","matchupgrid",(a,b2)=>({a,b:b2})],["openNILMethodology","nilmethod"],
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
  ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],
@@ -5904,6 +6143,7 @@ const TABSETS={
 };
 const VIEW_SECTION={ home:"home", landing:"home",
   scores:"games", sim:"games", matchup:"games", matchupgrid:"games", box:"games", compare:"games",
+  game:"games",   // U38 rule: every new view maps a section — the game page lives in Games
   pickem:"picks", pickemboard:"picks", crowdmodel:"picks",
   stats:"stats", standings:"stats", standingsboard:"stats", preseason:"stats", signature:"stats",
   sigboard:"stats", whatwins:"stats", playerrank:"stats", quadrant:"stats", luck:"stats",
@@ -5914,7 +6154,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   checking:"explore", accuracy:"explore" };
   // team/player/playercard are reachable from every section, so they are STICKY (keep the current set)
 const VIEW_TAB={ home:"home", scores:"games", sim:"sim", matchup:"matchup", matchupgrid:"matchup",
-  compare:"matchup", box:"games", pickem:"picks", pickemboard:"pkboard", crowdmodel:"crowd",
+  compare:"matchup", box:"games", game:"games", pickem:"picks", pickemboard:"pkboard", crowdmodel:"crowd",
   stats:"stats", preseason:"rankings", signature:"signature", sigboard:"signature",
   whatwins:"whatwins", explore:"explore" };
 let _tabSection="home";
