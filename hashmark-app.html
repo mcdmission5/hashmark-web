@@ -1399,8 +1399,33 @@
     background:radial-gradient(120% 90% at 50% -20%,#17233f,#0d1526 55%,#0a1120)}
   .hero47::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
     background:var(--tex-yard),var(--tex-hash)}
+  /* U48: the hero's veil is NOT the shared --veil any more. --veil starts fully transparent at
+     the top, which was fine over a flat gradient but not over footage: measured against the
+     composited stack the 12.5px sub-copy fell to 2.68:1 and the eyebrow pill to 2.25:1, both
+     under AA. This veil keeps a darkness FLOOR across the whole hero, so every layer beneath it
+     is legible-safe rather than legible-by-luck. Re-measured after the change in the report. */
   .hero47::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-    background:var(--veil)}
+    background:linear-gradient(180deg,rgba(9,14,26,.74) 0%,rgba(9,14,26,.80) 52%,rgba(9,14,26,.95) 100%)}
+  /* U48 layer stack, painted in this order inside .hero47:
+       ::before (yard/hash texture)  ->  .hposter  ->  .hvid  ->  .hcurve  ->  ::after (veil)  ->  copy
+     A pseudo-element ::before paints beneath the element's children and ::after paints above
+     them, so these three z-index:0 children land exactly between the texture and the veil
+     without a single extra stacking context. All three are absolutely positioned, so none of
+     them can contribute layout - CLS stays 0. */
+  .hero47 .hposter,.hero47 .hvid,.hero47 .hcurve{position:absolute;inset:0;width:100%;height:100%;
+    z-index:0;pointer-events:none;border:0}
+  .hero47 .hposter,.hero47 .hvid{object-fit:cover;opacity:.40}
+  .hero47 .hvid{opacity:0;transition:opacity .9s ease}
+  .hero47 .hvid.on{opacity:.40}
+  .hero47 .hcurve{opacity:.92}
+  /* the season/game chip that names the curve's source game */
+  .hero47 .hcchip{position:absolute;right:12px;bottom:10px;z-index:1;
+    font-family:"IBM Plex Mono",monospace;font-size:8px;font-weight:600;letter-spacing:.11em;
+    text-transform:uppercase;color:var(--text2);background:rgba(11,17,32,.55);
+    border:1px solid var(--line);border-radius:999px;padding:3px 8px;pointer-events:none}
+  @media (prefers-reduced-motion: reduce){
+    .hero47 .hvid{display:none!important}
+  }
   .hero47 > *{position:relative;z-index:1}
   .hero47 h1{font-family:var(--display);font-weight:800;font-size:32px;line-height:.94;
     letter-spacing:-.02em;color:var(--textw);margin:10px 0 0;text-transform:uppercase}
@@ -2965,7 +2990,10 @@ const _fmtN = n => Number(n).toLocaleString("en-US");
 // U48 inserts the self-drawing win-probability canvas as the middle layer, nothing else moves.
 function heroBandHTML(){
   const n = Object.keys(teamMeta||{}).length;
-  return `<div class="band"><div class="bandin"><div class="hero47">
+  return `<div class="band"><div class="bandin"><div class="hero47" id="u48-hero">
+    <img class="hposter" id="u48-poster" src="media/hero-football.jpg" alt="" aria-hidden="true"
+         fetchpriority="high" decoding="async" width="1280" height="720">
+    <canvas class="hcurve" id="u48-curve" aria-hidden="true"></canvas>
     <span class="heropill">Hashmark${n?` &middot; ${n} teams`:""} &middot; Gambling-free</span>
     <h1>Every team. Every game.<span class="l2">An honest model.</span></h1>
     <p class="hsub">Official stats, homegrown ratings, and a model that shows its work &mdash; for every FBS team, with nothing sold to a sportsbook.</p>
@@ -2978,6 +3006,180 @@ function heroBandHTML(){
     </div>
   </div></div></div>`;
 }
+
+// ══════════════════ U48 — HERO MOTION STAGE ══════════════════
+// The footage is self-hosted (media/hero-football.*, Pexels License, clearance record in
+// briefs/assets/hero/LICENSE.md and media/LICENSE.md). No third-party video CDN, same rule as
+// U46's self-hosted font. The POSTER is in the first paint and is the LCP candidate; the video
+// element is created in JS after load and never blocks anything.
+//
+// Conditional playback is non-negotiable and every branch is a hard return, not a style tweak:
+//   prefers-reduced-motion: reduce   -> no <video> is ever created; poster + a STATIC curve
+//   saveData / 2g / 3g               -> no <video> is ever created; poster + a static curve
+//   document.hidden                  -> paused (and, learning from U46, never left mid-fade)
+//   hero scrolled out of view        -> paused
+//   decode/network error             -> element removed, poster stays, nothing looks empty
+const U48 = { vid:null, io:null, raf:0, series:null, crowd:null, meta:null, drawnT:0, reduced:false, lite:false };
+
+function u48Reduced(){
+  return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+// Save-Data or a slow effective connection: never spend ~2 MB on decoration.
+function u48Lite(){
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if(!c) return false;
+  if(c.saveData) return true;
+  return /(^|\b)(slow-2g|2g|3g)$/.test(String(c.effectiveType||""));
+}
+
+async function mountHeroStage(){
+  const hero=document.getElementById("u48-hero");
+  if(!hero) return;
+  U48.reduced=u48Reduced(); U48.lite=u48Lite();
+  u48Curve();                                  // the curve runs in every mode (static when it must)
+  if(U48.reduced || U48.lite) return;          // POSTER ONLY - no <video> is created at all
+  if(U48.vid && hero.contains(U48.vid)) return;
+  const v=document.createElement("video");
+  v.className="hvid"; v.id="u48-vid";
+  v.muted=true; v.defaultMuted=true; v.loop=true; v.autoplay=true;
+  v.setAttribute("muted","");   v.setAttribute("loop","");
+  v.setAttribute("playsinline",""); v.setAttribute("autoplay","");
+  v.setAttribute("preload","none");
+  v.setAttribute("poster","media/hero-football.jpg");
+  v.setAttribute("aria-hidden","true");
+  v.innerHTML=`<source src="media/hero-football.webm" type="video/webm">
+    <source src="media/hero-football.mp4" type="video/mp4">`;
+  // A real decode/network failure drops the element; the poster underneath is already painted.
+  // NOTE: only "error" counts. An earlier version also killed on "stalled" with readyState<2 —
+  // but a video that is correctly idle (hidden tab, or hero scrolled away, with preload="none")
+  // sits at readyState 0 and fires stalled, so that guard deleted the element in exactly the
+  // situation the conditional-playback rules are meant to create. Same family of mistake as the
+  // U46 hidden-tab bug: "not playing" is not "broken".
+  const kill=()=>{ try{ v.pause(); }catch(_e){} v.remove(); U48.vid=null; };
+  v.addEventListener("error", kill, {once:true});
+  v.addEventListener("playing", ()=>v.classList.add("on"));
+  const poster=document.getElementById("u48-poster");
+  hero.insertBefore(v, poster ? poster.nextSibling : hero.firstChild);
+  U48.vid=v;
+  try{ v.load(); }catch(_e){}
+  u48Sync();
+  if(!U48.io){
+    U48.io=new IntersectionObserver(es=>{ U48.onScreen=es.some(e=>e.isIntersecting); u48Sync(); },
+      {threshold:0.01});
+  }
+  // seed from a real measurement rather than assuming "visible": the observer's first callback
+  // does not always arrive (a background tab suspends IntersectionObserver entirely), and a
+  // reload that restores a scrolled position would otherwise start the video off-screen.
+  U48.io.disconnect(); U48.onScreen=u48InView(); U48.io.observe(hero);
+}
+
+// one gate for BOTH the video and the curve's rAF: visible document AND hero on screen
+function u48Sync(){
+  const live = !document.hidden && U48.onScreen!==false;
+  const v=U48.vid;
+  if(v && document.body.contains(v)){
+    if(live){ const p=v.play(); if(p&&p.catch) p.catch(()=>{}); }
+    else { try{ v.pause(); }catch(_e){} }
+  }
+  if(U48.reduced){ return; }                    // static curve: no rAF to gate
+  if(live && !U48.raf && U48.series) u48Loop();
+  if(!live && U48.raf){ cancelAnimationFrame(U48.raf); U48.raf=0; }
+}
+function u48InView(){
+  const h=document.getElementById("u48-hero"); if(!h) return false;
+  const r=h.getBoundingClientRect();
+  return r.bottom>0 && r.top<(window.innerHeight||0);
+}
+document.addEventListener("visibilitychange", ()=>{
+  try{ if(!document.hidden) U48.onScreen=u48InView(); u48Sync(); }catch(_e){}
+});
+
+// ---- the curve: a REAL stored win-probability series, drawn teal (U49: teal = the Model).
+// The amber crowd line is drawn ONLY if a real crowd series exists. None is stored for a 2025
+// game — pick'em crowd data starts with Week 1 — and this app does not invent a series to fill
+// a design slot, so today the stage draws one honest line and the chip names the game it is from.
+async function u48Curve(){
+  const cv=document.getElementById("u48-curve");
+  if(!cv) return;
+  if(!U48.series){
+    try{
+      const rows=await api(`game_analysis?select=season,week,charts&order=season.desc,week.desc&limit=8`);
+      let best=null;
+      (rows||[]).forEach(r=>(r.charts||[]).forEach(c=>{
+        if(c.type!=="wp_line" || !Array.isArray(c.series) || c.series.length<40) return;
+        const ys=c.series.map(p=>p[1]), swing=Math.max(...ys)-Math.min(...ys);
+        if(!best || swing>best.swing) best={swing, series:c.series, crowd:(Array.isArray(c.crowd_series)&&c.crowd_series.length)?c.crowd_series:null,
+          meta:`${r.season} · Wk ${r.week} · ${c.away||""} at ${c.home||""}`};
+      }));
+      if(!best) return;
+      U48.series=best.series; U48.crowd=best.crowd; U48.meta=best.meta;
+    }catch(e){ return; }
+  }
+  const hero=document.getElementById("u48-hero");
+  if(hero && U48.meta && !document.getElementById("u48-chip")){
+    const chip=document.createElement("div"); chip.className="hcchip"; chip.id="u48-chip";
+    chip.textContent=U48.meta+" · model win probability";
+    hero.appendChild(chip);
+  }
+  u48Resize();
+  if(U48.reduced){ u48Paint(1); return; }     // reduced motion: the finished curve, no animation
+  // U46's lesson, applied: paint the finished curve ONCE up front, unconditionally. The rAF is
+  // gated on visibility, so a page that first renders in a background tab would otherwise sit
+  // with an empty canvas until the tab came forward. Now the stage is never in a broken state —
+  // the animation just takes over from a complete picture when it is allowed to run.
+  u48Paint(1);
+  U48.drawnT=performance.now();
+  u48Sync();
+}
+function u48Resize(){
+  const cv=document.getElementById("u48-curve"); if(!cv) return;
+  const r=cv.getBoundingClientRect(); const dpr=Math.min(2, window.devicePixelRatio||1);
+  const w=Math.max(1,Math.round(r.width*dpr)), h=Math.max(1,Math.round(r.height*dpr));
+  if(cv.width!==w||cv.height!==h){ cv.width=w; cv.height=h; }
+}
+// progress 0..1 — how much of the curve is drawn
+function u48Paint(progress){
+  const cv=document.getElementById("u48-curve"); if(!cv||!U48.series) return;
+  const x=cv.getContext("2d"); if(!x) return;
+  const W=cv.width, H=cv.height;
+  x.clearRect(0,0,W,H);
+  const pad=Math.round(W*0.06), bottom=H*0.86, top=H*0.30;
+  const X=f=>pad+f*(W-pad*2), Y=p=>bottom-(p*(bottom-top));
+  const line=(pts,colour,width,glow)=>{
+    if(pts.length<2) return;
+    x.beginPath(); x.moveTo(X(pts[0][0]), Y(pts[0][1]));
+    for(let i=1;i<pts.length;i++) x.lineTo(X(pts[i][0]), Y(pts[i][1]));
+    x.strokeStyle=colour; x.lineWidth=width; x.lineJoin="round"; x.lineCap="round";
+    if(glow){ x.shadowColor=colour; x.shadowBlur=glow; } else x.shadowBlur=0;
+    x.stroke(); x.shadowBlur=0;
+  };
+  // 50% reference — neutral, never an accent
+  x.beginPath(); x.moveTo(X(0),Y(0.5)); x.lineTo(X(1),Y(0.5));
+  x.strokeStyle="rgba(234,240,251,.10)"; x.lineWidth=Math.max(1,W*0.0012); x.stroke();
+  const cut=Math.max(2, Math.round(U48.series.length*progress));
+  const shown=U48.series.slice(0,cut);
+  if(U48.crowd) line(U48.crowd.slice(0,Math.round(U48.crowd.length*progress)), "rgba(255,190,61,.75)", Math.max(1.4,W*0.0016), 0);
+  line(shown, "rgba(49,224,200,.95)", Math.max(1.8,W*0.0022), Math.max(6,W*0.008));
+  // live head dot
+  const last=shown[shown.length-1];
+  if(last && progress<1){
+    x.beginPath(); x.arc(X(last[0]), Y(last[1]), Math.max(2.5,W*0.0032), 0, Math.PI*2);
+    x.fillStyle="rgba(49,224,200,1)"; x.shadowColor="rgba(49,224,200,.9)";
+    x.shadowBlur=Math.max(8,W*0.012); x.fill(); x.shadowBlur=0;
+  }
+}
+function u48Loop(){
+  U48.raf=requestAnimationFrame(()=>{
+    U48.raf=0;
+    const DUR=14000, HOLD=2200;
+    const t=(performance.now()-U48.drawnT)%(DUR+HOLD);
+    u48Paint(t>DUR?1:Math.max(0.02,t/DUR));
+    u48Sync();
+  });
+}
+let _u48Rz=null;
+window.addEventListener("resize", ()=>{ clearTimeout(_u48Rz); _u48Rz=setTimeout(()=>{
+  try{ u48Resize(); if(U48.reduced) u48Paint(1); }catch(_e){} }, 180); });
 
 // Band 2 — proof row. Every number is DERIVED at render time and links to its own receipt.
 // The brief's "108,988 games" was U13's one-time SWEEP figure (games scanned), not a stored
@@ -3146,6 +3348,7 @@ async function renderHomeBands(){
   wireToggle();
   wireHomeBubbles();
   wireHomeBands();
+  try{ mountHeroStage(); }catch(_e){}
   injectYourTeam();
   injectNews();
   injectHomeBands();
