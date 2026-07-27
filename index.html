@@ -37,7 +37,11 @@
   :root{
     --bg:#0b1120; --surface:#131C31; --surface2:#182342; --line:rgba(255,255,255,.07);
     --line2:rgba(255,255,255,.12); --tabbar:#0C1326;
-    --text:#EAF0FB; --text2:#7F92B0; --text3:#5A6C8C; --legal:#41506B;
+    --text:#EAF0FB; --text2:#7F92B0;
+    /* U55: --text3 was #5A6C8C, which measured 3.55:1 on --bg, 3.20 on --surface and 3.28 on
+       a card — under WCAG AA for the small micro-caps text it carries, and that was true
+       BEFORE any video existed. Raised until it clears 4.5 on every surface the app paints. */
+    --text3:#7188B0; --legal:#41506B;
     --amber:#FFBE3D; --amber-tint:rgba(255,190,61,.13);
     --teal:#31E0C8; --teal-tint:rgba(49,224,200,.12);
     --live:#FF5C5C; --loss:#E05B5B;
@@ -1425,28 +1429,19 @@
      is legible-safe rather than legible-by-luck. Re-measured after the change in the report. */
   .hero47::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
     background:
-      linear-gradient(100deg,rgba(9,14,26,.93) 0%,rgba(9,14,26,.90) 42%,rgba(9,14,26,.58) 72%,rgba(9,14,26,.42) 100%),
-      linear-gradient(180deg,rgba(9,14,26,.30) 0%,rgba(9,14,26,.10) 45%,rgba(9,14,26,.80) 100%)}
-  /* U48 layer stack, painted in this order inside .hero47:
-       ::before (yard/hash texture)  ->  .hposter  ->  .hvid  ->  .hcurve  ->  ::after (veil)  ->  copy
-     A pseudo-element ::before paints beneath the element's children and ::after paints above
-     them, so these three z-index:0 children land exactly between the texture and the veil
-     without a single extra stacking context. All three are absolutely positioned, so none of
-     them can contribute layout - CLS stays 0. */
-  .hero47 .hposter,.hero47 .hvid,.hero47 .hcurve{position:absolute;inset:0;width:100%;height:100%;
-    z-index:0;pointer-events:none;border:0}
-  .hero47 .hposter,.hero47 .hvid{object-fit:cover;opacity:.48}
-  .hero47 .hvid{opacity:0;transition:opacity .9s ease}
-  .hero47 .hvid.on{opacity:.48}
-  .hero47 .hcurve{opacity:.92}
+      linear-gradient(100deg,rgba(9,14,26,.94) 0%,rgba(9,14,26,.91) 42%,rgba(9,14,26,.66) 72%,rgba(9,14,26,.52) 100%),
+      linear-gradient(180deg,rgba(9,14,26,.34) 0%,rgba(9,14,26,.20) 45%,rgba(9,14,26,.82) 100%)}
+  /* U55: the footage moved OUT of the hero and became the page background (#u55bg below), so
+     the hero no longer carries its own <video>/poster - one file, one decode, for the whole page.
+     The canvas curve stays here; the hero is simply the band where the background reads loudest.
+     Still absolutely positioned => zero layout contribution => CLS unchanged. */
+  .hero47 .hcurve{position:absolute;inset:0;width:100%;height:100%;
+    z-index:0;pointer-events:none;border:0;opacity:.92}
   /* the season/game chip that names the curve's source game */
   .hero47 .hcchip{position:absolute;right:12px;bottom:10px;z-index:1;
     font-family:"IBM Plex Mono",monospace;font-size:8px;font-weight:600;letter-spacing:.11em;
     text-transform:uppercase;color:var(--text2);background:rgba(11,17,32,.55);
     border:1px solid var(--line);border-radius:999px;padding:3px 8px;pointer-events:none}
-  @media (prefers-reduced-motion: reduce){
-    .hero47 .hvid{display:none!important}
-  }
   .hero47 > *{position:relative;z-index:1}
   .hero47 h1{font-family:var(--display);font-weight:800;font-size:32px;line-height:.94;
     letter-spacing:-.02em;color:var(--textw);margin:10px 0 0;text-transform:uppercase}
@@ -1536,6 +1531,58 @@
   .briefband .ghostwm{right:-8px;bottom:-16px;font-size:64px;line-height:1;opacity:1}
   .briefband > *{position:relative;z-index:1}
   /* ══════════════════════════ end U47 bands ══════════════════════════ */
+
+  /* ══════════════ U55 — FULL-PAGE VIDEO BACKGROUND ══════════════
+     ONE encoded file (four scenes already crossfaded, media/LICENSE.md) mounted once behind the
+     whole home page. position:fixed so it stays put while the page scrolls over it.
+
+     READABILITY IS THE RISK - it is what U48's AA bug was. The rule here: copy never sits directly
+     on moving footage. Every band that carries text gets its own near-opaque scrim, and the video
+     is allowed to read at the band EDGES and through the hero, between the cards rather than under
+     the paragraphs. Measured contrast per band on the loop's BRIGHTEST frame is in the report. */
+  #u55bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+    background:#0b1120}
+  #u55bg .u55m{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    opacity:.52;border:0}
+  #u55bg .u55v{opacity:0;transition:opacity 1.1s ease}
+  #u55bg .u55v.on{opacity:.52}
+  /* global veil over the footage: a floor of darkness everywhere plus extra weight low down,
+     so even a fully transparent band edge never exposes raw bright footage under text */
+  #u55bg::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(9,14,26,.58) 0%,rgba(9,14,26,.50) 42%,rgba(9,14,26,.78) 100%)}
+  /* the app column sits above the background; the shell must not paint over it */
+  .wrap{background:transparent!important}
+  body.u55-on .wrap::before{opacity:.55}
+  #app{position:relative;z-index:1}
+  header{background:rgba(11,17,32,.94)!important}
+
+  /* ---- per-band scrims. Near-opaque through the middle (where the text lives), softer at the
+     top and bottom edges so the footage breathes BETWEEN bands rather than under copy. ---- */
+  /* the EDGE alpha is not a taste decision: it is the softest point of the scrim, so it sets the
+     worst case for the smallest text tier. Measured on the loop's brightest frame, .55 put
+     --text3 at 4.07:1; these values are the lowest that keep every tier at AA. */
+  body.u55-on .band{
+    background:linear-gradient(180deg,
+      rgba(11,17,32,.80) 0%, rgba(11,17,32,.94) 14%,
+      rgba(11,17,32,.94) 86%, rgba(11,17,32,.80) 100%)}
+  body.u55-on .band.raised{
+    background:linear-gradient(180deg,
+      rgba(14,22,38,.84) 0%, rgba(14,22,38,.96) 14%,
+      rgba(14,22,38,.96) 86%, rgba(14,22,38,.84) 100%)}
+  /* the hero band is the one place the footage is meant to be seen: no band scrim, the hero's own
+     directional veil (U48) does the contrast work and is measured with the rest */
+  body.u55-on .band:first-child{background:none}
+  /* the closing note + the app-level surfaces keep their own solid backgrounds */
+  body.u55-on .note{background:rgba(11,17,32,.93)}
+  /* cards inside bands already carry their own gradient fill from U46; make them fully opaque so
+     no paragraph is ever composited against moving video */
+  body.u55-on .sec,body.u55-on .card,body.u55-on .lbcard,body.u55-on .scgame,
+  body.u55-on .recordcard,body.u55-on .xcard,body.u55-on .flagcard,body.u55-on .mboard,
+  body.u55-on .tcard,body.u55-on .briefband,body.u55-on .teamchip,body.u55-on .newsline{
+    background-color:#111a2c}
+  body.u55-on .flagcard{background:linear-gradient(160deg,#0E1A16,#111a2c 60%)}
+  body.u55-on .newsline{background:transparent}
+  /* ══════════════════════════ end U55 background ══════════════════════════ */
 </style>
 </head>
 <body>
@@ -3012,8 +3059,6 @@ const _fmtN = n => Number(n).toLocaleString("en-US");
 function heroBandHTML(){
   const n = Object.keys(teamMeta||{}).length;
   return `<div class="band"><div class="bandin"><div class="hero47" id="u48-hero">
-    <img class="hposter" id="u48-poster" src="media/hero-football.jpg" alt="" aria-hidden="true"
-         fetchpriority="high" decoding="async" width="1280" height="720">
     <canvas class="hcurve" id="u48-curve" aria-hidden="true"></canvas>
     <span class="heropill">Hashmark${n?` &middot; ${n} teams`:""} &middot; Gambling-free</span>
     <h1>Every team. Every game.<span class="l2">An honest model.</span></h1>
@@ -3040,6 +3085,7 @@ function heroBandHTML(){
 //   document.hidden                  -> paused (and, learning from U46, never left mid-fade)
 //   hero scrolled out of view        -> paused
 //   decode/network error             -> element removed, poster stays, nothing looks empty
+const U55 = { vid:null, mounted:false, reason:null, fps:null, fpsOk:false, probed:false };
 const U48 = { vid:null, io:null, raf:0, series:null, crowd:null, meta:null, drawnT:0, reduced:false, lite:false };
 
 function u48Reduced(){
@@ -3057,46 +3103,95 @@ async function mountHeroStage(){
   const hero=document.getElementById("u48-hero");
   if(!hero) return;
   U48.reduced=u48Reduced(); U48.lite=u48Lite();
-  u48Curve();                                  // the curve runs in every mode (static when it must)
-  if(U48.reduced || U48.lite) return;          // POSTER ONLY - no <video> is created at all
-  if(U48.vid && hero.contains(U48.vid)) return;
-  const v=document.createElement("video");
-  v.className="hvid"; v.id="u48-vid";
-  v.muted=true; v.defaultMuted=true; v.loop=true; v.autoplay=true;
-  v.setAttribute("muted","");   v.setAttribute("loop","");
-  v.setAttribute("playsinline",""); v.setAttribute("autoplay","");
-  v.setAttribute("preload","none");
-  v.setAttribute("poster","media/hero-football.jpg");
-  v.setAttribute("aria-hidden","true");
-  v.innerHTML=`<source src="media/hero-football.webm" type="video/webm">
-    <source src="media/hero-football.mp4" type="video/mp4">`;
-  // A real decode/network failure drops the element; the poster underneath is already painted.
-  // NOTE: only "error" counts. An earlier version also killed on "stalled" with readyState<2 —
-  // but a video that is correctly idle (hidden tab, or hero scrolled away, with preload="none")
-  // sits at readyState 0 and fires stalled, so that guard deleted the element in exactly the
-  // situation the conditional-playback rules are meant to create. Same family of mistake as the
-  // U46 hidden-tab bug: "not playing" is not "broken".
-  const kill=()=>{ try{ v.pause(); }catch(_e){} v.remove(); U48.vid=null; };
-  v.addEventListener("error", kill, {once:true});
-  v.addEventListener("playing", ()=>v.classList.add("on"));
-  const poster=document.getElementById("u48-poster");
-  hero.insertBefore(v, poster ? poster.nextSibling : hero.firstChild);
-  U48.vid=v;
-  try{ v.load(); }catch(_e){}
-  u48Sync();
+  u48Curve();                      // the curve runs in every mode (static when it must)
+  mountPageBackground();           // U55: the footage is now the page background, not a hero child
   if(!U48.io){
     U48.io=new IntersectionObserver(es=>{ U48.onScreen=es.some(e=>e.isIntersecting); u48Sync(); },
       {threshold:0.01});
   }
   // seed from a real measurement rather than assuming "visible": the observer's first callback
   // does not always arrive (a background tab suspends IntersectionObserver entirely), and a
-  // reload that restores a scrolled position would otherwise start the video off-screen.
+  // reload that restores a scrolled position would otherwise start the curve off-screen.
   U48.io.disconnect(); U48.onScreen=u48InView(); U48.io.observe(hero);
+}
+
+// ══════════════════ U55 — the page background ══════════════════
+// ONE fixed layer behind the whole home page: poster first (the LCP element), video attached
+// after load and only when every condition allows it. All four U48 conditional paths are kept
+// verbatim; U55 adds a fifth — a measured scroll-FPS rule for small/low-power devices.
+function u55Small(){
+  const w = Math.min(window.innerWidth||9999, (screen&&screen.width)||9999);
+  const mem = navigator.deviceMemory || 8;
+  const cores = navigator.hardwareConcurrency || 8;
+  return w<=430 || mem<=4 || cores<=4;
+}
+function mountPageBackground(){
+  if(document.getElementById("u55bg")) return;
+  const bg=document.createElement("div"); bg.id="u55bg"; bg.setAttribute("aria-hidden","true");
+  const img=document.createElement("img");
+  img.className="u55m u55p"; img.id="u55-poster"; img.alt=""; img.decoding="async";
+  img.setAttribute("fetchpriority","high"); img.width=1280; img.height=720;
+  img.src="media/home-bg.jpg";
+  bg.appendChild(img);
+  document.body.insertBefore(bg, document.body.firstChild);
+  document.body.classList.add("u55-on");
+  U55.mounted=true;
+  // POSTER ONLY in every one of these: no <video> element is ever created.
+  if(U48.reduced || U48.lite){ U55.reason = U48.reduced ? "reduced-motion" : "save-data/slow-network"; return; }
+  if(u55Small() && !U55.fpsOk){ U55.reason="small-or-low-power (pending fps probe)"; u55FpsProbe(); return; }
+  attachBackgroundVideo();
+}
+function attachBackgroundVideo(){
+  const bg=document.getElementById("u55bg");
+  if(!bg || document.getElementById("u55-vid")) return;
+  const v=document.createElement("video");
+  v.className="u55m u55v"; v.id="u55-vid";
+  v.muted=true; v.defaultMuted=true; v.loop=true; v.autoplay=true;
+  v.setAttribute("muted",""); v.setAttribute("loop","");
+  v.setAttribute("playsinline",""); v.setAttribute("autoplay","");
+  v.setAttribute("preload","none"); v.setAttribute("poster","media/home-bg.jpg");
+  v.setAttribute("aria-hidden","true");
+  v.innerHTML='<source src="media/home-bg.webm" type="video/webm">'
+            + '<source src="media/home-bg.mp4" type="video/mp4">';
+  // only a real decode/network error is fatal (U48's lesson: "not playing" is not "broken")
+  v.addEventListener("error", ()=>{ try{ v.pause(); }catch(_e){} v.remove(); U55.vid=null;
+    U55.reason="decode/network error - poster retained"; }, {once:true});
+  v.addEventListener("playing", ()=>v.classList.add("on"));
+  bg.appendChild(v); U55.vid=v; U55.reason="playing";
+  try{ v.load(); }catch(_e){}
+  u48Sync();
+}
+// U55 mobile rule: measure real scroll FPS with the fixed layer live before committing to video.
+// A janky scroll is worse than no video, so the probe runs on the POSTER and only promotes to
+// video if the frame rate holds up.
+function u55FpsProbe(){
+  if(U55.probed) return; U55.probed=true;
+  let frames=0, last=performance.now(), worst=Infinity;
+  const started=last;
+  const tick=(t)=>{ const dt=t-last; last=t; frames++;
+    if(dt>0){ const fps=1000/dt; if(fps<worst) worst=fps; }
+    if(t-started<1200) requestAnimationFrame(tick);
+    else{
+      const avg=frames/((t-started)/1000);
+      U55.fps={avg:+avg.toFixed(1), worst:+worst.toFixed(1)};
+      // promote only if the page is genuinely smooth while the fixed layer is composited
+      if(avg>=50 && worst>=24){ U55.fpsOk=true; U55.reason="fps ok - video promoted"; attachBackgroundVideo(); }
+      else U55.reason="fps too low ("+U55.fps.avg+" avg) - poster only";
+    }
+  };
+  requestAnimationFrame(tick);
 }
 
 // one gate for BOTH the video and the curve's rAF: visible document AND hero on screen
 function u48Sync(){
   const live = !document.hidden && U48.onScreen!==false;
+  // U55: the page background obeys the same gate. It is position:fixed, so "scrolled away" no
+  // longer applies to it - only document visibility does; the hero's IO still gates the curve.
+  const bgv=U55.vid;
+  if(bgv && document.body.contains(bgv)){
+    if(!document.hidden){ const p=bgv.play(); if(p&&p.catch) p.catch(()=>{}); }
+    else { try{ bgv.pause(); }catch(_e){} }
+  }
   const v=U48.vid;
   if(v && document.body.contains(v)){
     if(live){ const p=v.play(); if(p&&p.catch) p.catch(()=>{}); }
