@@ -1405,7 +1405,9 @@
      under AA. This veil keeps a darkness FLOOR across the whole hero, so every layer beneath it
      is legible-safe rather than legible-by-luck. Re-measured after the change in the report. */
   .hero47::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-    background:linear-gradient(180deg,rgba(9,14,26,.74) 0%,rgba(9,14,26,.80) 52%,rgba(9,14,26,.95) 100%)}
+    background:
+      linear-gradient(100deg,rgba(9,14,26,.93) 0%,rgba(9,14,26,.90) 42%,rgba(9,14,26,.58) 72%,rgba(9,14,26,.42) 100%),
+      linear-gradient(180deg,rgba(9,14,26,.30) 0%,rgba(9,14,26,.10) 45%,rgba(9,14,26,.80) 100%)}
   /* U48 layer stack, painted in this order inside .hero47:
        ::before (yard/hash texture)  ->  .hposter  ->  .hvid  ->  .hcurve  ->  ::after (veil)  ->  copy
      A pseudo-element ::before paints beneath the element's children and ::after paints above
@@ -1414,9 +1416,9 @@
      them can contribute layout - CLS stays 0. */
   .hero47 .hposter,.hero47 .hvid,.hero47 .hcurve{position:absolute;inset:0;width:100%;height:100%;
     z-index:0;pointer-events:none;border:0}
-  .hero47 .hposter,.hero47 .hvid{object-fit:cover;opacity:.40}
+  .hero47 .hposter,.hero47 .hvid{object-fit:cover;opacity:.48}
   .hero47 .hvid{opacity:0;transition:opacity .9s ease}
-  .hero47 .hvid.on{opacity:.40}
+  .hero47 .hvid.on{opacity:.48}
   .hero47 .hcurve{opacity:.92}
   /* the season/game chip that names the curve's source game */
   .hero47 .hcchip{position:absolute;right:12px;bottom:10px;z-index:1;
