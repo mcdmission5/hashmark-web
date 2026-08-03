@@ -1717,7 +1717,10 @@ function textOn(bg){const h=hx(bg).replace("#","");if(h.length<6)return"#fff";
 // refresh in the background so the next render is current.
 const _apiCache=new Map();
 function _apiTTL(q){
-  if(/^live_/.test(q)) return 0;                                   // live: never
+  // loop_heartbeat joined the never-cache set in the watchdog hardening: a health read
+  // served from the default 3h bucket showed DEAD for hours after a heal — and would have
+  // shown ok for hours into a real death, defeating the entire surface.
+  if(/^live_|^loop_heartbeat/.test(q)) return 0;                   // live + health: never
   if(/^news_items|^availability_report/.test(q)) return 2*60e3;    // news: minutes
   if(/^pickem_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
   return 3*3600e3;                                                 // ratings/standings/stats: hours
