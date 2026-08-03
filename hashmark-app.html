@@ -1563,6 +1563,15 @@
     background-color:#111a2c}
   body.u55-on .flagcard{background:linear-gradient(160deg,#0E1A16,#111a2c 60%)}
   body.u55-on .newsline{background:transparent}
+  /* ══════ watchdog hardening: the LOOP DEAD banner (admin surfaces only) ══════ */
+  .loopdead{background:linear-gradient(160deg,rgba(224,91,91,.16),rgba(224,91,91,.06));
+    border:1.5px solid var(--loss);border-radius:14px;padding:13px 15px;margin:6px 2px 12px}
+  .loopdead .ldt{font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.01em;
+    color:#FF9B9B;text-transform:uppercase}
+  .loopdead .ldw{font-size:12px;line-height:1.5;color:var(--text);margin-top:5px}
+  .loopdead.compact{margin:0 2px 10px}
+  .loopdead.compact .ldt{font-size:16px}
+
   /* ══════════════════════════ end U55 background ══════════════════════════ */
 </style>
 </head>
@@ -3446,6 +3455,7 @@ async function renderHomeBands(){
   wireHomeBubbles();
   wireHomeBands();
   try{ mountHeroStage(); }catch(_e){}
+  try{ injectLoopHealth(); }catch(_e){}   // admin-only red strip when a loop agent is dead
   injectYourTeam();
   injectNews();
   injectHomeBands();
@@ -9658,6 +9668,58 @@ function teamHistoryPanel(d, t, teamId){
   return h;
 }
 
+// ══════ Watchdog hardening (Aug 3 2026) — loop-health surfaces ══════
+// The daily loop was dead Jul 27-Aug 2 and no alert reached a human. These surfaces need
+// NO push: the health state renders the moment the admin opens the app. loop_heartbeat is
+// public-read (RLS); id=1 = the daily loop, id=2 = the livewp poller — judged independently,
+// because a fresh row from one agent never excuses the other (that masking is exactly how
+// the Monday review stayed silent).
+function loopHealth(rows){
+  const now=Date.now();
+  const one=(id,name)=>{
+    const r=(rows||[]).find(x=>x.id===id);
+    if(!r) return {id, name, dead:true, why:"no heartbeat row", ts:null};
+    const ageH=(now-new Date(r.ts).getTime())/36e5;
+    if(r.status!=="ok") return {id, name, dead:true, ts:r.ts,
+      why:`last tick ERRORED (${new Date(r.ts).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}) — ${String(r.detail||"").slice(0,140)}`};
+    if(ageH>48) return {id, name, dead:true, ts:r.ts,
+      why:`no heartbeat for ${Math.round(ageH)}h (last: ${new Date(r.ts).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})})`};
+    return {id, name, dead:false, ts:r.ts, why:`ok, ${ageH<1?Math.round(ageH*60)+"m":Math.round(ageH)+"h"} ago`};
+  };
+  return [one(1,"Daily loop"), one(2,"Livewp poller")];
+}
+function loopDeadBannerHTML(h, compact){
+  const dead=h.filter(x=>x.dead);
+  if(!dead.length) return "";
+  const since=dead[0].ts?new Date(dead[0].ts).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"unknown";
+  return `<div class="loopdead${compact?" compact":""}" id="loopdeadbanner" role="alert">
+    <div class="ldt">LOOP DEAD since ${esc(since)}</div>
+    ${dead.map(x=>`<div class="ldw"><b>${esc(x.name)}:</b> ${esc(x.why)}</div>`).join("")}
+    ${compact?`<div class="ldw" style="color:var(--text2)">Tap for the owner console.</div>`:`<div class="ldw" style="color:var(--text2)">Mac: launchctl list | grep hashmark · read loop.launchd.log + loop.log. The livewp agent escalates a daily push until this heals.</div>`}
+  </div>`;
+}
+// admin-only home strip — cached probe, one heartbeat read, renders on app open (no push
+// needed). Admin-only + alarm-only, so the layout shift it causes is accepted ops UX.
+let _isAdminCache=null;
+async function injectLoopHealth(){
+  try{
+    if(!authUser || !sb) return;
+    if(_isAdminCache===null){
+      const pr=await authFetch("GET","admin_users?select=uid&limit=1");
+      _isAdminCache=!!(pr.data&&pr.data.length);
+    }
+    if(!_isAdminCache) return;
+    const hb=await api(`loop_heartbeat?select=*&order=id`);
+    const html=loopDeadBannerHTML(loopHealth(hb), true);
+    if(!html) return;
+    const list=app.querySelector(".list");
+    if(!list || document.getElementById("loopdeadbanner")) return;
+    const d=document.createElement("div"); d.innerHTML=html;
+    const el=d.firstChild; el.style.cursor="pointer"; el.onclick=()=>openAdmin();
+    list.insertBefore(el, list.firstChild);
+  }catch(_e){}
+}
+
 // ============ U16 — the owner console (admin-only analytics) ============
 // The SERVER decides everything: the client probes admin_users for ITS OWN row
 // (self-select RLS policy), and every metrics fetch rides the signed-in JWT —
@@ -9681,9 +9743,11 @@ async function openAdmin(){
   const rows=md.data||[];
   // U15: the audit-health inputs (audit_log + open audit_inbox rows) — both
   // admin-RLS-locked server-side, same is_admin() gate as the analytics tables
-  const [alog, ainbox] = await Promise.all([
+  const [alog, ainbox, hb] = await Promise.all([
     authFetch("GET","audit_log?select=ran_at,lane,category,status,detail,rows_affected&order=ran_at.desc&limit=200"),
-    authFetch("GET","audit_inbox?select=id,category,kind,confidence,status,note,sources,table_name,current_value,proposed_value&status=eq.open&order=confidence.asc,created_at.desc&limit=60") ]);
+    authFetch("GET","audit_inbox?select=id,category,kind,confidence,status,note,sources,table_name,current_value,proposed_value&status=eq.open&order=confidence.asc,created_at.desc&limit=60"),
+    api(`loop_heartbeat?select=*&order=id`).catch(()=>[]) ]);
+  const hbHealth=loopHealth(hb);
   const by={}; rows.forEach(r=>{(by[r.k]=by[r.k]||{})[r.day]=r.v;});
   const days=[...new Set(rows.map(r=>r.day))].sort();
   const last=days[days.length-1];
@@ -9696,6 +9760,13 @@ async function openAdmin(){
   const feats=sum7("features"), fun=sum7("funnel"), use=sum7("usage");
   const tops=g("top_teams",last)||{}, srch=g("top_searches",last)||{};
   let h=`<div class="cmp">${backHeader("Owner console")}<div class="list" style="padding-top:6px">
+    ${loopDeadBannerHTML(hbHealth)}
+    <div class="sec"><div class="sectitle">Loop health <small>heartbeats · judged per agent</small></div>
+      ${hbHealth.map(x=>`<div class="histrow"><div style="flex:1">${esc(x.name)} <small>id=${x.id}</small></div>
+        <div class="bva" style="color:${x.dead?"var(--loss)":"var(--teal)"}">${x.dead?"DEAD":"ok"}</div></div>
+        <div class="secsub" style="margin:0 0 6px">${esc(x.why)}</div>`).join("")}
+      <div class="navrow" style="margin:6px 0 0"><button class="navbtn" id="testpush"><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg> Send test push</button></div>
+      <div class="secsub" id="testpushout" style="padding-top:6px">Proves the phone-subscription path end-to-end: the button files a request, the Mac&rsquo;s 5-minute livewp agent picks it up and sends a real web push to your subscribed devices.</div></div>
     <div class="secsub" style="padding:0 2px 8px">Owner-only product analytics. Events carry no PII and no IP; reads are RLS-locked to admin_users server-side. Nightly rollup.</div>
     <div class="sec"><div class="sectitle">Actives <small>${last||"no data yet"}</small></div>
       <div class="infocard"><div class="infocell"><div class="ik">DAU</div><div class="iv">${(g("dau",last)||{}).n??"&mdash;"}</div></div>
@@ -9756,6 +9827,26 @@ async function openAdmin(){
     <div class="note"><b>Owner console.</b> Privacy-respecting by construction: no PII, no IP, no user agent stored; anonymous visitors are a random key. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=navBack;
+  const tp=document.getElementById("testpush");
+  if(tp) tp.onclick=async()=>{
+    const out=document.getElementById("testpushout");
+    tp.disabled=true;
+    const ins=await authFetch("POST","push_test_requests",{requested_by:authUser.id});
+    if(ins.error){ out.textContent="Request failed: "+(ins.error.message||"insert rejected"); tp.disabled=false; return; }
+    out.textContent="Request filed. Waiting for the Mac's 5-minute agent to serve it (up to ~6 min)…";
+    const t0=Date.now();
+    const poll=setInterval(async()=>{
+      const r=await authFetch("GET","push_test_requests?select=id,requested_at,served_at,note&order=id.desc&limit=1");
+      const row=r.data&&r.data[0];
+      if(row&&row.served_at){
+        clearInterval(poll); tp.disabled=false;
+        out.textContent=`Served ${new Date(row.served_at).toLocaleTimeString()} (${row.note||"ok"}). If the push did not arrive on your phone, the device subscription is the broken link — re-subscribe under Notifications.`;
+      } else if(Date.now()-t0>8*60*1000){
+        clearInterval(poll); tp.disabled=false;
+        out.textContent="Not served after 8 min — the livewp agent may be down (check the Loop health panel above).";
+      }
+    }, 10000);
+  };
 }
 
 async function openExplore(){
