@@ -1683,6 +1683,26 @@
   .kcell .kk{font-family:"IBM Plex Mono",monospace;font-size:8.5px;font-weight:600;
     letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-top:6px}
   /* ══════════════════════════ end U50 ══════════════════════════ */
+
+  /* ══════════════ U51 — FAN POLLS ══════════════
+     Crowd data -> AMBER per U49. Results render as bars only after the visitor's own
+     vote (or when localStorage says they already voted). */
+  .pollopt{display:flex;align-items:center;gap:9px;width:100%;min-height:44px;margin-top:8px;
+    padding:10px 14px;background:var(--surface);border:1px solid var(--line2);border-radius:12px;
+    color:var(--text);font-family:"Barlow",sans-serif;font-weight:600;font-size:13px;
+    text-align:left;cursor:pointer}
+  .pollopt:hover{border-color:var(--user)}
+  .pollres{position:relative;margin-top:8px;min-height:38px;border-radius:10px;overflow:hidden;
+    background:var(--surface);border:1px solid var(--line)}
+  .pollres i{position:absolute;inset:0 auto 0 0;background:var(--user-tint);border-right:2px solid rgba(255,190,61,.45)}
+  .pollres.mine i{background:rgba(255,190,61,.22)}
+  .pollres .pl{position:relative;display:flex;align-items:center;gap:8px;padding:9px 12px;
+    font-size:12.5px;font-weight:600}
+  .pollres .pl b{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--user)}
+  .pollres.mine .pl::after{content:"YOUR VOTE";font-family:"IBM Plex Mono",monospace;font-size:7.5px;
+    font-weight:700;letter-spacing:.12em;color:var(--user);border:1px solid rgba(255,190,61,.4);
+    border-radius:999px;padding:2px 6px;flex:none}
+  /* ══════════════════════════ end U51 ══════════════════════════ */
   /* ══════ watchdog hardening: the LOOP DEAD banner (admin surfaces only) ══════ */
   .loopdead{background:linear-gradient(160deg,rgba(224,91,91,.16),rgba(224,91,91,.06));
     border:1.5px solid var(--loss);border-radius:14px;padding:13px 15px;margin:6px 2px 12px}
@@ -3645,6 +3665,7 @@ async function renderHomeBands(){
     <div class="band rule"><div class="bandin" id="u47-sim"></div></div>
     <div class="band rule raised"><div class="bandin" id="u47-nil"></div></div>
     <div class="band rule"><div class="bandin"><div class="hsec" id="cs-newshost"></div></div></div>
+    <div class="band rule trt-user"><div class="bandin" id="u51-poll"><div class="skel" style="height:90px"></div></div></div>
     <div class="band rule raised"><div class="bandin">${chipCloudHTML()}</div></div>
     <div class="band rule"><div class="bandin">${secHead("Hashmark · Explore", "The full toolkit", {all:"explore", allLabel:"All tools"})}${homeBubblesHTML()}</div></div>
     <div class="band rule raised trt-user"><div class="bandin">${briefBandHTML()}</div></div>
@@ -3856,9 +3877,111 @@ async function openKickoffHub(){
   }
 }
 
+// ══════════════ U51 — Fan polls ══════════════
+// Owner-authored questions ONLY (the polls table is editorial config; no user text is
+// ever stored or rendered -> no moderation surface). One vote per VISITOR: the U16
+// anonymous session key is the DB key, localStorage is the client guard, and the copy
+// says exactly that — "one vote per visitor", never "per person". Votes go through the
+// poll_cast RPC (clients hold zero direct privileges on poll_votes); results are
+// aggregate-only and render AMBER (crowd data, U49).
+const U51_LS = k => "hm_poll_" + k;
+function u51Active(polls){
+  const today = window._u51Today || new Date().toISOString().slice(0,10);   // test hook
+  return polls.filter(p=>p.starts_on<=today).sort((a,b)=>b.starts_on.localeCompare(a.starts_on))[0]||null;
+}
+async function u51Rpc(fn, body){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:"POST",
+    headers:{apikey:KEY, Authorization:"Bearer "+KEY, "Content-Type":"application/json"},
+    body:JSON.stringify(body||{})});
+  if(!r.ok) throw new Error("rpc "+fn+" "+r.status);
+  return r.json();
+}
+function u51BarsHTML(p, res, mine){
+  const counts=res.counts||{}, total=res.total||0;
+  return p.options.map((opt,i)=>{
+    const n=Number(counts[String(i)]||0), pct=total?Math.round(n/total*100):0;
+    return `<div class="pollres${i===mine?" mine":""}"><i style="width:${total?Math.max(2,pct):0}%"></i>
+      <div class="pl"><span style="flex:1;min-width:0">${esc(opt)}</span><b>${pct}%</b></div></div>`;
+  }).join("") + `<div class="ha" style="padding:8px 2px 0">${total.toLocaleString()} vote${total===1?"":"s"} &middot; the crowd, not the Model &middot; one vote per visitor &middot; no account needed.</div>`;
+}
+async function u51PollHTML(){
+  const polls=await api("polls?select=key,question,options,starts_on").catch(()=>[]);
+  const p=u51Active(polls||[]);
+  if(!p) return "";
+  const head=secHead("Hashmark · Fan poll", "The crowd's call", {chip:[{t:"changes weekly", kind:"count"}], all:"polls", allLabel:"All polls"});
+  let voted=null;
+  try{ const v=localStorage.getItem(U51_LS(p.key)); if(v!=null) voted=(v==="x"?-1:Number(v)); }catch(_e){}
+  if(voted!=null){
+    const res=await u51Rpc("poll_results",{p_poll:p.key}).catch(()=>({counts:{},total:0}));
+    return head+`<div class="sec" style="margin-top:4px"><div class="sectitle" style="margin-top:2px">${esc(p.question)}</div>${u51BarsHTML(p,res,voted)}</div>`;
+  }
+  return head+`<div class="sec" style="margin-top:4px"><div class="sectitle" style="margin-top:2px">${esc(p.question)}</div>
+    ${p.options.map((opt,i)=>`<button class="pollopt" data-pollopt="${i}" data-pollkey="${esc(p.key)}">${esc(opt)}</button>`).join("")}
+    <div class="ha" style="padding:8px 2px 0">One vote per visitor &middot; no account needed &middot; results after you vote.</div></div>`;
+}
+async function u51Vote(key, idx, host){
+  try{
+    const res=await u51Rpc("poll_cast",{p_poll:key, p_session:_sessKey, p_option:idx});
+    // counted=false means this session already voted (a cleared localStorage can't tell
+    // us WHICH option) — store the "voted, choice unknown" sentinel so the YOUR-VOTE
+    // marker never points at a choice the ledger didn't record.
+    try{ localStorage.setItem(U51_LS(key), res.counted?String(idx):"x"); }catch(_e){}
+    try{ track("poll_vote", key+":"+idx); }catch(_e){}
+    const polls=await api("polls?select=key,question,options,starts_on&key=eq."+encodeURIComponent(key));
+    const p=polls[0];
+    const sec=host.querySelector(".sec");
+    if(sec && p) sec.innerHTML=`<div class="sectitle" style="margin-top:2px">${esc(p.question)}</div>`+u51BarsHTML(p,res,idx);
+  }catch(e){
+    const sec=host.querySelector(".sec");
+    if(sec) sec.insertAdjacentHTML("beforeend",`<div class="ha" style="color:var(--warn);padding:6px 2px 0">Couldn't record the vote &mdash; try again in a moment.</div>`);
+  }
+}
+function u51Wire(host){
+  host.querySelectorAll("[data-pollopt]").forEach(b=>b.onclick=()=>u51Vote(b.dataset.pollkey, Number(b.dataset.pollopt), host));
+}
+async function injectPoll(){
+  const host=document.getElementById("u51-poll");
+  if(!host) return;
+  try{
+    const h=await u51PollHTML();
+    const band=host.closest(".band");
+    if(!h){ if(band) band.remove(); return; }
+    host.innerHTML=h; u51Wire(host); wireHomeBands();
+  }catch(_e){}
+}
+async function openPolls(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading polls&hellip;</div>`;
+  try{
+    const polls=(await api("polls?select=key,question,options,starts_on&order=starts_on.desc"))||[];
+    const active=u51Active(polls);
+    let h=`<div class="cmp">${backHeader("Fan polls")}<div class="list" style="padding-top:4px">
+      <div class="secsub" style="padding:0 2px 6px"><b>The crowd's call &mdash; one question a week, owner-written.</b> One vote per visitor (the honest limit of an account-free poll); results are the crowd speaking, never the Model.</div>
+      <div id="u51-view-active"></div>`;
+    const past=polls.filter(p=>p!==active && p.starts_on<=(window._u51Today||new Date().toISOString().slice(0,10)));
+    if(past.length){
+      h+=`<div class="sectitle" style="margin-top:16px">Previous weeks</div>`;
+      for(const p of past){
+        const res=await u51Rpc("poll_results",{p_poll:p.key}).catch(()=>({counts:{},total:0}));
+        let mine=null; try{ const v=localStorage.getItem(U51_LS(p.key)); if(v!=null&&v!=="x") mine=Number(v); }catch(_e){}
+        h+=`<div class="sec"><div class="sectitle">${esc(p.question)} <small>&middot; closed</small></div>${u51BarsHTML(p,res,mine)}</div>`;
+      }
+    }
+    h+=`<div class="note"><b>Fan polls.</b> Questions are written by Hashmark (never user-submitted), gambling-free, and rotate weekly. Votes store an anonymous session key and a choice &mdash; nothing else. ${BRAND_LINE}</div></div></div>`;
+    app.innerHTML=h;
+    document.querySelector(".back").onclick=navBack;
+    const av=document.getElementById("u51-view-active");
+    if(av){ av.innerHTML=await u51PollHTML(); u51Wire(av); }
+  }catch(e){
+    app.innerHTML=`<div class="cmp">${backHeader("Fan polls")}<div class="err">Couldn't load polls: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=navBack;
+  }
+}
+
 async function injectHomeBands(){
   const put=(id,html)=>{ const e=document.getElementById(id); if(e){ e.innerHTML=html; wireHomeBands(); } };
   injectKickoff().catch(()=>{});
+  injectPoll().catch(()=>{});
   proofRowHTML().then(h=>put("u47-proof",h)).catch(()=>{ const e=document.getElementById("u47-proof"); if(e) e.innerHTML=""; });
   todayRailHTML().then(h=>put("u47-today",h)).catch(()=>{});
   simBandHTML().then(h=>put("u47-sim",h)).catch(()=>{});
@@ -7895,6 +8018,7 @@ const ALL_GO = {
   // U47 band destinations (secHead only renders an ALL pill for a key that exists here)
   filmroom:  ()=>openFilmRoom(),
   nil:       ()=>openNILEconomy(),
+  polls:     ()=>openPolls(),   // U51
   sim:       ()=>gatedSimulator(),
   checking:  ()=>openCheckingWork(),
 };
@@ -8058,6 +8182,7 @@ const NAV_ROUTES={
   method:()=>openMethodology(),
   history:()=>openHistory(),
   kickoff:()=>openKickoffHub(),   // U50
+  polls:()=>openPolls(),          // U51
   admin:()=>openAdmin(),
   checking:()=>openCheckingWork(),
   accuracy:()=>openAccuracy(),
@@ -8200,6 +8325,7 @@ function installNavWraps(){
  ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],["openHistory","history"],["openAdmin","admin"],
  ["openFilmRoom","filmroom",wk=>({wk})],["openReportCard","reportcard",wk=>({wk})],
  ["openKickoffHub","kickoff"],   // U50 (U38 rule: every new view maps a section)
+ ["openPolls","polls"],          // U51
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
@@ -8351,6 +8477,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   whyrating:"stats", rosterecon:"stats", filmroom:"stats", reportcard:"stats",
   history:"stats",   // U13 (U38 rule: every new view maps a section)
   kickoff:"games",   // U50 — the hub is a slate surface; it lives in Games
+  polls:"picks",     // U51 — crowd territory; polls live with the picks family
   admin:"explore",   // U16 owner console
   explore:"explore", teams:"explore", newsarchive:"explore", method:"explore",
   checking:"explore", accuracy:"explore" };
