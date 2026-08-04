@@ -870,7 +870,7 @@
   .sigclaim{font-size:15px;line-height:1.45}
   .sigchips{display:flex;flex-wrap:wrap;gap:6px;padding-top:4px}
   .sigchip{background:rgba(232,182,87,.1);border:1px solid rgba(232,182,87,.35);color:var(--text2);
-    border-radius:999px;padding:4px 10px;font-size:10.5px;font-weight:600}
+    border-radius:12px;padding:4px 10px;font-size:10.5px;font-weight:600;line-height:1.45}
   .teaserow{display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;
     background:var(--surface);border:1px dashed var(--line2);border-radius:11px;margin:6px 0;
     font-size:12px;font-weight:700;color:var(--text2);cursor:pointer}
@@ -1048,6 +1048,7 @@
   /* UG1: the VISIBLE low-sample confidence badge + muted small-sample grade number */
   .gradenote{font-size:12px;line-height:1.55;color:var(--text2);padding:6px 2px 8px;border-bottom:1px solid var(--line)}
   .gradenote small{display:block;padding-top:4px;color:var(--text3);font-size:9.5px}
+  .lowsample.limited{color:var(--text2);border-color:var(--line2);background:var(--surface)}
   .lowsample{display:inline-flex;align-items:center;font-size:8.5px;font-weight:800;letter-spacing:.05em;
     color:#E8B657;border:1px solid rgba(232,182,87,.45);border-radius:999px;padding:2px 7px;
     margin-left:4px;cursor:default}
@@ -3169,6 +3170,12 @@ function attachBackgroundVideo(){
   v.addEventListener("error", ()=>{ try{ v.pause(); }catch(_e){} v.remove(); U55.vid=null;
     U55.reason="decode/network error - poster retained"; }, {once:true});
   v.addEventListener("playing", ()=>v.classList.add("on"));
+  // QA-FIX-1 P1-2: play() was fired exactly once, at attach — if the load was still stalled
+  // (the old SW intercept), that pending play died and NOTHING re-kicked playback when data
+  // finally arrived, so the page sat on the poster forever. Re-kick through the same gate
+  // (u48Sync respects hidden/reduced/save-data) whenever the element becomes playable.
+  v.addEventListener("canplay", ()=>{ try{ u48Sync(); }catch(_e){} });
+  v.addEventListener("loadedmetadata", ()=>{ try{ u48Sync(); }catch(_e){} });
   bg.appendChild(v); U55.vid=v; U55.reason="playing";
   try{ v.load(); }catch(_e){}
   u48Sync();
@@ -3566,8 +3573,11 @@ async function moversMiniHTML(){
     return `<div class="mboard"><div class="mbhead"><span class="mbt">National leaders &middot; ${STAT_SEASON}</span>
         <span class="allpill" role="button" tabindex="0" data-u47="leaders" style="min-height:26px;padding:0 8px">All<svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></span></div>
       ${rows.map(({k,label,r})=>{ const t=teamMeta[r.team_id]||{}, d=_catalog.by[k];
-        return `<div class="mbrow" data-team="${r.team_id}"><span class="mbn">${esc(t.school||"?")}<div class="mbbar" style="width:100%;background:${hx(t.color)};opacity:.5"></div></span>
-          <span class="mbv stat" title="${esc(label)}">${fmtStat(r.value,d?d.format:"1dp")}</span></div>`; }).join("")}</div>`;
+        const tip=d?`${d.display_name} — ${d.description||""} ${d.higher_is_better===false?"Lower is better.":"Higher is better."}`:label;
+        return `<div class="mbrow" data-team="${r.team_id}" data-tip="${esc(tip)}"><span class="mbn">${esc(t.school||"?")}
+            <span style="display:block;font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text3)">${esc(label)}${d&&d.short_label?` &middot; ${esc(d.short_label)}`:""}</span>
+            <div class="mbbar" style="width:100%;background:${hx(t.color)};opacity:.5"></div></span>
+          <span class="mbv stat">${fmtStat(r.value,d?d.format:"1dp")}</span></div>`; }).join("")}</div>`;
   }catch(e){ return ""; }
 }
 
@@ -4114,6 +4124,36 @@ function shareMatchupCard(a, b, paPct, edges){
 
 // ---- P2-E5: Ask Hashmark (DARK until the owner keys the edge function) ----
 const ASK_URL = SUPABASE_URL.replace(".supabase.co", ".supabase.co") + "/functions/v1/ask-hashmark";
+// QA-FIX-1 P1-3 root cause: the edge function answers ONLY from client-supplied team_ids, and
+// the client only ever sent the bubble's team context — the GLOBAL Ask sent [] for every
+// question, so context rows were always empty and the model correctly said it had nothing
+// ("the context rows aren't loading"). This was never an RLS or api() regression: the global
+// bubble shipped without entity extraction. Resolve team names from the question text against
+// the same matcher the search box uses; longest school names first so "Miami (OH)" beats
+// "Miami" and "Ohio State" beats "Ohio" when both appear.
+async function askResolveTeams(q, seedId){
+  const ids=[];
+  if(seedId) ids.push(Number(seedId));
+  try{
+    const list=(await ensureSearchTeams()).slice()
+      .sort((a,b)=>(b.school||"").length-(a.school||"").length);
+    const ql=" "+q.toLowerCase().replace(/[^a-z0-9 ]/g," ")+" ";
+    let matched=ql;
+    for(const t of list){
+      if(ids.length>=2) break;
+      const names=[t.school, t.mascot].filter(Boolean);
+      for(const n of names){
+        const nl=" "+String(n).toLowerCase().replace(/[^a-z0-9 ]/g," ").trim()+" ";
+        if(nl.trim().length>=4 && matched.includes(nl)){
+          if(!ids.includes(Number(t.id))) ids.push(Number(t.id));
+          matched=matched.replace(nl," ");   // consume so "Ohio State" doesn't also match "Ohio"
+          break;
+        }
+      }
+    }
+  }catch(_e){}
+  return ids.slice(0,2);
+}
 let askEnabled = null;
 async function askProbe(){
   if(askEnabled !== null) return askEnabled;
@@ -4148,9 +4188,10 @@ async function openAsk(teamId){
     try{ track("ask_question", teamId||null); }catch(_e){}   // U16: never the question text
     const out=ov.querySelector("#askout"); out.textContent="…";
     const { data } = await sb.auth.getSession();
+    const askIds = await askResolveTeams(q, teamId);   // QA-FIX-1 P1-3: names in the question resolve to context rows
     const r = await fetch(ASK_URL, {method:"POST", headers:{"Content-Type":"application/json",
       apikey:KEY, Authorization:"Bearer "+(data.session&&data.session.access_token)},
-      body:JSON.stringify({question:q, team_ids: teamId?[Number(teamId)]:[]})});
+      body:JSON.stringify({question:q, team_ids: askIds})});
     if(!r.ok){ const e=await r.json().catch(()=>({})); out.textContent=e.error||("Error "+r.status); return; }
     out.textContent="";
     const reader=r.body.getReader(); const dec=new TextDecoder();
@@ -5149,6 +5190,10 @@ function renderSim(){
   h+=`<div class="note"><b>Simulator — hypothetical.</b> A scenario tool: completed games are locked to their real results; your picks and model favorites fill in the rest to determine standings, conference champions and the 12-team field under the <b>2026 CFP format</b> (four Power Four champions + Notre Dame if top-12 + the highest-ranked Group of Six team guaranteed; the rest at-large). Simplifications, stated plainly: FCS opponents are counted at the historical FBS-over-FCS rate (97 of 100 for Power Four hosts, 91 of 100 for Group of Six, 2015-2025) — a win in the chalk view, drawn at that rate in the Monte-Carlo — and each <b>conference champion is its title game's winner</b> — the championship pairings come from the real 2026 qualification rules and the CCG is a pickable game (your pick, or the model favorite/Monte-Carlo draw when unpicked). Seeding uses <b>Strength of Record</b> — a resume metric (how hard it'd be for a top-tier team to earn this record against this schedule), not our hidden ratings. ${SHOW_PREDICTIONS?`The Monte-Carlo runs ${SIM_MC_N.toLocaleString()} seasons of the unpicked games from the model's matchup win probabilities and reports each team's odds — probabilities only, no projected scores or betting lines.`:""}${sim.wpMissing>sim.games.length*0.03?` <b>Data gap:</b> ${sim.wpMissing} matchups are missing a model win probability and fall back to a coin flip.`:""} Not affiliated with the CFP. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=navBack;
+  // QA-FIX-1 P1-1 resilience: the RUN fab is a body-level float, so a re-render never recreates
+  // it — re-assert it whenever the pick signature is dirty. With this, the stale-run warning and
+  // the RUN button can never disagree again (the warning without the button was the dead end).
+  if(simPicksSig()!==sim.runSig) simMarkDirty(); else simHideFab();
   const pick=document.getElementById("simpick"); if(pick) pick.onclick=()=>teamPicker(null,id=>simTeamSheet(id));
   // Batch 9 3f: chips for every team with picks (tap = its sheet; x = clear that team)
   const chipHost=document.getElementById("simteamchips");
@@ -5919,7 +5964,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
             return v==null||v===""?null:`${plFmt(v)} ${l}`; }).filter(Boolean);
           return bits.length?`${CAT_LABEL[c]||c} ${bits.join(" · ")}`:null; }).filter(Boolean).join(" — ");
         const gr=gradeOf(p.name);
-        const chip=gr?`<div style="flex:none;text-align:right"><span class="${gr.qualified?"":"gmuted"}" style="font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px${gr.qualified&&gr.rating>=70?";color:var(--model)":""}">${Number(gr.rating).toFixed(0)}</span>${gr.qualified?"":`<br><span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`}</div>`:"";
+        const chip=gr?`<div style="flex:none;text-align:right"><span class="${gr.qualified?"":"gmuted"}" style="font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px${gr.qualified&&gr.rating>=70?";color:var(--model)":""}">${Number(gr.rating).toFixed(0)}</span>${gr.qualified?"":`<br>${sampleBadge(gr,p.cats)}`}</div>`:"";
         h+=`<div class="stgame" data-player="${p.id}" style="cursor:pointer"><div class="stopp"><div style="flex:1;min-width:0">
           <div class="on">${esc(p.name)} <small>${esc(p.pos)}</small></div>
           <div class="ha">${line||"No counting stats recorded"}</div></div>${chip}</div></div>`;
@@ -6585,6 +6630,27 @@ const CAT_ORDER = ["passing","rushing","receiving","defensive","kicking"];
 // UG1 shrinkage explainer — ONE source for the player page and the U35 team
 // Players panel (the badge must mean the same thing everywhere it appears).
 const SHRINK_TIP="Below the qualifying floor (150 QB plays · 100 carries · 40 targets · 10 kicks), the number shown is shrunk toward 50 — the FBS average — in proportion to sample size, and it ranks nowhere until it qualifies. Small samples lie; the shrinkage says so out loud.";
+// QA-FIX-1 P2-3: one badge was covering two different truths. Public play-by-play attributes
+// only ~half of 2025 rush/receiving plays to a named player, so a 173-carry starter can sit
+// under the grade engine's floor THROUGH NO FAULT OF HIS USAGE — that is a data-coverage gap,
+// not a small sample, and calling it LOW SAMPLE misread stars as bench players. When the
+// OFFICIAL season workload clears the qualifying floor but the graded plays do not, the badge
+// now says what is actually true. Copy/branch only — no grade-engine change (UG3 doctrine).
+const LIMITED_TIP="Play attribution is incomplete this season: public play-by-play names the ball-carrier on only part of rushing/receiving plays, so this player's graded-play count sits under the qualifying floor even though his official workload clears it. The grade is shrunk toward 50 on the plays we can attribute — a data-coverage limit, not a usage one.";
+// official-workload floors mirroring the qualify floors (receptions proxy the 40-target floor)
+function attributionStarved(gradeRow, cats){
+  if(!gradeRow || gradeRow.qualified || !cats) return false;
+  const g=(c,k)=>Number(((cats||{})[c]||{})[k]||0);
+  const role=String(gradeRow.role||"");
+  if(role==="rushing")   return g("rushing","car")>=100;
+  if(role==="receiving") return g("receiving","rec")>=30;
+  return false;   // QB passing + kicking attribution is near-complete — a miss there IS low sample
+}
+const sampleBadge=(gradeRow, cats)=> gradeRow && !gradeRow.qualified
+  ? (attributionStarved(gradeRow, cats)
+      ? `<span class="lowsample limited" data-tip="${esc(LIMITED_TIP)}">LIMITED DATA</span>`
+      : `<span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`)
+  : "";
 
 async function openPlayer(aid){
   window.scrollTo(0,0);
@@ -6667,8 +6733,12 @@ function renderPlayer(aid, idx, seasons, games, grades){
     // qualified-first) role, with every role listed as components beneath. No new math:
     // the headline IS that role's existing published value grade.
     const prim=curG[0];
+    // QA-FIX-1 P2-3: official season stats for the SAME season, keyed by category, so the
+    // badge can tell an attribution gap from genuine low usage (sampleBadge above)
+    const offCats={}; (seasons||[]).filter(r=>Number(r.season)===latestSeason)
+      .forEach(r=>{ offCats[r.category]=r.stats||{}; });
     if(prim){
-      const lowChip=prim.qualified?"":`<span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`;
+      const lowChip=prim.qualified?"":sampleBadge(prim,offCats);
       h+=`<div class="boxrow" style="align-items:center">
         <div class="bva ${prim.qualified?(prim.rating>=70?"win":""):"gmuted"}" style="font-size:26px;font-weight:800">${Number(prim.rating).toFixed(0)}</div>
         <div class="bk">${latestSeason} Hashmark Grade · ${esc((ROLE_LBL[prim.role]||prim.role).split(" — ")[0])} ${lowChip}
@@ -6688,7 +6758,7 @@ function renderPlayer(aid, idx, seasons, games, grades){
     curG.slice(prim?1:0,4).forEach(g=>{
       const badge = g.qualified
         ? `<small>${Math.round(g.percentile||0)}th pct · ${tier(g.rating)}</small>`
-        : `<span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`;
+        : sampleBadge(g,offCats);
       h+=`<div class="boxrow"><div class="bva ${g.qualified?(g.rating>=70?"win":""):"gmuted"}">${Number(g.rating).toFixed(0)}</div>
         <div class="bk">${g.season} · ${ROLE_LBL[g.role]||g.role} ${badge}</div>
         <div class="bvb"><small>${g.plays} plays</small></div></div>`;
@@ -7726,7 +7796,13 @@ function navPush(v,p){
     if(NAMED[v]) track(NAMED[v]); }catch(_e){}
 }
 window.addEventListener("popstate", e=>{
-  if(typeof simHideFab==="function") simHideFab();   // U2: Back off the sim clears the RUN button
+  // QA-FIX-1 P1-1 root cause: this line used to call simHideFab() UNCONDITIONALLY — but since
+  // U17 made Back close overlays, closing the sim's own pick sheet IS a popstate, so the RUN
+  // button died the moment the sheet closed (picks dirty, stale warning up, no RUN anywhere —
+  // the exact QA state). The fab is only cleared when the pop lands OFF the sim view; overlay
+  // pops keep the view and therefore keep the fab. renderSim() also re-asserts it now, so any
+  // future kill path self-heals on the next render.
+  if(typeof simHideFab==="function" && !(e.state&&e.state.hm&&e.state.v==="sim")) simHideFab();
   if(typeof stopGamePoll==="function"&&!(e.state&&e.state.hm&&e.state.v==="game")) stopGamePoll("popstate");   // U37
   if(_ovConsuming){ _ovConsuming=false; return; }     // an ovDismiss consumed this pop
   const st=e.state;
@@ -9875,7 +9951,7 @@ async function openExplore(){
   window.scrollTo(0,0);
   let h=`<div class="cmp"><div class="cmptop"><div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
     <div class="cmptag">Explore</div>
-    <button class="navbtn" style="margin-left:auto;flex:none;min-height:44px" id="xsearch"><svg class="ic"><use href="#i-search"/></svg></button></div>
+</div>
   <div class="card card-hero-amber" id="xsim" style="margin:10px 2px;padding:15px;cursor:pointer">
     <div class="eyebrow">The toy</div>
     <h2 style="margin:4px 0 2px;font-size:20px">Playoff Simulator <span class="chip-plus" style="display:inline-flex;vertical-align:3px">HASHMARK+</span></h2>
@@ -9890,7 +9966,7 @@ async function openExplore(){
   <div class="note">${typeof BRAND_LINE!=="undefined"?BRAND_LINE:"FOR ENTERTAINMENT · HASHMARK IS GAMBLING-FREE"}</div></div>`;
   app.innerHTML=h;
   document.getElementById("xsim").onclick=()=>gatedSimulator();
-  document.getElementById("xsearch").onclick=openOmni;
+  { const xs=document.getElementById("xsearch"); if(xs) xs.onclick=openOmni; }   // QA-FIX-1: hardcoded icon removed (observer mounts the standard one)
   // batch 8 #5: same tiles as home, plus the Explore-only quartet
   const xt=document.getElementById("xtiles");
   const allTiles=[...FEATURE_TILES, ...EXPLORE_EXTRA];
@@ -10328,7 +10404,7 @@ async function openSignature(){
       <div class="eyebrow">The Collapse Index · ${collapse.season} preseason · FREE</div>
       <div class="sigtop">${arc(p)}
         <div class="sigclaim"><b>${esc(t.school||"?")}</b> is the preseason top-10 team most likely to fall out of the rankings.</div></div>
-      <div class="sigchips">${drv.map(x=>`<span class="sigchip">${esc(String(x)).slice(0,52)}</span>`).join("")}</div>
+      <div class="sigchips">${drv.map(x=>`<span class="sigchip">${esc(String(x))}</span>`).join("")}</div>
       ${tr.n?`<div class="eyebrow" style="margin-top:8px">record: ${tr.hits}/${tr.n}</div>`:""}
       <div class="acc" style="margin-top:8px"><button class="acchdr" aria-expanded="false" aria-controls="accb-sighow" data-acc="sighow">
         <span>How this works</span><small>basis, scale, honesty</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
