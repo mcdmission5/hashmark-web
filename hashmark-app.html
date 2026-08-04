@@ -1662,6 +1662,22 @@
   body:not(.u55-on) .band.trt-user{background:var(--tintcap-user)}
   body:not(.u55-on) .band.raised.trt-user{background:var(--tintcap-user),var(--band)}
   /* ══════════════════════════ end U56 ══════════════════════════ */
+
+  /* ══════════════ U50 — 2026 KICKOFF COUNTDOWN ══════════════
+     Fan surface -> AMBER per U49 (a countdown is emotional territory, not Model output).
+     The digits are IBM Plex Mono with tabular-nums inside FIXED-WIDTH cells (2ch, 3ch for
+     days), so a tick can only repaint glyphs — it can never move a box. CLS 0 by
+     construction, measured anyway in the verify. */
+  .kcgrid{display:flex;gap:8px;margin:10px 0 2px}
+  .kcell{flex:0 0 auto;min-width:62px;text-align:center;background:var(--surface);
+    border:1px solid rgba(255,190,61,.30);border-radius:12px;padding:10px 9px 8px}
+  .kcell .kv{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;
+    font-weight:700;font-size:25px;line-height:1;color:var(--user);
+    display:inline-block;width:2ch}
+  .kcell.days .kv{width:3ch}
+  .kcell .kk{font-family:"IBM Plex Mono",monospace;font-size:8.5px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-top:6px}
+  /* ══════════════════════════ end U50 ══════════════════════════ */
   /* ══════ watchdog hardening: the LOOP DEAD banner (admin surfaces only) ══════ */
   .loopdead{background:linear-gradient(160deg,rgba(224,91,91,.16),rgba(224,91,91,.06));
     border:1.5px solid var(--loss);border-radius:14px;padding:13px 15px;margin:6px 2px 12px}
@@ -3614,6 +3630,7 @@ async function renderHomeBands(){
   await ensureTeamMeta();
   const h = header() + `<div class="list" style="padding-top:6px">
     ${heroBandHTML()}
+    <div class="band rule trt-user"><div class="bandin" id="u50-band"><div class="skel" style="height:110px"></div></div></div>
     <div class="band rule raised trt-model"><div class="bandin">${secHead("Hashmark · The whole sport", "The receipts", {})}<div id="u47-proof"><div class="skel" style="height:120px"></div></div></div></div>
     <div class="band trt-user"><div class="bandin"><div id="ytm"></div></div></div>
     <div class="band rule"><div class="bandin" id="u47-today"></div></div>
@@ -3659,8 +3676,182 @@ function wireHomeBands(){
 }
 
 // async fills — each one independent, each failing silently into a smaller page
+// ══════════════ U50 — 2026 Kickoff Countdown (band + hub) ══════════════
+// EVERYTHING on this surface is DERIVED (the U47 rule — never typed): the countdown
+// target is the earliest stored kickoff for SEASON_SCHED, the facts row is counted from
+// teams/games rows at render time, and the post-kickoff flip keys off the same clock +
+// rows. The title game is deliberately ABSENT: the games table holds no 2026 postseason
+// rows and no venue column, so that fact cannot be derived — omitted, not invented.
+// Clock-mock hook for tests: window._u50Offset (ms) shifts "now" in either direction.
+const u50Now = () => Date.now() + (window._u50Offset||0);
+let _u50Int=0, _u50Phase=null, _u50Start=0, _u50Target=0;
+const u50Pad = n => String(n).padStart(2,"0");
+function u50Parts(ms){
+  const s=Math.max(0,Math.floor(ms/1000));
+  return {d:String(Math.floor(s/86400)), h:u50Pad(Math.floor(s%86400/3600)),
+          m:u50Pad(Math.floor(s%3600/60)), s:u50Pad(s%60)};
+}
+async function u50Data(){
+  await ensureTeamMeta();
+  const games=(await fetchSeasonGames(SEASON_SCHED)).filter(g=>g.start_date);
+  const first=games.slice().sort((a,b)=>a.start_date.localeCompare(b.start_date))[0]||null;
+  return {games, first, startTs:first?new Date(first.start_date).getTime():0};
+}
+const u50Upcoming = games => games
+  .filter(g=>new Date(g.start_date).getTime()>u50Now())
+  .sort((a,b)=>a.start_date.localeCompare(b.start_date));
+async function u50NextTarget(games){
+  // in-season target: the favorite's next scheduled game when one exists, else the
+  // marquee upcoming game — max combined model overall inside the next 8 days
+  const up=u50Upcoming(games);
+  if(!up.length) return null;
+  const fav=favTeamId();
+  if(fav){ const g=up.find(x=>String(x.home_team_id)===String(fav)||String(x.away_team_id)===String(fav));
+    if(g) return {g, why:"your"}; }
+  let best=up[0], score=-1e9;
+  try{
+    const units=await ensureUnits(); const r={}; units.forEach(u=>r[u.team_id]=u.overall);
+    const horizon=new Date(up[0].start_date).getTime()+8*864e5;
+    up.filter(g=>new Date(g.start_date).getTime()<horizon).forEach(g=>{
+      const sc=(r[g.home_team_id]??-9)+(r[g.away_team_id]??-9);
+      if(sc>score){ score=sc; best=g; } });
+  }catch(_e){}
+  return {g:best, why:"marquee"};
+}
+function u50FactsHTML(games){
+  // each chip is computed from the rows in hand — change the tables, change the chips
+  const teams=Object.keys(teamMeta||{}).length;
+  const confs=new Set(Object.values(teamMeta||{}).map(t=>t.conference)
+    .filter(c=>c && c!=="FBS Independents")).size;
+  const ds=games.map(g=>g.start_date).sort();
+  const fmt=d=>new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"America/New_York"});
+  return `<div class="chiprow" style="margin-top:10px">
+    <span class="cchip count">${teams} FBS programs</span>
+    <span class="cchip count">${confs} conferences</span>
+    <span class="cchip count">${games.length} games scheduled</span>
+    <span class="cchip count">${esc(fmt(ds[0]))} &ndash; ${esc(fmt(ds[ds.length-1]))}</span></div>`;
+}
+const u50CellsHTML = () => `<div class="kcgrid" id="u50-cells">
+  ${[["days","days"],["h","hrs"],["m","min"],["s","sec"]].map(([k,l])=>
+    `<div class="kcell${k==="days"?" days":""}"><span class="kv" data-k="${k}">&ndash;</span><div class="kk">${l}</div></div>`).join("")}</div>`;
+function u50GameLine(g, label){
+  const th=teamMeta[g.home_team_id]||{}, ta=teamMeta[g.away_team_id]||{};
+  return `<div class="herolive" data-game="${g.id}"><span class="hl-k">${esc(label)}</span>
+    <span class="hl-v">${esc(ta.school||g.away_team||"TBD")} ${g.neutral_site?"vs":"@"} ${esc(th.school||g.home_team||"TBD")}${gameTimeLine(g)?` &middot; ${esc(gameTimeLine(g))}`:""}</span>
+    <svg class="ic" style="width:12px;height:12px;flex:none;color:var(--text3)" aria-hidden="true"><use href="#i-chev-r"/></svg></div>`;
+}
+async function kickoffBandHTML(){
+  const {games, first, startTs}=await u50Data();
+  if(!first) return "";
+  _u50Start=startTs;
+  const pre = u50Now()<startTs;
+  _u50Phase = pre?"pre":"in";
+  if(pre){
+    _u50Target=startTs;
+    return `${secHead("Hashmark · Kickoff countdown","The 2026 season",{})}
+      ${u50CellsHTML()}
+      ${u50GameLine(first,"First kick")}
+      ${u50FactsHTML(games)}
+      <div class="navrow" style="margin-top:10px"><button class="navbtn" data-u50="hub">The opening slate <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button></div>`;
+  }
+  const nt=await u50NextTarget(games);
+  if(!nt){ _u50Target=0;
+    return `${secHead("Hashmark · Season","2026, wrapped",{})}
+      <div class="secsub" style="padding:4px 2px">Every scheduled game is in the books &mdash; the season lives on in History and the ledgers.</div>`; }
+  _u50Target=new Date(nt.g.start_date).getTime();
+  return `${secHead("Hashmark · Next kickoff", nt.why==="your"?"Your team's next game":"The week's marquee",{})}
+    ${u50CellsHTML()}
+    ${u50GameLine(nt.g, nt.why==="your"?"Next up":"Marquee")}
+    <div class="navrow" style="margin-top:10px"><button class="navbtn" data-u50="hub">This week's slate <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button></div>`;
+}
+function u50Paint(){
+  const host=document.getElementById("u50-cells");
+  if(!host) return false;
+  const p=u50Parts(_u50Target-u50Now());
+  [["days",p.d],["h",p.h],["m",p.m],["s",p.s]].forEach(([k,v])=>{
+    const el=host.querySelector(`[data-k="${k}"]`); if(el && el.textContent!==v) el.textContent=v; });
+  return true;
+}
+function u50StartTick(rerender){
+  clearInterval(_u50Int);
+  _u50Int=setInterval(()=>{
+    if(!document.getElementById("u50-cells")){ clearInterval(_u50Int); _u50Int=0; return; }
+    const now=u50Now();
+    // any boundary cross — season start (either direction, incl. a mocked clock) or the
+    // current target kicking off — re-derives the whole state. The band can never go dead.
+    if(((now<_u50Start)?"pre":"in")!==_u50Phase || (_u50Target && now>=_u50Target)){ rerender(); return; }
+    u50Paint();
+  },1000);
+  u50Paint();
+}
+async function injectKickoff(){
+  const host=document.getElementById("u50-band");
+  if(!host) return;
+  try{
+    const h=await kickoffBandHTML();
+    const band=host.closest(".band");
+    if(!h){ if(band) band.remove(); return; }
+    host.innerHTML=h;
+    const btn=host.querySelector('[data-u50="hub"]'); if(btn) btn.onclick=()=>openKickoffHub();
+    u50StartTick(injectKickoff);
+  }catch(_e){}
+}
+async function openKickoffHub(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading the slate&hellip;</div>`;
+  try{
+    const {games, first, startTs}=await u50Data();
+    _u50Start=startTs;
+    try{ await loadMarketLines(); }catch(_e){}
+    const pre=u50Now()<startTs;
+    _u50Phase=pre?"pre":"in";
+    let slate=[], subTitle="Season complete", head="The 2026 season is live";
+    if(pre){
+      _u50Target=startTs;
+      slate=games.filter(g=>g.week===first.week && g.season_type===first.season_type);
+      subTitle=`Week ${first.week} &mdash; the opening slate`; head="Countdown to kickoff";
+    } else {
+      const nt=await u50NextTarget(games);
+      _u50Target=nt?new Date(nt.g.start_date).getTime():0;
+      const up=u50Upcoming(games);
+      if(up.length){ const w=up[0];
+        slate=games.filter(g=>g.week===w.week && g.season_type===w.season_type);
+        subTitle=`Week ${w.week} &mdash; this week's slate`; }
+    }
+    const dayKey=d=>new Date(d).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",timeZone:"America/New_York"});
+    const groups=new Map();
+    slate.slice().sort((a,b)=>a.start_date.localeCompare(b.start_date)).forEach(g=>{
+      const k=dayKey(g.start_date);
+      if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(g); });
+    let h=`<div class="cmp"><div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div>
+      <div class="cmptag">Kickoff</div></div>
+      <div class="list" style="padding-top:4px">
+      ${secHead("Hashmark · Kickoff", head, {})}
+      ${_u50Target?u50CellsHTML():""}
+      ${pre&&first?u50GameLine(first,"First kick"):""}
+      ${u50FactsHTML(games)}
+      <div class="sectitle" style="margin-top:16px">${subTitle}</div>
+      <div class="secsub" style="padding:0 2px 6px">Who plays whom &mdash; the official schedule, kickoff times &amp; TV as announced. Tap a game to open it.</div>`;
+    groups.forEach((gs,day)=>{
+      h+=`<div class="sec"><div class="sectitle">${esc(day)} <small>&middot; ${gs.length} game${gs.length>1?"s":""}</small></div>`;
+      gs.forEach(g=>h+=scGameRow(g)); h+=`</div>`; });
+    if(!slate.length) h+=`<div class="secsub" style="padding:8px 2px">No games left on the ${SEASON_SCHED} schedule &mdash; season ledgers live in History.</div>`;
+    h+=`<div class="note"><b>All figures derived live from the official schedule.</b> ${BRAND_LINE}</div></div></div>`;
+    app.innerHTML=h;
+    document.querySelector(".back").onclick=navBack;
+    u50StartTick(openKickoffHub);
+  }catch(e){
+    app.innerHTML=`<div class="cmptop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
+      <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
+      <div class="err">Couldn't load the slate: ${e.message}</div>`;
+    document.querySelector(".back").onclick=navBack;
+  }
+}
+
 async function injectHomeBands(){
   const put=(id,html)=>{ const e=document.getElementById(id); if(e){ e.innerHTML=html; wireHomeBands(); } };
+  injectKickoff().catch(()=>{});
   proofRowHTML().then(h=>put("u47-proof",h)).catch(()=>{ const e=document.getElementById("u47-proof"); if(e) e.innerHTML=""; });
   todayRailHTML().then(h=>put("u47-today",h)).catch(()=>{});
   simBandHTML().then(h=>put("u47-sim",h)).catch(()=>{});
@@ -7858,6 +8049,7 @@ const NAV_ROUTES={
   pickem:()=>openPickem(),
   method:()=>openMethodology(),
   history:()=>openHistory(),
+  kickoff:()=>openKickoffHub(),   // U50
   admin:()=>openAdmin(),
   checking:()=>openCheckingWork(),
   accuracy:()=>openAccuracy(),
@@ -7999,6 +8191,7 @@ function installNavWraps(){
  ["openGauntletWall","gauntletwall"],["openNILEfficiency","nileff"],
  ["openModelHub","modelhub"],["openInjuries","injuries"],["openLanding","landing"],["openNILPerformance","nilperf"],["openSignatureBoard","sigboard",k=>({k})],["openTeams","teams"],["openHistory","history"],["openAdmin","admin"],
  ["openFilmRoom","filmroom",wk=>({wk})],["openReportCard","reportcard",wk=>({wk})],
+ ["openKickoffHub","kickoff"],   // U50 (U38 rule: every new view maps a section)
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
@@ -8149,6 +8342,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   nileff:"stats", nilperf:"stats", nilmethod:"stats", modelhub:"stats", injuries:"stats",
   whyrating:"stats", rosterecon:"stats", filmroom:"stats", reportcard:"stats",
   history:"stats",   // U13 (U38 rule: every new view maps a section)
+  kickoff:"games",   // U50 — the hub is a slate surface; it lives in Games
   admin:"explore",   // U16 owner console
   explore:"explore", teams:"explore", newsarchive:"explore", method:"explore",
   checking:"explore", accuracy:"explore" };
