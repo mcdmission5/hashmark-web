@@ -1860,7 +1860,9 @@ function _apiTTL(q){
   // loop_heartbeat joined the never-cache set in the watchdog hardening: a health read
   // served from the default 3h bucket showed DEAD for hours after a heal — and would have
   // shown ok for hours into a real death, defeating the entire surface.
-  if(/^live_|^loop_heartbeat/.test(q)) return 0;                   // live + health: never
+  // U52: clicker_counts is a LIVE leaderboard (taps land every second) — the default
+  // 3h bucket froze it mid-verify, the same failure v77b fixed for loop_heartbeat.
+  if(/^live_|^loop_heartbeat|^clicker_counts/.test(q)) return 0;   // live + health: never
   if(/^news_items|^availability_report/.test(q)) return 2*60e3;    // news: minutes
   if(/^pickem_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
   return 3*3600e3;                                                 // ratings/standings/stats: hours
@@ -3997,6 +3999,202 @@ async function openPolls(){
   }
 }
 
+// ══════════════ U52 — Daily trivia + Team Clicker ══════════════
+// Trivia is GENERATED from the U13 history ledgers at render time — every answer is a
+// stored row, and the row is SHOWN after answering (the honesty edge over a hand-written
+// quiz). The set is seeded by the UTC date, so everyone gets the same five questions.
+// Scores/streaks live behind the U51-pattern RPCs (deny-all table, server-day only);
+// awards questions are deliberately ABSENT: award_winners holds registry rows only
+// (the curated NCAA ingest hasn't run), and we never invent winners.
+function u52Rng(seed){
+  let h=1779033703^seed.length;
+  for(let i=0;i<seed.length;i++){ h=Math.imul(h^seed.charCodeAt(i),3432918353); h=h<<13|h>>>19; }
+  return ()=>{ h=Math.imul(h^h>>>16,2246822507); h=Math.imul(h^h>>>13,3266489909); return ((h^=h>>>16)>>>0)/4294967296; };
+}
+const u52Day = () => window._u52Day || new Date().toISOString().slice(0,10);   // test hook
+function u52Pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+async function u52Questions(){
+  // fixed filters + fixed ordering => identical candidate lists for every client
+  const [champs, rivs, hist] = await Promise.all([
+    api("championships?select=school,season,selector,source_url&selector=eq.consensus&split=eq.false&vacated=eq.false&season=gte.1936&order=season.desc"),
+    api("rivalries?select=school_a,school_b,trophy,official_w,official_l,official_t,official_games,note,source_url&tier=eq.A&order=id.asc"),
+    api("team_history?select=school,wins,losses,ties,games,longest_win_streak,streak_start,streak_end,era_label&order=games.desc&limit=60")
+  ]);
+  const rng=u52Rng("hashmark-trivia-"+u52Day());
+  const qs=[];
+  // Q1 — champion of a year (source: the championships ledger row)
+  { const row=u52Pick(rng, champs);
+    const decoys=[...new Set(champs.map(c=>c.school))].filter(s=>s!==row.school);
+    const opts=[row.school];
+    while(opts.length<4 && decoys.length){ const d=decoys.splice(Math.floor(rng()*decoys.length),1)[0]; opts.push(d); }
+    qs.push({q:`Who won the ${row.season} national championship (consensus)?`, opts, correct:0,
+      src:`championships ledger: ${row.school}, ${row.season} (consensus) — Hashmark's poll-era title definition`, url:row.source_url}); }
+  // Q2 — which rivalry owns the trophy. UNIQUE trophy names only: the verify pass
+  // caught "Tobacco Road" labeling THREE registry pairs — a shared name has multiple
+  // correct answers, and an ambiguous question is banned from this surface.
+  { const tcount={};
+    rivs.forEach(r=>{ if(r.trophy) tcount[r.trophy]=(tcount[r.trophy]||0)+1; });
+    const withT=rivs.filter(r=>r.trophy && tcount[r.trophy]===1);
+    const row=u52Pick(rng, withT);
+    const pair=r=>`${r.school_a} vs ${r.school_b}`;
+    const opts=[pair(row)]; const pool=withT.filter(r=>r!==row);
+    while(opts.length<4 && pool.length){ opts.push(pair(pool.splice(Math.floor(rng()*pool.length),1)[0])); }
+    qs.push({q:`"${row.trophy}" goes to the winner of which rivalry?`, opts, correct:0,
+      src:`rivalries registry (Tier A): ${pair(row)} — ${row.trophy}. ${row.note||""}`, url:row.source_url}); }
+  // Q3 — who leads the series (official record; >=5-game margin so there is ONE answer)
+  { const clear=rivs.filter(r=>Math.abs(r.official_w-r.official_l)>=5);
+    const row=u52Pick(rng, clear);
+    const leader=row.official_w>row.official_l?row.school_a:row.school_b;
+    const opts=[row.school_a,row.school_b];
+    qs.push({q:`Who leads the ${row.school_a}–${row.school_b} series all-time (official record)?`,
+      opts, correct:opts.indexOf(leader),
+      src:`rivalries registry: official ${row.official_w}–${row.official_l}–${row.official_t} in ${row.official_games} games (vacatur-adjusted official series record)`, url:row.source_url}); }
+  // Q4 — more all-time wins (>=40-win gap so the answer is unambiguous)
+  { let a,b,tries=0;
+    do{ a=u52Pick(rng,hist); b=u52Pick(rng,hist); tries++; }
+    while((a===b || Math.abs(a.wins-b.wins)<40) && tries<80);
+    const winner=a.wins>b.wins?a:b, loser=a.wins>b.wins?b:a;
+    qs.push({q:`Which program has more all-time wins?`, opts:[a.school,b.school],
+      correct:a.wins>b.wins?0:1,
+      src:`team_history ledger: ${winner.school} ${winner.wins} wins vs ${loser.school} ${loser.wins} (${a.era_label})`, url:null}); }
+  // Q5 — longest win streak (numeric options built off the stored value)
+  { const cands=hist.filter(t=>t.longest_win_streak>=18);
+    const row=u52Pick(rng,cands);
+    const n=row.longest_win_streak;
+    const opts=[...new Set([n, n-4, n+3, n+7])].slice(0,4).sort((x,y)=>x-y).map(String);
+    qs.push({q:`How long was ${row.school}'s longest win streak (${row.streak_start}–${row.streak_end})?`,
+      opts, correct:opts.indexOf(String(n)),
+      src:`team_history ledger: ${row.school} ${n} straight wins, ${row.streak_start}–${row.streak_end} (${row.era_label})`, url:null}); }
+  return qs;
+}
+const U52_LS = () => "hm_trivia_"+u52Day();
+function u52Subject(){ return (authUser&&authUser.id) ? authUser.id : _sessKey; }
+let _u52={qs:null, idx:0, score:0};
+function u52QHTML(){
+  const q=_u52.qs[_u52.idx];
+  return `<div class="sectitle" style="margin-top:2px">Question ${_u52.idx+1} of 5 <small>&middot; from the history ledgers</small></div>
+    <div style="font-weight:700;font-size:14.5px;padding:2px 2px 4px">${esc(q.q)}</div>
+    ${q.opts.map((o,i)=>`<button class="pollopt" data-u52opt="${i}">${esc(o)}</button>`).join("")}`;
+}
+function u52Wire(host){
+  host.querySelectorAll("[data-u52opt]").forEach(b=>b.onclick=async()=>{
+    const q=_u52.qs[_u52.idx], pick=Number(b.dataset.u52opt), right=pick===q.correct;
+    if(right) _u52.score++;
+    host.querySelectorAll("[data-u52opt]").forEach((x,i)=>{ x.disabled=true;
+      if(i===q.correct) x.style.borderColor="var(--teal)";
+      else if(i===pick) x.style.borderColor="var(--loss)"; });
+    b.insertAdjacentHTML("afterend",
+      `<div class="ha" style="padding:6px 2px">${right?'<b style="color:var(--teal)">Correct.</b>':'<b style="color:var(--loss)">Not this time.</b>'}
+       From the ledger: ${esc(q.src)}${q.url?` &middot; <a href="${esc(q.url)}" target="_blank" rel="noopener" style="color:var(--amber)">source</a>`:""}</div>
+       <div class="navrow" style="margin-top:8px"><button class="navbtn primary" id="u52next">${_u52.idx<4?"Next question":"Finish"}</button></div>`);
+    host.querySelector("#u52next").onclick=async()=>{
+      _u52.idx++;
+      if(_u52.idx<5){ host.innerHTML=u52QHTML(); u52Wire(host); return; }
+      let res={score:_u52.score, streak:1};
+      try{ res=await u51Rpc("trivia_submit",{p_subject:u52Subject(), p_score:_u52.score}); }catch(_e){}
+      try{ localStorage.setItem(U52_LS(), JSON.stringify(res)); }catch(_e){}
+      try{ track("trivia_done", String(res.score)); }catch(_e){}
+      host.innerHTML=u52DoneHTML(res); u52WireDone(host);
+    };
+  });
+}
+function u52DoneHTML(res){
+  return `<div class="sectitle" style="margin-top:2px">Today's result</div>
+    <div class="boxrow"><div class="bva" style="font-size:24px;font-weight:800;color:var(--user)">${res.score}/5</div>
+      <div class="bk">daily streak <b style="color:var(--user)">${res.streak}</b> &middot; same five questions for everyone &middot; new set at midnight UTC</div></div>
+    <div class="navrow" style="margin-top:8px"><button class="navbtn" id="u52share">Copy shareable result</button></div>
+    <div class="eyebrow" id="u52sharemsg" style="margin-top:6px"></div>`;
+}
+function u52WireDone(host){
+  const b=host.querySelector("#u52share");
+  if(b) b.onclick=async()=>{
+    const res=JSON.parse(localStorage.getItem(U52_LS())||'{"score":0,"streak":1}');
+    const txt=`Hashmark Daily CFB Trivia ${u52Day()}: ${res.score}/5 - streak ${res.streak}. Every answer from the stored history ledgers. hash-mark.com`;
+    try{ await navigator.clipboard.writeText(txt);
+      host.querySelector("#u52sharemsg").textContent="Copied."; }
+    catch(_e){ host.querySelector("#u52sharemsg").textContent=txt; }
+  };
+}
+// ---- Team Clicker: batched taps through the rate-limited RPC; aggregates only ----
+let _u52c={team:null, pending:0, timer:0, blocked:false};
+async function u52Flush(){
+  if(!_u52c.pending || !_u52c.team || _u52c.blocked) return;
+  const n=Math.min(40,_u52c.pending); _u52c.pending-=n;
+  try{ await u51Rpc("clicker_click",{p_session:_sessKey, p_team:Number(_u52c.team), p_n:n}); }
+  catch(e){ _u52c.blocked=true; _u52c.pending=0;
+    const m=document.getElementById("u52climit");
+    if(m) m.textContent="Easy, champ - the counter takes a breather after 300 taps in a minute. It comes back on its own.";
+    setTimeout(()=>{ _u52c.blocked=false; if(m) m.textContent=""; }, 61000); }
+  u52Board().catch(()=>{});
+}
+async function u52Board(){
+  const host=document.getElementById("u52board");
+  if(!host) return;
+  const rows=await api("clicker_counts?select=team_id,clicks&order=clicks.desc&limit=200").catch(()=>[]);
+  const mine=String(_u52c.team||"");
+  const rank=rows.findIndex(r=>String(r.team_id)===mine)+1;
+  const mx=rows.length?Number(rows[0].clicks):1;
+  host.innerHTML=rows.slice(0,10).map((r,i)=>{ const t=teamMeta[r.team_id]||{school:"?"};
+    return `<div class="mbrow" data-team="${r.team_id}"><span class="mbr">${i+1}</span>
+      <span class="mbn">${esc(t.school)}<div class="mbbar" style="width:${Math.max(4,Number(r.clicks)/mx*100)}%;background:var(--user)"></div></span>
+      <span class="mbv" style="color:var(--user)">${Number(r.clicks).toLocaleString()}</span></div>`; }).join("")
+    + (mine&&rank?`<div class="ha" style="padding:6px 2px 0">${esc((teamMeta[mine]||{}).school||"Your team")}: #${rank} of ${rows.length} fanbases &middot; ${Number((rows[rank-1]||{}).clicks||0).toLocaleString()} clicks</div>`:"")
+    + `<div class="ha" style="padding:4px 2px 0">Aggregate counts only &mdash; a tap stores a team id and nothing else.</div>`;
+}
+async function openDaily(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading the daily&hellip;</div>`;
+  try{
+    await ensureTeamMeta();
+    let h=`<div class="cmp">${backHeader("Daily")}<div class="list" style="padding-top:4px">
+      ${secHead("Hashmark · Daily challenge","Five from the ledgers",{chip:[{t:"new set daily", kind:"count"}]})}
+      <div class="sec" id="u52quiz" style="margin-top:4px"></div>
+      ${secHead("Hashmark · Team Clicker","Click for your school",{chip:[{t:"the crowd", kind:"count"}]})}
+      <div class="sec" style="margin-top:4px">
+        <div class="navrow"><button class="navbtn primary" id="u52tap" style="min-height:64px;font-size:16px">CLICK FOR YOUR SCHOOL</button></div>
+        <div class="eyebrow" id="u52climit" style="margin-top:6px"></div>
+        <div id="u52board" style="margin-top:8px"><div class="skel" style="height:120px"></div></div></div>
+      <div class="note"><b>The Daily.</b> Trivia answers come from Hashmark's stored history ledgers (championships, rivalries, all-time records) &mdash; the source row is shown after every answer, and questions we can't trace to a row don't exist. Clicker counts are aggregate-only. ${BRAND_LINE}</div></div></div>`;
+    app.innerHTML=h;
+    document.querySelector(".back").onclick=navBack;
+    const quiz=document.getElementById("u52quiz");
+    const done=localStorage.getItem(U52_LS());
+    if(done){ quiz.innerHTML=u52DoneHTML(JSON.parse(done)); u52WireDone(quiz); }
+    else{
+      try{ const st=await u51Rpc("trivia_status",{p_subject:u52Subject()});
+        if(st.played_today){ const res={score:st.score, streak:st.streak};
+          try{ localStorage.setItem(U52_LS(), JSON.stringify(res)); }catch(_e){}
+          quiz.innerHTML=u52DoneHTML(res); u52WireDone(quiz); }
+        else throw 0; }
+      catch(_e){ _u52={qs:await u52Questions(), idx:0, score:0};
+        quiz.innerHTML=u52QHTML(); u52Wire(quiz); }
+    }
+    _u52c.team=favTeamId();
+    const tap=document.getElementById("u52tap");
+    const t=_u52c.team&&teamMeta[_u52c.team];
+    if(t) tap.textContent=`CLICK FOR ${t.school.toUpperCase()}`;
+    tap.onclick=()=>{
+      if(!_u52c.team){
+        // picking here sets the favorite WITHOUT pickFavAny's home reload — the
+        // user stays on the Daily view with the button re-labeled for their team
+        teamPicker(null, id=>{ _u52c.team=id;
+          try{ if(authUser) setFavoriteTeam(id); else localStorage.setItem(GUEST_FAV_KEY, String(id)); }catch(_e){}
+          try{ track("favorite_set", id); }catch(_e){}
+          const tm=teamMeta[id]; if(tm) tap.textContent=`CLICK FOR ${tm.school.toUpperCase()}`;
+          u52Board().catch(()=>{}); });
+        return; }
+      if(_u52c.blocked) return;
+      _u52c.pending++;
+      tap.style.transform="scale(.97)"; setTimeout(()=>tap.style.transform="",80);
+      clearTimeout(_u52c.timer); _u52c.timer=setTimeout(u52Flush, 900);
+    };
+    u52Board().catch(()=>{});
+  }catch(e){
+    app.innerHTML=`<div class="cmp">${backHeader("Daily")}<div class="err">Couldn't load: ${e.message}</div></div>`;
+    document.querySelector(".back").onclick=navBack;
+  }
+}
+
 async function injectHomeBands(){
   const put=(id,html)=>{ const e=document.getElementById(id); if(e){ e.innerHTML=html; wireHomeBands(); } };
   injectKickoff().catch(()=>{});
@@ -4089,6 +4287,7 @@ const FEATURE_TILES=[
   ["history","list","History & Records",null,false,"All-time ledgers, national titles, rivalries — era-labeled, sourced.",()=>openHistory()],
 ];
 const EXPLORE_EXTRA=[
+  ["daily","flame","Daily Challenge","amber",false,"Five trivia questions from the history ledgers + the Team Clicker.",()=>openDaily()],   // U52
   ["teams","star","Teams","amber",false,"Every FBS team — search, pick your favorite.",()=>openTeams()],
   ["method","info","Methodology",null,false,"How the numbers get made.",()=>openMethodology()],
   ["accuracy","check","Checking Our Work","amber",false,"Every call logged before kickoff. Misses stay up.",()=>openCheckingWork()],
@@ -8202,6 +8401,7 @@ const NAV_ROUTES={
   history:()=>openHistory(),
   kickoff:()=>openKickoffHub(),   // U50
   polls:()=>openPolls(),          // U51
+  daily:()=>openDaily(),          // U52
   admin:()=>openAdmin(),
   checking:()=>openCheckingWork(),
   accuracy:()=>openAccuracy(),
@@ -8345,6 +8545,7 @@ function installNavWraps(){
  ["openFilmRoom","filmroom",wk=>({wk})],["openReportCard","reportcard",wk=>({wk})],
  ["openKickoffHub","kickoff"],   // U50 (U38 rule: every new view maps a section)
  ["openPolls","polls"],          // U51
+ ["openDaily","daily"],          // U52
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
@@ -8497,6 +8698,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   history:"stats",   // U13 (U38 rule: every new view maps a section)
   kickoff:"games",   // U50 — the hub is a slate surface; it lives in Games
   polls:"picks",     // U51 — crowd territory; polls live with the picks family
+  daily:"explore",   // U52 — the daily challenge lives in Explore
   admin:"explore",   // U16 owner console
   explore:"explore", teams:"explore", newsarchive:"explore", method:"explore",
   checking:"explore", accuracy:"explore" };
