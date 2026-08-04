@@ -6302,6 +6302,138 @@ async function ensurePoll(){ if(!poll2025){ poll2025={};
   (await api("poll_rankings?select=rank,team_id&season=eq.2025&poll=eq.AP%20Top%2025")).forEach(x=>poll2025[x.team_id]=x.rank); }
   return poll2025; }
 
+// ══════════════ U53 — per-team FAQ + "Did you know" facts ══════════════
+// Every answer is COMPUTED from stored rows at render time — never an LLM, never
+// hand-typed. Each answer carries its own season/freshness label; a missing input
+// produces an honest empty answer, not silence. Rendered INTO the page body (real
+// DOM text at first paint — this is an SEO surface) with schema.org FAQPage JSON-LD
+// mirroring the same strings.
+async function u53Data(teamId, t, games, hm){
+  const school=t.school;
+  const [gd, hist, champs, nilFig, tiers, qbG, plG] = await Promise.all([
+    gauntletData(teamId).catch(()=>null),
+    api(`team_history?select=wins,losses,ties,games,win_pct,first_season,last_season,longest_win_streak,streak_start,streak_end,era_label&team_id=eq.${teamId}`).catch(()=>[]),
+    api(`championships?select=season,selector,split,vacated&team_id=eq.${teamId}&order=season.asc`).catch(()=>[]),
+    api(`nil_figures?select=figure_low_musd,figure_high_musd,figure_type,source&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}&figure_low_musd=not.is.null`).catch(()=>[]),
+    api(`rivalries?select=school_a,school_b,trophy,official_w,official_l,official_t,official_games,source_url&tier=eq.A&or=(team_a_id.eq.${teamId},team_b_id.eq.${teamId})`).catch(()=>[]),
+    api(`qb_value_rating?select=player,rating,percentile&season=eq.${SEASON_RESULTS}&qualified=eq.true&team=eq.${encodeURIComponent(school)}&order=rating.desc`).catch(()=>[]),
+    api(`player_value_rating?select=player,role,rating,percentile&season=eq.${SEASON_RESULTS}&qualified=eq.true&team=eq.${encodeURIComponent(school)}&order=rating.desc`).catch(()=>[])
+  ]);
+  return {gd, hist:hist[0]||null, champs:champs||[], nilFig:nilFig||[], rivs:tiers||[],
+          qbG:qbG||[], plG:plG||[], hm};
+}
+function u53FAQ(t, d, games, teamId){
+  const s=t.school, qs=[];
+  // 1 — projected record (sum of per-game model win probabilities; honest about FCS defaults)
+  if(d.gd && d.gd.games && d.gd.games.length){
+    let exp=0, n=0;
+    d.gd.games.forEach(g=>{ const home=+g.home_team_id===+teamId;
+      const opp=home?g.away_team_id:g.home_team_id;
+      const p=opp==null?(P4_FCS.has(t.conference)?P_FCS.p4:P_FCS.g5):gauntletP(teamId,g,d.gd.wpm);
+      if(p!=null){ exp+=p; n++; } });
+    if(n>=8) qs.push({q:`What is ${s}'s projected record for ${SEASON_SCHED}?`,
+      a:`The Hashmark model projects about ${exp.toFixed(1)} wins across the ${n}-game schedule (the sum of its per-game win probabilities), so a season in the ${Math.floor(exp)}-${Math.ceil(exp)}-win range. ${SEASON_SCHED} preseason model, updated weekly; single games vary.`});
+    else qs.push({q:`What is ${s}'s projected record for ${SEASON_SCHED}?`,
+      a:`No full projection yet — the model has per-game probabilities for only ${n} of ${s}'s scheduled games. Projections fill in as matchup lines publish (${SEASON_SCHED} preseason).`});
+  }
+  // 2 — who do they play
+  { const up=(games||[]).filter(g=>g.season===SEASON_SCHED&&g.season_type==="regular").sort((a,b)=>(a.week||99)-(b.week||99));
+    if(up.length){ const first=up[0];
+      const vs=String(first.home_team_id)===String(teamId)?`vs ${first.away_team}`:`at ${first.home_team}`;
+      const marquee=up.filter(g=>{ const opp=String(g.home_team_id)===String(teamId)?g.away_team_id:g.home_team_id;
+        return opp&&(typeof board2026!=="undefined"&&board2026||[]).slice(0,25).some(u=>String(u.team_id)===String(opp)); })
+        .map(g=>String(g.home_team_id)===String(teamId)?g.away_team:g.home_team).slice(0,3);
+      qs.push({q:`Who does ${s} play in ${SEASON_SCHED}?`,
+        a:`${s} opens ${vs}${gameTimeLine(first)?` (${gameTimeLine(first)})`:""} and plays ${up.length} regular-season games.${marquee.length?` Marquee opponents by the model's top 25: ${marquee.join(", ")}.`:""} Official ${SEASON_SCHED} schedule; kickoff times and TV fill in as announced.`});
+    } else qs.push({q:`Who does ${s} play in ${SEASON_SCHED}?`,
+      a:`No ${SEASON_SCHED} schedule rows on file yet — the official slate loads as CFBD publishes it.`}); }
+  // 3 — rating + rank
+  if(d.hm && d.hm.rank) qs.push({q:`What is ${s}'s Hashmark rating and rank?`,
+    a:`${s} ranks #${d.hm.rank} of 138 in the Hashmark power ratings (overall ${Number(d.hm.overall).toFixed(3)} — opponent-adjusted results, roster talent and coaching). ${SEASON_SCHED} preseason rating, updated nightly in season.`});
+  else qs.push({q:`What is ${s}'s Hashmark rating and rank?`,
+    a:`${s}'s ${SEASON_SCHED} Hashmark rating publishes with the preseason board — it will appear here (and on the Stats tab) when live.`});
+  // 4 — conference position
+  { const conf=t.conference||"Independent";
+    const sos=d&&d.preSosRank;
+    qs.push({q:`Where does ${s} sit in the ${conf}?`,
+      a:`${s} plays in the ${conf}.${d.hm&&d.hm.rank?` The model has them #${d.hm.rank} nationally entering ${SEASON_SCHED}.`:""} Standings build weekly once games start (${SEASON_SCHED} season).`}); }
+  // 5 — NIL, with the U45 sourced-vs-modeled distinction carried VERBATIM
+  { const sourced=d.nilFig.filter(f=>f.figure_type!=="modeled_estimate");
+    const modeled=d.nilFig.find(f=>f.figure_type==="modeled_estimate");
+    if(sourced.length){ const f=sourced[0];
+      qs.push({q:`What does ${s} spend on NIL?`,
+        a:`Attributed public reporting puts ${s} at est. $${Number(f.figure_low_musd).toFixed(1)}${f.figure_high_musd&&f.figure_high_musd!==f.figure_low_musd?`-$${Number(f.figure_high_musd).toFixed(1)}`:""}M (${(f.figure_type||"").replace(/_/g," ")}, ${f.source}). ${SEASON_RESULTS} season figures — an estimate, never an audited number; every figure and source is on the NIL board.`, badge:"sourced"});
+    } else if(modeled){
+      qs.push({q:`What does ${s} spend on NIL?`,
+        a:`No sourced figure exists for ${s} — schools don't publish this. Hashmark's model puts the range at est. $${Number(modeled.figure_low_musd).toFixed(1)}-$${Number(modeled.figure_high_musd).toFixed(1)}M (Modeled — not a reported figure; rev-share status + athletics revenue + conference context, ${SEASON_RESULTS}-${SEASON_RESULTS+1} cap year). A sourced figure always replaces the model.`, badge:"modeled"});
+    } else qs.push({q:`What does ${s} spend on NIL?`,
+        a:`Limited public disclosure — nothing attributable to a credible source, and Hashmark doesn't guess. ${SEASON_RESULTS} season search.`}); }
+  // 6 — all-time record + titles (U13 ledgers)
+  if(d.hist){ const h=d.hist;
+    const titles=d.champs.filter(c=>!c.vacated&&!c.split);
+    const tl=titles.length?`${titles.length} poll-era national title${titles.length>1?"s":""} on Hashmark's ledger (${titles.map(c=>c.season).join(", ")})`:"no poll-era national titles on Hashmark's ledger (claimed-title tiers are cataloged separately)";
+    qs.push({q:`What is ${s}'s all-time record?`,
+      a:`${h.wins}-${h.losses}${h.ties?`-${h.ties}`:""} across ${h.games.toLocaleString()} games since ${h.first_season}, a .${String(Math.round(h.win_pct*1000)).padStart(3,"0")} win percentage — and ${tl}. ${h.era_label}.`}); }
+  // 7 — best/worst graded players (UG1; qualified only, shrinkage-honest)
+  { const all=[...d.qbG.map(g=>({...g, role:"QB"})), ...d.plG];
+    if(all.length){ const best=all.slice().sort((a,b)=>b.rating-a.rating)[0];
+      const worst=all.slice().sort((a,b)=>a.rating-b.rating)[0];
+      qs.push({q:`Who were ${s}'s best-graded players?`,
+        a:`${best.player} (${best.role||"QB"}) led qualified ${s} players at ${Math.round(best.rating)} of 100 on the ${SEASON_RESULTS} Hashmark Grade scale${all.length>1&&worst.player!==best.player?`; ${worst.player} (${worst.role||"QB"}) graded lowest among qualifiers at ${Math.round(worst.rating)}`:""}. Value-in-role grades from play-by-play, ${SEASON_RESULTS} season, qualified snap floors only.`});
+    } else qs.push({q:`Who were ${s}'s best-graded players?`,
+        a:`No qualified ${SEASON_RESULTS} grades on file for ${s} — players below the snap/attempt floors aren't graded (small samples grade dishonestly). ${SEASON_SCHED} grades start with the games.`}); }
+  return qs;
+}
+function u53FactCandidates(t, d){
+  const s=t.school, out=[];
+  if(d.hist && d.hist.longest_win_streak>=10)
+    out.push({f:`${s}'s longest win streak is ${d.hist.longest_win_streak} straight, ${d.hist.streak_start}-${d.hist.streak_end}.`, src:`team_history ledger · ${d.hist.era_label}`});
+  if(d.hist)
+    out.push({f:`${s} has played ${d.hist.games.toLocaleString()} games since ${d.hist.first_season} — ${d.hist.wins} wins, ${d.hist.losses} losses${d.hist.ties?`, ${d.hist.ties} ties`:""}.`, src:`team_history ledger · ${d.hist.era_label}`});
+  d.rivs.forEach(r=>{ const lead=r.official_w>r.official_l?r.school_a:r.school_b;
+    out.push({f:`${r.trophy?`"${r.trophy}": `:""}${r.school_a}-${r.school_b} stands ${r.official_w}-${r.official_l}-${r.official_t} all-time (official record) — ${lead} leads after ${r.official_games} meetings.`,
+      src:`rivalries registry (Tier A, vacatur-adjusted official record)`}); });
+  const titles=d.champs.filter(c=>!c.vacated&&!c.split);
+  if(titles.length)
+    out.push({f:`${s}'s poll-era title years: ${titles.map(c=>c.season).join(", ")}.`, src:`championships ledger (poll/playoff-era definition, splits + vacaturs labeled)`});
+  return out;
+}
+function u53SectionHTML(t, e, games, teamId){
+  if(!e.u53) return "";
+  const d={...e.u53, preSosRank:e.preSos&&e.preSos.sos_rank};
+  const qs=u53FAQ(t, d, games, teamId);
+  if(!qs.length) return "";
+  // JSON-LD mirror of the exact rendered strings (schema.org FAQPage)
+  const ld={ "@context":"https://schema.org", "@type":"FAQPage",
+    mainEntity: qs.map(x=>({ "@type":"Question", name:x.q,
+      acceptedAnswer:{ "@type":"Answer", text:x.a } })) };
+  try{
+    let sc=document.getElementById("u53jsonld");
+    if(!sc){ sc=document.createElement("script"); sc.id="u53jsonld";
+      sc.type="application/ld+json"; document.head.appendChild(sc); }
+    sc.textContent=JSON.stringify(ld);
+  }catch(_e){}
+  let h=`<div class="sec" id="u53faq" style="margin:10px 2px"><div class="sectitle">${esc(t.school)} — quick answers <small>· computed from stored data at render, never written by an AI</small></div>`;
+  qs.forEach((x,i)=>{
+    h+=`<div class="acc"><button class="acchdr" data-acc="u53q${i}" aria-expanded="false">${esc(x.q)}
+        ${x.badge==="modeled"?`<span class="nilmodeled" style="margin-left:6px">modeled</span>`:""}
+        <svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+      <div id="accb-u53q${i}" hidden><div class="secsub" style="padding:2px 14px 12px">${esc(x.a)}</div></div></div>`;
+  });
+  h+=`</div>`;
+  // "Did you know" — rotates daily per team, U13 rows only, era + source labeled
+  const cands=u53FactCandidates(t, d);
+  if(cands.length){
+    const rng=u52Rng(`hashmark-fact-${u52Day()}-${teamId}`);
+    const pick=cands[Math.floor(rng()*cands.length)];
+    h+=`<div class="sec" id="u53fact" style="margin:0 2px 10px;padding:12px 14px">
+      <div class="eyebrow" style="margin-bottom:5px">Did you know · rotates daily</div>
+      <div style="font-size:13px;font-weight:600;line-height:1.5">${esc(pick.f)}</div>
+      <div class="ha" style="padding:5px 0 0">Source: ${esc(pick.src)} — a stored row, never an invented fact.</div></div>`;
+  }
+  return h;
+}
+
 async function openDetail(teamId){
   window.scrollTo(0,0);
   app.innerHTML = skelView(8);   // batch 8 #3: skeleton, not a bare line
@@ -6310,6 +6442,9 @@ async function openDetail(teamId){
     // batch 12 #3: the page-load fetch carries only what's visible on open (hero, record,
     // chips, the default Schedule panel, ratings) — every bubble panel lazy-loads its own
     // data on first tap and caches it (see wireTeamPanels).
+    // U53 exception BY DESIGN: the FAQ block loads WITH the page (u53Data below) because
+    // it is an SEO surface — the answers must exist as real DOM text at render, never
+    // injected after the fact.
     const [ts, games] = await Promise.all([fetchTeamSeason(teamId), fetchTeamGames(teamId),
       loadMarketLines()]);   // U21: chip data for upcoming schedule rows
     const [team, ap, standing] = await Promise.all([
@@ -6324,9 +6459,10 @@ async function openDetail(teamId){
       if(pr[0]){ await ensureBoard();
         hm={...pr[0], rank: board2026.findIndex(b=>String(b.team_id)===String(teamId))+1, comps}; }
     }catch(e){} }
+    const u53 = await u53Data(teamId, team[0], games, hm).catch(()=>null);
     return renderDetailPreview(team[0], ap[0], ts, games, teamId, {
       standing:(standing||[]).find(r=>r.season===SEASON_RESULTS),
-      preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), hm});
+      preSos:(standing||[]).find(r=>r.season===SEASON_SCHED), hm, u53});
   }catch(e){
     app.innerHTML = `<div class="dtop"><button class="back"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
       <div class="wordmark" role="link" tabindex="0" aria-label="Home">Hashmark<span class="dot">.</span></div></div>
@@ -6430,6 +6566,7 @@ function renderDetailPreview(t, ap, ts, games, teamId, ext){
     </div></div>
     <div id="tp-panel">${tpSeasonToggle("scseg", SEASON_SCHED)}<div id="tp-schedbody">${scheduleSection(games||[], teamId, "sched", e.preSos&&e.preSos.sos_rank)
       || `<div class="secsub" style="padding:10px 2px">No ${SEASON_SCHED} schedule on file yet.</div>`}</div></div>
+    ${u53SectionHTML(t, e, games, teamId)}
     <div class="note"><b>Official stats — 2025 season.</b> Record, stats, ranks, schedule and the final 2025 AP standing are official (CFBD / AP); preseason honors are third-party and attributed. Hashmark's own ratings stay hidden in preview. ${BRAND_LINE}</div></div>`;
   app.innerHTML = h;
   try{ u56TeamTint(t); }catch(_e){}   // U56: clamped team glow + ghost school-name backdrop
@@ -8725,6 +8862,7 @@ function syncTabbar(){
     document.body.dataset.hmsec=sec;
     document.body.dataset.hmview=v||"home";
     if(v!=="team" && typeof u56TeamClear==="function") u56TeamClear();
+    if(v!=="team"){ const ld=document.getElementById("u53jsonld"); if(ld) ld.remove(); }   // U53
     if(typeof u48Sync==="function") u48Sync();         // pause/resume the footage on section change
   }catch(_e){}
   if(sec!==_tabSection){ _tabSection=sec; renderTabbar(); }
