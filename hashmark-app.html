@@ -872,6 +872,11 @@
   .nilconf.medium{background:rgba(124,168,255,.15);color:#7CA8FF}
   .nilconf.low{background:rgba(148,163,184,.15);color:#94A3B8}
   .nilconf.disputed{background:rgba(232,182,87,.15);color:#E8B657}
+  /* U45: the model's own range estimates — DASHED outline, no fill, so a modeled row
+     can never be mistaken for a sourced-figure confidence pill (which are solid). */
+  .nilmodeled{flex:none;font-size:8.5px;font-weight:800;text-transform:uppercase;
+    letter-spacing:.04em;border-radius:999px;padding:3px 8px;background:transparent;
+    border:1px dashed rgba(49,224,200,.55);color:var(--teal);white-space:nowrap}
   .nilfig{font-size:11.5px;padding:5px 0;border-bottom:1px solid rgba(42,53,66,.5)}
   .nilfig small{color:var(--text3);margin:0 6px}
   .flowwrap{padding:6px 0}
@@ -3584,14 +3589,16 @@ async function simBandHTML(){
 // Band 6 — NIL economy. Coverage is DERIVED from the figures table; it upgrades on its own
 // the moment U45's modeled rows land, with no change here.
 async function nilBandHTML(){
-  let figured=null, teams=Object.keys(teamMeta||{}).length;
-  // count ONLY programs that actually carry a dollar figure. The table also holds
-  // registry-presence and tier rows, which are cited but carry no number — folding those
-  // into a "sourced" count would overstate coverage by 16 programs.
-  try{ const rows = await api(`nil_figures?select=team_id,figure_low_musd`);
-       figured = new Set(rows.filter(r=>r.figure_low_musd!=null).map(r=>r.team_id)).size; }catch(e){}
+  let figured=null, modeled=null, teams=Object.keys(teamMeta||{}).length;
+  // count ONLY programs that actually carry a SOURCED dollar figure. The table also
+  // holds registry/tier rows (no number) and, since U45, the model's own labeled
+  // ranges — folding either into "reported" would overstate real coverage.
+  try{ const rows = await api(`nil_figures?select=team_id,figure_low_musd,figure_type`);
+       figured = new Set(rows.filter(r=>r.figure_low_musd!=null && r.figure_type!=="modeled_estimate").map(r=>r.team_id)).size;
+       modeled = new Set(rows.filter(r=>r.figure_type==="modeled_estimate").map(r=>r.team_id)).size; }catch(e){}
   const chips=[{t:`${SEASON_RESULTS} figures`}];
   if(figured!=null && teams) chips.push({t:`${figured} of ${teams} with a reported figure`, kind:"count"});
+  if(modeled) chips.push({t:`${modeled} modeled — labeled`, kind:"count"});
   return secHead("Hashmark · NIL economy", "The money, tied to the football", {chip:chips, all:"nil", allLabel:"Open board"})
     + `<div class="sec" style="margin-top:4px"><div class="secsub" style="padding:2px 0 0">Attributed spend tiers and who beats theirs &mdash; every figure carries its source, and an unsourced program says so rather than guessing.</div></div>`;
 }
@@ -6154,11 +6161,12 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     return C.data.splits; };
   const loadIntel=async()=>{ if(!C.data.intel) C.data.intel=await teamIntelData(teamId, t); return C.data.intel; };
   const loadNIL=async()=>{ if(!C.data.nil){
-      const [tier, ds, perf]=await Promise.all([
+      const [tier, ds, perf, modeled]=await Promise.all([
         J(`nil_tiers?select=*&season=eq.${SEASON_SCHED}&team_id=eq.${teamId}`),
         J(`nil_disclosure_status?select=status,note&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}`),
-        J(`nil_performance_2025?select=band,wins,losses,est_low_musd,est_high_musd,confidence,disputed&team_id=eq.${teamId}`)]);
-      C.data.nil={tier:tier[0], ds:ds[0], perf:perf[0]}; } return C.data.nil; };
+        J(`nil_performance_2025?select=band,wins,losses,est_low_musd,est_high_musd,confidence,disputed&team_id=eq.${teamId}`),
+        J(`nil_figures?select=figure_low_musd,figure_high_musd,note&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}&figure_type=eq.modeled_estimate`)]);   // U45
+      C.data.nil={tier:tier[0], ds:ds[0], perf:perf[0], modeled:modeled[0]}; } return C.data.nil; };
   // U1 (B1 #2): the Stats panel body for one season — behind the 2026/2025 sub-toggle.
   // U29: this toggle IS the stats archive now (the standalone "2025 Stats" bubble is
   // retired). Season labels ride statProfile's own titles.
@@ -8858,6 +8866,18 @@ function wireInjGate(panel, intel){
 // batch 12 #3: the per-team NIL panel — this team's tier + confidence + every attributed
 // figure w/ links, or the honest limited-disclosure state; the 2025 performance-vs-money
 // band rides the same HASHMARK+ lane as the NIL Economy boards (tier free, detail gated).
+// U45: one renderer for the modeled-range block, used by the team panel and the
+// board sheet. The confidence + inputs line + LOO stats ride in the row's own note.
+function nilModeledBlock(m){
+  if(!m || m.figure_low_musd==null) return "";
+  const conf=(m.note||"").match(/modeled - (high|medium|low) confidence/);
+  return `<div class="sec" style="margin-top:6px;padding:10px 12px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <b style="font-size:14px">Model range: est. $${Number(m.figure_low_musd).toFixed(1)}&ndash;$${Number(m.figure_high_musd).toFixed(1)}M</b>
+      <span class="nilmodeled" title="${esc(m.note||"")}">Modeled &mdash; not a reported figure</span>
+      ${conf?`<span class="nilconf ${conf[1]}">${conf[1]} confidence</span>`:""}</div>
+    <div class="ha" style="padding:6px 0 0">Hashmark's own model, a range on purpose &mdash; never a point value, never player dollars. Based on rev-share opt-in status (Sportico), athletics revenue (EADA 2024-25), the conference third-party prior (nil-ncaa.com &mdash; P. O'Rourke, CPA, independent estimates) and the CFBD talent composite. A sourced figure always replaces this row. Validation + methodology on the NIL board's Methodology page.</div></div>`;
+}
 function teamNILPanel(n, t){
   let h=`<div class="sec"><div class="sectitle">NIL — ${SEASON_SCHED} <small>attributed estimates</small></div>`;
   if(n.tier){
@@ -8872,6 +8892,10 @@ function teamNILPanel(n, t){
   } else {
     h+=`<div class="secsub" style="padding:2px 2px 8px"><b>Limited public disclosure.</b> ${n.ds&&n.ds.note?esc(n.ds.note)+". ":"Searched — nothing attributable to a credible source. "}Schools don't publish football NIL/rev-share spending and we don't guess. League context where it exists: P4 programs typically est. $13-15M; most G5 rosters under est. $5M.</div>`;
   }
+  // U45: the model's own range for teams with no sourced figure — sourced always
+  // overrides (a modeled row never exists for a dollar-figured team, by build rule),
+  // and the badge + copy make the provenance unmistakable.
+  h+=nilModeledBlock(n.modeled);
   if(n.perf) h+=`<div id="tpnilband"><div class="navrow" style="padding-top:8px">
     <button class="navbtn primary" id="tpnilperf">${SEASON_RESULTS}: performance vs the money <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button></div></div>`;
   h+=`<div class="navrow" style="padding-top:8px"><button class="navbtn" id="tpnilboard">Full NIL Economy board</button></div>`;
@@ -9037,10 +9061,16 @@ async function openNILEconomy(){
   await ensureTeamMeta(); await ensureBoard();
   const tiers=await api(`nil_tiers?select=*&season=eq.${SEASON_SCHED}&order=tier.asc`);
   if(!tiers.length){ app.innerHTML=backHeader("NIL Economy")+`<div class="list"><div class="err">No tier data yet.</div></div>`; document.querySelector(".back").onclick=navBack; return; }
+  // U45: the model's display-only ranges for every team without a sourced figure
+  const modeledBy={};
+  try{ (await api(`nil_figures?select=team_id,figure_low_musd,figure_high_musd,note&season=eq.${SEASON_SCHED-1}&figure_type=eq.modeled_estimate`))
+       .forEach(r=>modeledBy[r.team_id]=r); }catch(e){}
+  const modeledN=Object.keys(modeledBy).length;
   const byTier={}; tiers.forEach(r=>{ (byTier[r.tier]=byTier[r.tier]||[]).push(r); });
   const confBadge=c=>`<span class="nilconf ${c}">${c==="high"?"on record":c==="medium"?"multiple reports":"single source"}</span>`;
+  const modeledTag=r=>{ const m=modeledBy[r.team_id]; return m?` <span class="nilmodeled" title="${esc(m.note||"")}">modeled est. $${Number(m.figure_low_musd).toFixed(0)}&ndash;${Number(m.figure_high_musd).toFixed(0)}M</span>`:""; };
   let h=`<div class="cmp">${backHeader("NIL Economy")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 8px"><b>Who's spending what on the roster — as honest tiers.</b> Built only from attributed public reporting and on-record statements (tap a team for every underlying figure + link). Teams absent from the board have <b>limited public disclosure</b> — most of the G5 and private schools; we don't guess. ${SEASON_SCHED} season.</div>
+    <div class="secsub" style="padding:0 2px 8px"><b>Who's spending what on the roster — as honest tiers.</b> Built only from attributed public reporting and on-record statements (tap a team for every underlying figure + link). ${SEASON_SCHED} season.${modeledN?` Programs with no sourced figure now carry a <b>clearly-labeled Hashmark model range</b> (${modeledN} of ${Object.keys(teamMeta).length} — the dashed badge, never mixed with sourced figures; a sourced figure always replaces it).`:" Teams absent from the board have <b>limited public disclosure</b> — we don't guess."}</div>
     <div class="navrow"><button class="navbtn primary" id="nileff"><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Performance vs resources <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button>
       <button class="navbtn" id="nilperf25"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg> 2025: performance vs the money <span class="chip-plus" style="display:inline-flex">HASHMARK+</span></button>
       <button class="navbtn" id="nilmeth"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg> Methodology</button></div>`;
@@ -9050,7 +9080,7 @@ async function openNILEconomy(){
     rows.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
       const srcs=nilSrcs(r), disputed=srcs.some(s=>s.disputed);
       h+=`<div class="nilrow" data-nil="${r.team_id}">${crestEl("glcr",t.school,hx(t.color))}
-        <div class="lknm">${esc(t.school)}<small>${srcs.length} figure${srcs.length!==1?"s":""} on file${r.limited_disclosure?" · limited disclosure":""}</small></div>
+        <div class="lknm">${esc(t.school)}<small>${srcs.length} figure${srcs.length!==1?"s":""} on file${r.limited_disclosure?" · limited disclosure":""}${modeledTag(r)}</small></div>
         ${confBadge(r.confidence)}${disputed?`<span class="nilconf disputed">disputed</span>`:""}</div>`; });
     h+=`</div>`; });
   // Batch 10 #4 (the owner's complaint): ALL 136 FBS teams render. Teams without
@@ -9061,12 +9091,14 @@ async function openNILEconomy(){
     const rest=(ds||[]).filter(r=>!tiered.has(String(r.team_id)))
       .sort((a,b)=>(a.school||"").localeCompare(b.school||""));
     if(rest.length){
-      h+=`<div class="sec"><div class="sectitle">Everyone else — limited public disclosure <small>${rest.length} teams</small></div>
-        <div class="secsub">Searched — nothing attributable to a credible source. League context where it exists: P4 programs typically est. $13-15M; most G5 rosters under est. $5M; AAC members pledged a $10M+ cumulative program.</div>`;
+      h+=`<div class="sec"><div class="sectitle">Everyone else — limited public disclosure, model range shown <small>${rest.length} teams</small></div>
+        <div class="secsub">No attributable dollar figure exists for these programs — that honesty message stands. The dashed range is <b>Hashmark's own model</b> (rev-share opt-in + athletics revenue + conference third-party prior + talent), labeled so it can never read as reporting. League context: P4 programs typically est. $13-15M; most G5 rosters under est. $5M.</div>`;
       rest.forEach(r=>{ const t=teamMeta[r.team_id]||{school:r.school};
-        h+=`<div class="nilrow" data-team="${r.team_id}" style="opacity:.75">${crestEl("glcr",t.school,hx(t.color))}
+        const m=modeledBy[r.team_id];
+        h+=`<div class="nilrow" data-team="${r.team_id}" style="opacity:.8">${crestEl("glcr",t.school,hx(t.color))}
           <div class="lknm">${esc(t.school)}<small>${esc(r.note||(r.status==="searched_empty"?"searched — nothing attributable":"no credible public figure"))}</small></div>
-          <span class="nilconf low">limited disclosure</span></div>`; });
+          ${m?`<span class="nilmodeled" title="${esc(m.note||"")}">modeled est. $${Number(m.figure_low_musd).toFixed(0)}&ndash;${Number(m.figure_high_musd).toFixed(0)}M</span>`
+             :`<span class="nilconf low">limited disclosure</span>`}</div>`; });
       h+=`</div>`;
     }
   }catch(e){}
@@ -9202,9 +9234,27 @@ async function openNILEfficiency(){
   document.querySelector(".back").onclick=navBack;
   document.getElementById("nilrostecon").onclick=()=>gatedRosterEconomy();
 }
-function openNILMethodology(){
+async function openNILMethodology(){
   window.scrollTo(0,0);
+  // U45: the model section renders from nil_model_meta — the LIVE build's own inputs,
+  // version and leave-one-out table, never hand-typed numbers that could go stale.
+  let modelSec="";
+  try{
+    const meta=(await api(`nil_model_meta?select=data&key=eq.u45`))[0];
+    if(meta && meta.data){
+      const d=meta.data, ls=d.loo_stats||{};
+      const looRows=(d.loo_table||[]).map(r=>`<div class="ha" style="padding:3px 0;line-height:1.5">
+        <b style="color:${r.hit?"var(--teal)":"var(--warn)"}">${r.hit?"ok":"miss"}</b> ${esc(r.school)}
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"> — src ${r.sourced[0]}&ndash;${r.sourced[1]} · mod ${r.modeled?r.modeled[0]+"&ndash;"+r.modeled[1]:"&mdash;"} · err ${r.mid_err!=null?"$"+r.mid_err+"M":"&mdash;"}</span></div>`).join("");
+      modelSec=`<div class="sec"><div class="sectitle">The Hashmark model <small>· ${esc(d.version||"")} · built ${esc(d.built||"")}</small></div>
+        <div class="secsub" style="padding:4px 2px">Programs with no sourced figure carry a <span class="nilmodeled">Modeled &mdash; not a reported figure</span> RANGE — team-level only, never player dollars, never a point value. The form: <b>rev share + third-party</b>. Rev share: P4 opted-in programs at a ${Math.round(d.p4_fb_share[0]*100)}&ndash;${Math.round(d.p4_fb_share[1]*100)}% football share of the $${d.cap_musd}M cap (${esc(d.cap_year)}) — the share band comes from our own disclosed-split anchors; G5 programs at ${(d.g5_k_band[0]*100).toFixed(1)}&ndash;${(d.g5_k_band[1]*100).toFixed(1)}% of total athletics revenue (EADA 2024-25), calibrated on our G5 anchors; service academies $0 (barred by federal law). Third-party: the nil-ncaa.com conference estimates (Patrick O'Rourke, CPA — independent estimates, not disclosures) scaled by CFBD talent percentile, with the magnitude fit from our anchors. <b>A sourced figure always overrides the model</b>, and modeled rows never enter the performance-vs-money fit (a tested guardrail).</div>
+        <div class="secsub" style="padding:4px 2px"><b>Validation — leave-one-out against every sourced anchor</b> (each modeled as if unsourced, its calibration contribution removed first): ${ls.hits} of ${ls.n} sourced bands intersect their modeled range (${Math.round((ls.coverage||0)*100)}% — publish gate requires 70%), median midpoint error $${ls.median_mid_err}M. The misses are the documented anomalies (in-house G5 outlier funding, the reported-spend tail, a 3-year-total anchor, one under-spender) — listed openly below.</div>
+        <div class="acc"><button class="acchdr" data-acc="u45loo" aria-expanded="false">The full LOO table (${ls.n} anchors) <svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+        <div id="accb-u45loo" hidden>${looRows}</div></div></div>`;
+    }
+  }catch(e){}
   app.innerHTML=`<div class="cmp">${backHeader("NIL methodology")}<div class="list" style="padding-top:6px">
+    ${modelSec}
     <div class="sec"><div class="sectitle">How the tiers are built</div>
       <div class="secsub" style="padding:4px 2px">Five $5M-wide buckets: Tier 1 est. $40M+, Tier 2 est. $30-40M, Tier 3 est. $20-30M, Tier 4 est. $12-20M, Tier 5 under est. $12M or limited data. A team's tier comes from the ENSEMBLE of its stored figures — on-record school statements outrank multiple consistent reports, which outrank single-source or model-only estimates (that's the confidence flag). Disputed figures never place a tier on their own; all-sports totals and pre-rev-share-era figures are context only.</div></div>
     <div class="sec"><div class="sectitle">Why sources disagree</div>
