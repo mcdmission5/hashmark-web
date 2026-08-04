@@ -30,6 +30,20 @@
      31.2 KB subset of Bricolage Grotesque, OFL — see fonts/README.md). No third-party font CDN
      call for it; relative path so it resolves under the GitHub Pages project subpath too. -->
 <link rel="preload" as="font" type="font/woff2" href="fonts/hashmark-display.woff2" crossorigin>
+<script>
+// U54 theme boot — runs BEFORE the stylesheet parses and before anything paints, so
+// there is no flash of the wrong theme. Resolution order: the user's explicit choice
+// (localStorage, mirrored to the profile for signed-in users) > OS preference
+// (prefers-color-scheme) > dark (the app's native look).
+(function(){
+  try{
+    var t=localStorage.getItem("hm_theme");
+    if(t!=="light"&&t!=="dark")
+      t=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches)?"light":"dark";
+    document.documentElement.dataset.theme=t;
+  }catch(e){ document.documentElement.dataset.theme="dark"; }
+})();
+</script>
 <style>
   /* PRIMETIME (games-ux sprint, decided): deep navy under-the-lights base, gold primary,
      teal accent. Semantics unchanged: amber=user, teal=Model, green/red=stat good/bad.
@@ -411,7 +425,7 @@
   .ccgstand .ssnm small{display:block;color:var(--text3);font-weight:500;font-size:10.5px}
   .ccgstand .more{color:var(--text3);font-size:11px}
   .favpickcta.big{display:flex;align-items:center;gap:12px;margin:10px 2px;padding:14px;cursor:pointer;
-    background:linear-gradient(160deg,#241a08,#101828 60%);border:1px solid rgba(255,190,61,.35);border-radius:15px}
+    background:var(--card-fill-amber);border:1px solid rgba(255,190,61,.35);border-radius:15px}
   .favpickcta.big .ic{width:22px;height:22px;color:var(--amber);flex:none}
   .favpickcta.big b{font-size:15px}
   .favpickcta.big small{display:block;color:var(--text2);font-size:11.5px;margin-top:2px}
@@ -429,7 +443,7 @@
   .wwrow .wwv small{display:block;font-weight:500;font-size:9.5px;color:var(--text3)}
   /* collapsible sections (.acc) — Signature pages + preseason award watch lists (the
      team page's accordions became the bubble nav in batch 12 #3) */
-  .acc{border:1px solid var(--line);border-radius:13px;margin:8px 0;background:linear-gradient(165deg,#151f36,#101828);overflow:hidden}
+  .acc{border:1px solid var(--line);border-radius:13px;margin:8px 0;background:var(--card-fill);overflow:hidden}
   .acchdr{width:100%;display:flex;align-items:center;gap:8px;padding:13px 14px;background:none;border:0;cursor:pointer;
     color:var(--text);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:14px;letter-spacing:.03em;text-align:left;min-height:44px}
   .acchdr small{font-family:"Barlow",sans-serif;font-weight:500;font-size:10.5px;color:var(--text3);letter-spacing:0;margin-left:auto}
@@ -446,7 +460,7 @@
   .bubwrap:before,.bubwrap:after{content:"";position:absolute;top:0;bottom:0;width:16px;pointer-events:none;z-index:1}
   .bubwrap:before{left:0;background:linear-gradient(90deg,var(--bg),rgba(11,17,32,0))}
   .bubwrap:after{right:0;background:linear-gradient(270deg,var(--bg),rgba(11,17,32,0))}
-  .bub{flex:none;border:1px solid var(--line2);border-radius:999px;background:linear-gradient(165deg,#151f36,#101828);
+  .bub{flex:none;border:1px solid var(--line2);border-radius:999px;background:var(--card-fill);
     color:var(--text);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13.5px;letter-spacing:.04em;
     padding:8px 14px;min-height:36px;cursor:pointer;white-space:nowrap;text-transform:uppercase}
   .bub.on{background:var(--amber);border-color:var(--amber);color:#0b1120}
@@ -825,7 +839,7 @@
   .simloadtitle{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:20px;letter-spacing:.05em;text-transform:uppercase}
   .ccgpick{display:flex;gap:10px;padding:6px 0 4px}
   .ccgpick button{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;
-    background:linear-gradient(165deg,#151f36,#101828);border:1px solid var(--line2);border-radius:14px;
+    background:var(--card-fill);border:1px solid var(--line2);border-radius:14px;
     padding:14px 8px;color:var(--text);font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:14.5px;
     letter-spacing:.03em;cursor:pointer;min-height:88px}
   .ccgpick button small{font-family:"Barlow",sans-serif;font-weight:600;font-size:10.5px;color:var(--text2);letter-spacing:0}
@@ -1205,7 +1219,7 @@
     *,*::before,*::after{animation:none!important;transition:none!important}}
 
   /* PRIMETIME finishing layer: card gradients + restrained glow (lighting, not neon) */
-  .sec,.card,.lbcard,.scgame,.recordcard,.xcard{background:linear-gradient(165deg,#151f36,#101828)}
+  .sec,.card,.lbcard,.scgame,.recordcard,.xcard{background:var(--card-fill)}
   .dbig{color:var(--amber);text-shadow:0 0 18px rgba(255,190,61,.45)}
   /* U46 accent discipline: a W-L record is a plain fact - it is neither the user/crowd
      (amber) nor the Model (teal), so it wears the warm display tier and no glow. */
@@ -1249,6 +1263,10 @@
     /* radius + shadow */
     --r-chip:999px; --r-card:14px; --r-panel:18px;
     --sh-card:0 6px 22px rgba(0,0,0,.34); --sh-pop:0 12px 30px rgba(0,0,0,.5);
+    /* U54: the card fill became a token (was a hardcoded dark gradient at 5 call
+       sites — invisible-in-dark, but it painted every core card dark in light mode) */
+    --card-fill:linear-gradient(165deg,#151f36,#101828);
+    --card-fill-amber:linear-gradient(160deg,#241a08,#101828 60%);
     /* band tone (U47 alternates --bg against this) + the amber-to-teal band hairline */
     --band:#0E1626;
     /* atmosphere: yard lines every 40px + a hash-mark tick row — white at 2-3.5%, no hue */
@@ -1732,12 +1750,99 @@
   .loopdead.compact .ldt{font-size:16px}
 
   /* ══════════════════════════ end U55 background ══════════════════════════ */
+
+  /* ══════════════ U54 — LIGHT MODE ══════════════
+     A second value set for the SAME token system (U46/U49/U56) — dark values are
+     untouched, light adjusts only its own ramps. U56 already paired every background
+     TREATMENT; this block pairs the base tokens and the handful of component surfaces
+     that hardcoded dark washes before the token era.
+     !! U49 CONTRACT IN LIGHT: bright amber/teal are ~1.6:1 on white, so the LIGHT
+     accent ramps are dark ambers/teals — hue identity + mutual distinguishability
+     kept, AA re-measured per theme (table in the report). Fills that carry dark text
+     (CTAs, active toggles) keep bright amber via explicit overrides below.
+     DELIBERATE DARK ISLANDS (self-contained, same look in both themes, documented):
+     the U48/U55 hero video stage (footage + measured veils — it re-pins the dark
+     text vars for its own subtree), gauntlet heat cells (always-dark backgrounds get
+     explicit light text), crest tiles (true team colors), share-card canvases
+     (exported images must not depend on the viewer's theme), and the modal dimmer. */
+  :root[data-theme="light"]{
+    --bg:#EDF1F7; --surface:#FFFFFF; --surface2:#E7EDF6;
+    --line:rgba(16,24,40,.12); --line2:rgba(16,24,40,.20); --tabbar:#FFFFFF;
+    --text:#111827; --text2:#3E4E66; --text3:#54657E; --legal:#5E7089;
+    --textw:#16202E;
+    --amber:#8A5B06; --amber-tint:rgba(138,91,6,.10);
+    --teal:#0B6E60; --teal-tint:rgba(11,110,96,.10);
+    --model-strong:#075A50;
+    --live:#BB2727; --loss:#B23A2E; --warn:#7d5A0A;
+    --band:#E7EDF5;
+    --veil:linear-gradient(180deg,rgba(244,247,251,0) 0%,rgba(244,247,251,.55) 62%,rgba(244,247,251,.92) 100%);
+    --tex-yard:repeating-linear-gradient(90deg,rgba(16,24,40,.035) 0 1px,transparent 1px 40px);
+    --tex-hash:repeating-linear-gradient(90deg,transparent 0 18px,rgba(16,24,40,.026) 18px 19px,transparent 19px 40px);
+    --sh-card:0 6px 22px rgba(15,23,42,.10); --sh-pop:0 12px 30px rgba(15,23,42,.18);
+    --card-fill:linear-gradient(165deg,#FFFFFF,#F3F6FB);
+    --card-fill-amber:linear-gradient(160deg,#FBEFD8,#FFFFFF 60%);
+  }
+  /* active pills/tabs keep the BRIGHT amber fill (their dark text needs it); the
+     dark-amber light ramp is for text/border accents only */
+  :root[data-theme="light"] .bub.on,
+  :root[data-theme="light"] .confpill.on{background:#FFBE3D;border-color:#E8A82A}
+  :root[data-theme="light"] #statsfab,
+  :root[data-theme="light"] #simfab{background:#FFBE3D}
+  :root[data-theme="light"] .lbtoggle button.on{background:#FFBE3D;border-color:#E8A82A}
+  :root[data-theme="light"] .navbtn.primary{background:linear-gradient(180deg,#FFFFFF,#EDF2F9);border-color:#C4D0E0}
+  /* the two sticky page headers hardcoded the dark blur pre-tokens */
+  :root[data-theme="light"] .dtop,
+  :root[data-theme="light"] .cmptop{background:rgba(244,247,251,.92)}
+  /* component surfaces that hardcoded dark washes pre-tokens */
+  :root[data-theme="light"] header{background:rgba(244,247,251,.94)!important}
+  :root[data-theme="light"] .wrap::before{opacity:.8}
+  :root[data-theme="light"] .heropill,
+  :root[data-theme="light"] .herolive,
+  :root[data-theme="light"] .hero47 .hcchip{background:rgba(255,255,255,.72)}
+  :root[data-theme="light"] .mboard{background:rgba(255,255,255,.65)}
+  :root[data-theme="light"] .note{background:var(--surface2)}
+  :root[data-theme="light"] .flagcard{background:linear-gradient(160deg,#E9F4F0,#FFFFFF 60%);border-color:rgba(11,110,96,.25)}
+  :root[data-theme="light"] .briefband{background:var(--trt-chalk)}
+  /* accent FILLS keep bright amber (their text is dark by design — AA holds on the
+     bright fill, and a dark-amber fill would break it) */
+  :root[data-theme="light"] .herocta .cta-a{background:#FFBE3D}
+  :root[data-theme="light"] .pollres i{background:rgba(138,91,6,.14);border-right-color:rgba(138,91,6,.45)}
+  /* dark islands: the hero stage keeps its footage look — re-pin its subtree vars */
+  :root[data-theme="light"] .hero47{
+    --textw:#F2EFE7; --text2:#93A5C0; --text3:#8496B5;
+    --line2:rgba(255,255,255,.16)}
+  :root[data-theme="light"] .hero47 .heropill,
+  :root[data-theme="light"] .hero47 .herolive{background:rgba(11,17,32,.55)}
+  :root[data-theme="light"] .gcell{color:#EAF0FB}
+  :root[data-theme="light"] .gcell .gwk{color:#B9C6DE}
+  /* home band scrims over the footage: dark text needs the light scrim pairs (U56)
+     — nothing to declare here, the tokens flip with the theme. The U55 media veil
+     stays dark (it sits UNDER the scrims and over dark footage in both themes). */
+  /* pre-token hardcoded surfaces, light counterparts */
+  :root[data-theme="light"] .tabbar{background:linear-gradient(180deg,rgba(244,247,251,0) 0%,#F4F7FB 26%)}
+  :root[data-theme="light"] .tabbar button.on{background:#FFBE3D}   /* bright fill keeps its dark text AA */
+  :root[data-theme="light"] .card-hero-amber{background:linear-gradient(160deg,#FBEFD8,#FFFFFF 55%);border-color:rgba(138,91,6,.30);box-shadow:0 0 0 1px rgba(11,110,96,.12), 0 14px 40px rgba(15,23,42,.10)}
+  :root[data-theme="light"] .card-hero-teal{background:linear-gradient(160deg,#E7F4F0,#FFFFFF 55%);border-color:rgba(11,110,96,.30)}
+  /* the U55 opaque-card set: those rules hardcode the dark card fill so paragraphs
+     never composite on footage — same guarantee, light fill */
+  :root[data-theme="light"] body.u55-on .sec,:root[data-theme="light"] body.u55-on .card,
+  :root[data-theme="light"] body.u55-on .lbcard,:root[data-theme="light"] body.u55-on .scgame,
+  :root[data-theme="light"] body.u55-on .recordcard,:root[data-theme="light"] body.u55-on .xcard,
+  :root[data-theme="light"] body.u55-on .mboard,:root[data-theme="light"] body.u55-on .tcard,
+  :root[data-theme="light"] body.u55-on .teamchip{background-color:#FFFFFF}
+  :root[data-theme="light"] body.u55-on .flagcard{background:linear-gradient(160deg,#E9F4F0,#FFFFFF 60%)}
+  :root[data-theme="light"] body.u55-on .briefband{background:var(--trt-chalk)}
+  :root[data-theme="light"] body.u55-on .note{background:var(--surface2)}
+  :root[data-theme="light"] body.u55-on .newsline{background:transparent}
+  /* ══════════════════════════ end U54 ══════════════════════════ */
 </style>
 </head>
 <body>
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <g id="_ic" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></g>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
 <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
 <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-5h-4v5H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
 <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 10h16M8 4v4M16 4v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
@@ -2009,13 +2114,14 @@ try{
 
 async function ensureProfile(){
   try{
-    const sel = `profiles?select=id,display_name,favorite_team_id,sim_runs&id=eq.${authUser.id}`;
+    const sel = `profiles?select=id,display_name,favorite_team_id,sim_runs,theme&id=eq.${authUser.id}`;
     let r = await authFetch("GET", sel);
     if(r.error) return;                          // transient/auth error: keep prior profile, don't clobber
     if(r.data && r.data.length){ authProfile = r.data[0];
       // #4: a guest-picked favorite syncs into the empty profile on sign-in
       const g=Number(localStorage.getItem(GUEST_FAV_KEY));
       if(g && !authProfile.favorite_team_id){ setFavoriteTeam(g); }
+      try{ applyProfileTheme(); }catch(_e){}   // U54: roam the theme choice across devices
       return; }
     // genuinely no row -> create it on first sign-in
     const m = authUser.user_metadata || {};
@@ -8323,8 +8429,41 @@ function mountHeaderSearch(){
   const slot=host.querySelector(".acctslot");
   if(slot) host.insertBefore(b, slot); else host.appendChild(b);
 }
-new MutationObserver(()=>{ try{ mountHeaderSearch(); }catch(_e){} }).observe(app, {childList:true});
-setTimeout(mountHeaderSearch, 0);
+// ══════════════ U54 — theme toggle (their pattern: a header control) ══════════════
+// Same observer ride as the search icon, so every header variant gets it free. The
+// choice persists to localStorage immediately and to the profile when signed in
+// (sign-in on another device restores it — see applyProfileTheme).
+function u54Theme(){ return document.documentElement.dataset.theme==="light"?"light":"dark"; }
+function u54SetTheme(t, persist){
+  document.documentElement.dataset.theme=t;
+  try{ localStorage.setItem("hm_theme", t); }catch(_e){}
+  const b=document.getElementById("hdrtheme");
+  if(b) b.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-${t==="light"?"moon":"sun"}"/></svg>`;
+  if(persist && authUser){ try{ authFetch("PATCH", `profiles?id=eq.${authUser.id}`, {theme:t}); }catch(_e){} }
+  try{ track("theme_set", t); }catch(_e){}
+}
+function mountThemeToggle(){
+  if(document.getElementById("hdrtheme")) return;
+  const search=document.getElementById("hdrsearch");
+  if(!search || !search.parentNode) return;
+  const b=document.createElement("button");
+  b.id="hdrtheme"; b.className="hdrsearch";
+  b.setAttribute("aria-label","Switch light/dark theme");
+  b.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-${u54Theme()==="light"?"moon":"sun"}"/></svg>`;
+  b.onclick=()=>u54SetTheme(u54Theme()==="light"?"dark":"light", true);
+  search.parentNode.insertBefore(b, search);
+}
+// signed-in restore: an explicit profile theme wins over the OS default, but never
+// over a fresher local choice (localStorage was already applied pre-paint)
+function applyProfileTheme(){
+  try{
+    if(authProfile && (authProfile.theme==="light"||authProfile.theme==="dark")
+       && !localStorage.getItem("hm_theme"))
+      u54SetTheme(authProfile.theme, false);
+  }catch(_e){}
+}
+new MutationObserver(()=>{ try{ mountHeaderSearch(); mountThemeToggle(); }catch(_e){} }).observe(app, {childList:true});
+setTimeout(()=>{ mountHeaderSearch(); mountThemeToggle(); }, 0);
 
 // U32: the floating Ask Hashmark bubble — ONE body-level element, re-synced on every
 // view render (same observer pattern as the U23 header icon). Contextual on team
