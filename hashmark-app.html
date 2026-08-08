@@ -3789,6 +3789,12 @@ async function renderHomeBands(){
   injectYourTeam();
   injectNews();
   injectHomeBands();
+  // U57 dress rehearsal: the LIVE strip must arm on THIS home too — the liveArm() wrap
+  // only covers the legacy renderHome, and the boot-race fallbacks are permanently
+  // defeated here because the U50 band matches their `.band` guard. Guarded call:
+  // liveArm parses in a later script block, which may not have parsed at boot yet
+  // (the fixed fallbacks below cover that race).
+  try{ if(typeof liveArm==="function") liveArm(); }catch(_e){}
 }
 
 function wireHomeBands(){
@@ -5215,8 +5221,8 @@ const pkLocked = g => new Date(g.kickoff) <= new Date();
 function renderPickem(){
   const signedIn = !!authUser;
   let h = `<div class="cmp">${backHeader("Pick'em")}<div class="list" style="padding-top:6px">
-    <div class="secsub" style="padding:0 2px 6px"><b>${pk.season} · Week ${pk.week}</b> — pick the winner of all 10, then rank your confidence
-    (10 = most sure). Correct picks score their rank; misses score zero. Picks lock at each game's kickoff and stay hidden from
+    <div class="secsub" style="padding:0 2px 6px"><b>${pk.season} · Week ${pk.week}</b> — pick the winner of all ${(pk.slate||[]).length||10}, then rank your confidence
+    (${(pk.slate||[]).length||10} = most sure). Correct picks score their rank; misses score zero. Picks lock at each game's kickoff and stay hidden from
     others until then.</div>`;
   if(!signedIn) h += `<div class="sec"><div class="secsub">Sign in to make picks and join groups — every stat stays free without it.</div>
     <div class="navrow"><button class="navbtn primary" data-acct="signin">Sign in</button></div></div>`;
@@ -11460,11 +11466,16 @@ refreshMyTeamTab();
 // load() begins before this block parses — if the first home render won the race
 // (microtasks run between script blocks), patch the extras in after the fact.
 setTimeout(()=>{ try{
-  if(!document.getElementById("v2hero") && !app.querySelector(".band")
+  // U57: bands home (the current home — #u50-band is its marker) never matches the
+  // legacy guard below because its own bands ARE `.band` elements; arm the LIVE strip
+  // directly if the boot race left it unarmed. v2HomeExtras stays legacy-home-only.
+  if(document.getElementById("u50-band")){ if(!_liveTimer) liveArm(); }
+  else if(!document.getElementById("v2hero") && !app.querySelector(".band")
      && /national leaders/i.test(app.textContent||"")){ v2HomeExtras(); liveArm(); }
 }catch(e){} }, 1200);
 setTimeout(()=>{ try{
-  if(!document.getElementById("v2hero") && !app.querySelector(".band")
+  if(document.getElementById("u50-band")){ if(!_liveTimer) liveArm(); }   // U57 (see above)
+  else if(!document.getElementById("v2hero") && !app.querySelector(".band")
      && /national leaders/i.test(app.textContent||"")){ v2HomeExtras(); liveArm(); }
 }catch(e){} }, 3500);
 // U47: the views declared in THIS block are invisible to the wrap loop in the first block
