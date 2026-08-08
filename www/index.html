@@ -4115,9 +4115,10 @@ async function openPolls(){
 // Trivia is GENERATED from the U13 history ledgers at render time — every answer is a
 // stored row, and the row is SHOWN after answering (the honesty edge over a hand-written
 // quiz). The set is seeded by the UTC date, so everyone gets the same five questions.
-// Scores/streaks live behind the U51-pattern RPCs (deny-all table, server-day only);
-// awards questions are deliberately ABSENT: award_winners holds registry rows only
-// (the curated NCAA ingest hasn't run), and we never invent winners.
+// Scores/streaks live behind the U51-pattern RPCs (deny-all table, server-day only).
+// U59: the curated NCAA records-book ingest landed — award-winner and conference-title
+// questions joined the pool (each answer is a stored, source-carrying row); the daily
+// seed now picks 5 of the 7 builders, so the mix rotates too.
 function u52Rng(seed){
   let h=1779033703^seed.length;
   for(let i=0;i<seed.length;i++){ h=Math.imul(h^seed.charCodeAt(i),3432918353); h=h<<13|h>>>19; }
@@ -4127,10 +4128,13 @@ const u52Day = () => window._u52Day || new Date().toISOString().slice(0,10);   /
 function u52Pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
 async function u52Questions(){
   // fixed filters + fixed ordering => identical candidate lists for every client
-  const [champs, rivs, hist] = await Promise.all([
+  const [champs, rivs, hist, awards, confT] = await Promise.all([
     api("championships?select=school,season,selector,source_url&selector=eq.consensus&split=eq.false&vacated=eq.false&season=gte.1936&order=season.desc"),
     api("rivalries?select=school_a,school_b,trophy,official_w,official_l,official_t,official_games,note,source_url&tier=eq.A&order=id.asc"),
-    api("team_history?select=school,wins,losses,ties,games,longest_win_streak,streak_start,streak_end,era_label&order=games.desc&limit=60")
+    api("team_history?select=school,wins,losses,ties,games,longest_win_streak,streak_start,streak_end,era_label&order=games.desc&limit=60"),
+    // U59: records-book pools — winners since 1990 (recognizable names), source on every row
+    api("award_winners?select=award,season,player,school,source_url&player=not.is.null&season=gte.1990&order=award.asc,season.desc").catch(()=>[]),
+    api("conference_titles?select=conference,season,school,shared,source_url&shared=eq.false&season=gte.1970&order=conference.asc,season.desc").catch(()=>[])
   ]);
   const rng=u52Rng("hashmark-trivia-"+u52Day());
   const qs=[];
@@ -4177,6 +4181,35 @@ async function u52Questions(){
     qs.push({q:`How long was ${row.school}'s longest win streak (${row.streak_start}–${row.streak_end})?`,
       opts, correct:opts.indexOf(String(n)),
       src:`team_history ledger: ${row.school} ${n} straight wins, ${row.streak_start}–${row.streak_end} (${row.era_label})`, url:null}); }
+  // Q6 (U59) — who won a national award that year (records-book ingest)
+  if(awards.length>=8){ const row=u52Pick(rng, awards);
+    const sameAward=awards.filter(a=>a.award===row.award && a.player!==row.player);
+    const opts=[row.player];
+    while(opts.length<4 && sameAward.length){
+      const d=sameAward.splice(Math.floor(rng()*sameAward.length),1)[0];
+      if(!opts.includes(d.player)) opts.push(d.player); }
+    if(opts.length===4) qs.push({q:`Who won the ${row.season} ${row.award}?`, opts, correct:0,
+      src:`award_winners ledger: ${row.player} (${row.school}), ${row.season} ${row.award} — NCAA records book`, url:row.source_url}); }
+  // Q7 (U59) — outright conference champion of a year (era-honest: as named at the time)
+  if(confT.length>=8){ const row=u52Pick(rng, confT);
+    const sameConf=confT.filter(x=>x.conference===row.conference && x.school!==row.school);
+    const opts=[row.school];
+    while(opts.length<4 && sameConf.length){
+      const d=sameConf.splice(Math.floor(rng()*sameConf.length),1)[0];
+      if(!opts.includes(d.school)) opts.push(d.school); }
+    if(opts.length===4) qs.push({q:`Who won the ${row.season} ${row.conference} championship (outright)?`, opts, correct:0,
+      src:`conference_titles ledger: ${row.school}, ${row.season} ${row.conference} — NCAA records book (credited as named at the time)`, url:row.source_url}); }
+  // U59: pick 5 of the pool deterministically (same daily seed -> same 5 for everyone)
+  while(qs.length>5) qs.splice(Math.floor(rng()*qs.length), 1);
+  // U59 fix (pre-existing): options were rendered in build order, so builder-style
+  // questions always had the correct answer as option A. Seeded shuffle per question
+  // (deterministic — every client still sees the identical layout), correct re-indexed.
+  qs.forEach(q=>{
+    const order=q.opts.map((_,i)=>i);
+    for(let i=order.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+    q.opts=order.map(i=>q.opts[i]);
+    q.correct=order.indexOf(q.correct);
+  });
   return qs;
 }
 const U52_LS = () => "hm_trivia_"+u52Day();
@@ -6422,17 +6455,20 @@ async function ensurePoll(){ if(!poll2025){ poll2025={};
 // mirroring the same strings.
 async function u53Data(teamId, t, games, hm){
   const school=t.school;
-  const [gd, hist, champs, nilFig, tiers, qbG, plG] = await Promise.all([
+  const [gd, hist, champs, nilFig, tiers, qbG, plG, confT, awards] = await Promise.all([
     gauntletData(teamId).catch(()=>null),
     api(`team_history?select=wins,losses,ties,games,win_pct,first_season,last_season,longest_win_streak,streak_start,streak_end,era_label&team_id=eq.${teamId}`).catch(()=>[]),
     api(`championships?select=season,selector,split,vacated&team_id=eq.${teamId}&order=season.asc`).catch(()=>[]),
     api(`nil_figures?select=figure_low_musd,figure_high_musd,figure_type,source&season=eq.${SEASON_RESULTS}&team_id=eq.${teamId}&figure_low_musd=not.is.null`).catch(()=>[]),
     api(`rivalries?select=school_a,school_b,trophy,official_w,official_l,official_t,official_games,source_url&tier=eq.A&or=(team_a_id.eq.${teamId},team_b_id.eq.${teamId})`).catch(()=>[]),
     api(`qb_value_rating?select=player,rating,percentile&season=eq.${SEASON_RESULTS}&qualified=eq.true&team=eq.${encodeURIComponent(school)}&order=rating.desc`).catch(()=>[]),
-    api(`player_value_rating?select=player,role,rating,percentile&season=eq.${SEASON_RESULTS}&qualified=eq.true&team=eq.${encodeURIComponent(school)}&order=rating.desc`).catch(()=>[])
+    api(`player_value_rating?select=player,role,rating,percentile&season=eq.${SEASON_RESULTS}&qualified=eq.true&team=eq.${encodeURIComponent(school)}&order=rating.desc`).catch(()=>[]),
+    // U59: records-book ledgers for the FAQ (conference titles + award winners)
+    api(`conference_titles?select=conference,season,shared&school=eq.${encodeURIComponent(school)}&order=season.asc`).catch(()=>[]),
+    api(`award_winners?select=award,season,player&school=eq.${encodeURIComponent(school)}&player=not.is.null&order=season.desc`).catch(()=>[])
   ]);
   return {gd, hist:hist[0]||null, champs:champs||[], nilFig:nilFig||[], rivs:tiers||[],
-          qbG:qbG||[], plG:plG||[], hm};
+          qbG:qbG||[], plG:plG||[], confT:confT||[], awards:awards||[], hm};
 }
 function u53FAQ(t, d, games, teamId){
   const s=t.school, qs=[];
@@ -6494,6 +6530,19 @@ function u53FAQ(t, d, games, teamId){
         a:`${best.player} (${best.role||"QB"}) led qualified ${s} players at ${Math.round(best.rating)} of 100 on the ${SEASON_RESULTS} Hashmark Grade scale${all.length>1&&worst.player!==best.player?`; ${worst.player} (${worst.role||"QB"}) graded lowest among qualifiers at ${Math.round(worst.rating)}`:""}. Value-in-role grades from play-by-play, ${SEASON_RESULTS} season, qualified snap floors only.`});
     } else qs.push({q:`Who were ${s}'s best-graded players?`,
         a:`No qualified ${SEASON_RESULTS} grades on file for ${s} — players below the snap/attempt floors aren't graded (small samples grade dishonestly). ${SEASON_SCHED} grades start with the games.`}); }
+  // 8 (U59) — conference championships (records-book ledger; era-honest)
+  if(d.confT&&d.confT.length){
+    const last=d.confT[d.confT.length-1];
+    const confs=[...new Set(d.confT.map(x=>x.conference))];
+    qs.push({q:`How many conference championships has ${s} won?`,
+      a:`${d.confT.length} on the NCAA records-book ledger${confs.length>1?` across ${confs.length} conferences (${confs.join(", ")})`:` (all in the ${confs[0]})`}, most recently ${last.season}${last.shared?" (shared)":""}. Titles are credited in the conference as named at the time — never retro-assigned to current affiliations.`});
+  }
+  // 9 (U59) — national award winners (records-book ledger; Heisman via heisman.com)
+  if(d.awards&&d.awards.length){
+    const recent=d.awards.slice(0,3).map(a=>`${a.player} (${a.season} ${a.award})`).join("; ");
+    qs.push({q:`Has ${s} produced national award winners?`,
+      a:`Yes — ${d.awards.length} national award win${d.awards.length===1?"":"s"} on the NCAA records-book ledger, most recently ${recent}. Full list on the History tab; every row carries its source.`});
+  }
   return qs;
 }
 function u53FactCandidates(t, d){
@@ -6508,6 +6557,11 @@ function u53FactCandidates(t, d){
   const titles=d.champs.filter(c=>!c.vacated&&!c.split);
   if(titles.length)
     out.push({f:`${s}'s poll-era title years: ${titles.map(c=>c.season).join(", ")}.`, src:`championships ledger (poll/playoff-era definition, splits + vacaturs labeled)`});
+  // U59: records-book facts (award winners + conference-title counts)
+  if(d.awards&&d.awards.length){ const a=d.awards[0];
+    out.push({f:`${a.player} won the ${a.season} ${a.award} for ${s}.`, src:`award_winners ledger · NCAA records book (Awards.pdf)`}); }
+  if(d.confT&&d.confT.length>=5)
+    out.push({f:`${s} owns ${d.confT.length} conference titles on the NCAA records-book ledger, most recently ${d.confT[d.confT.length-1].season}.`, src:`conference_titles ledger · credited in the conference as named at the time`});
   return out;
 }
 function u53SectionHTML(t, e, games, teamId){
@@ -6947,13 +7001,15 @@ function wireTeamPanels(teamId, t, games, e, swap26){
     // U13: the team History bubble — all-time ledger, poll-era + claimed titles,
     // conference titles (honest empty until the records-book ingest), rivalry cards
     hist: async()=>{ if(!C.data.hist){
-        const [th, ch, cl, rv, ct]=await Promise.all([
+        const [th, ch, cl, rv, ct, aw]=await Promise.all([
           J(`team_history?select=*&team_id=eq.${teamId}`),
           J(`championships?select=*&school=eq.${encodeURIComponent(t.school)}&order=season.asc`),
           J(`championship_claims?select=*&school=eq.${encodeURIComponent(t.school)}`),
           J(`rivalries?select=*&or=(team_a_id.eq.${teamId},team_b_id.eq.${teamId})`),
-          J(`conference_titles?select=*&school=eq.${encodeURIComponent(t.school)}&order=season.asc`)]);
-        C.data.hist={th:th[0], ch, cl:cl[0], rv, ct};
+          J(`conference_titles?select=*&school=eq.${encodeURIComponent(t.school)}&order=season.asc`),
+          // U59: this program's national award winners (records-book ingest)
+          J(`award_winners?select=award,season,player,note,source_url&school=eq.${encodeURIComponent(t.school)}&player=not.is.null&order=season.desc`)]);
+        C.data.hist={th:th[0], ch, cl:cl[0], rv, ct, aw};
       }
       return teamHistoryPanel(C.data.hist, t, teamId); },
     honors: async()=>{ if(!C.data.honors)
@@ -10710,12 +10766,19 @@ const titleChip=c=>`<span class="titchip${c.vacated?" vac":""}" ${c.vacated||c.n
 async function openHistory(){
   window.scrollTo(0,0); app.innerHTML=`<div class="loading">Loading history &amp; records…</div>`;
   await ensureTeamMeta();
-  const [champs, claims, th, riv, vreg] = await Promise.all([
+  const [champs, claims, th, riv, vreg, awardsAll, confT] = await Promise.all([
     api(`championships?select=*&order=season.asc`).catch(()=>[]),
     api(`championship_claims?select=*&order=claimed_count.desc`).catch(()=>[]),
     api(`team_history?select=*&order=wins.desc`).catch(()=>[]),
     api(`rivalries?select=*`).catch(()=>[]),
-    api(`vacated_registry?select=*`).catch(()=>[]) ]);
+    api(`vacated_registry?select=*`).catch(()=>[]),
+    // U59: records-book ledgers — full award-winner + conference-title histories
+    // (conference_titles is 1,197 rows — over the 1,000-row REST page, so two pages)
+    api(`award_winners?select=award,season,player,school,team_id,first_year&order=award.asc,season.desc`).catch(()=>[]),
+    Promise.all([
+      api(`conference_titles?select=conference,season,school,team_id,shared&order=conference.asc,season.desc&limit=1000&offset=0`).catch(()=>[]),
+      api(`conference_titles?select=conference,season,school,team_id,shared&order=conference.asc,season.desc&limit=1000&offset=1000`).catch(()=>[])
+    ]).then(p=>p.flat()) ]);
   const bySchool={};
   champs.forEach(c=>{(bySchool[c.school]=bySchool[c.school]||[]).push(c);});
   const nT=s=>bySchool[s].filter(c=>!c.vacated).length;
@@ -10746,6 +10809,40 @@ async function openHistory(){
     <div class="secsub">Longest all-time win run per program (ties break streaks). ${esc((th[0]&&th[0].era_label)||"")}.</div>
     ${streaks.map(r=>`<div class="histrow"><div class="bva" style="width:34px;flex:none;text-align:right">${r.longest_win_streak}</div>
       <div style="flex:1"><span class="pteamlink" data-team="${r.team_id}"><b>${esc(r.school)}</b></span> <small>${r.streak_start}${r.streak_end!==r.streak_start?`&ndash;${r.streak_end}`:""}</small></div></div>`).join("")}</div>`;
+  // --- U59: national award winners (records-book ingest; Heisman via heisman.com) ---
+  const accP=(id,title,sub,inner)=>`<div class="acc">
+    <button class="acchdr" aria-expanded="false" aria-controls="accb-${id}" data-acc="${id}">
+      <span>${title}</span><small>${sub||""}</small><svg class="ic accchev" aria-hidden="true"><use href="#i-chev-d"/></svg></button>
+    <div class="accbody" id="accb-${id}" hidden>${inner}</div></div>`;
+  const winners=awardsAll.filter(a=>a.player);
+  const registry={}; awardsAll.filter(a=>a.season===-1).forEach(a=>registry[a.award]=a.first_year);
+  if(winners.length){
+    const byAward={}; winners.forEach(a=>{(byAward[a.award]=byAward[a.award]||[]).push(a);});
+    h+=`<div class="sec"><div class="sectitle">National award winners <small>${winners.length} rows · curated NCAA records-book ingest</small></div>
+      <div class="secsub">Every winner row carries its source; Heisman history comes from heisman.com. Tap an award to expand.</div>`;
+    Object.keys(byAward).sort().forEach((aw,i)=>{
+      const list=byAward[aw];
+      const inner=list.map(a=>`<div class="histrow"><div class="bva" style="width:44px;flex:none;text-align:right">${a.season}</div>
+        <div style="flex:1">${esc(a.player)} <small>· ${a.team_id?`<span class="pteamlink" data-team="${a.team_id}">${esc(a.school)}</span>`:esc(a.school)}</small></div></div>`).join("");
+      h+=accP(`hxaw${i}`, esc(aw), `${list.length} winner${list.length===1?"":"s"}${registry[aw]?` · since ${registry[aw]}`:""}`, inner);
+    });
+    h+=`</div>`;
+  }
+  // --- U59: conference championships (era-honest: credited as named at the time) ---
+  if(confT.length){
+    const byConf={}; confT.forEach(x=>{(byConf[x.conference]=byConf[x.conference]||[]).push(x);});
+    h+=`<div class="sec"><div class="sectitle">Conference championships <small>${confT.length} titles · ${Object.keys(byConf).length} conference-eras</small></div>
+      <div class="secsub">Titles are credited to the team <b>in the conference as named at the time</b> — never retro-assigned to current affiliations. Shared titles marked. Source: NCAA records book.</div>`;
+    Object.keys(byConf).sort().forEach((cf,i)=>{
+      const list=byConf[cf];
+      const counts={}; list.forEach(x=>counts[x.school]=(counts[x.school]||0)+1);
+      const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([s,n])=>`${s} ${n}`).join(" · ");
+      const inner=list.map(x=>`<div class="histrow"><div class="bva" style="width:44px;flex:none;text-align:right">${x.season}</div>
+        <div style="flex:1">${x.team_id?`<span class="pteamlink" data-team="${x.team_id}">${esc(x.school)}</span>`:esc(x.school)}${x.shared?` <small>· shared</small>`:""}</div></div>`).join("");
+      h+=accP(`hxct${i}`, esc(cf), `${list[list.length-1].season}&ndash;${list[0].season} · ${list.length} titles · most: ${esc(top)}`, inner);
+    });
+    h+=`</div>`;
+  }
   // --- rivalry explorer ---
   const rg=r=>r.official_games!=null?r.official_games:(r.derived_games||0);
   const rivs=riv.slice().sort((x,y)=>rg(y)-rg(x));
@@ -10779,9 +10876,26 @@ function teamHistoryPanel(d, t, teamId){
     <div class="titchips">${titles.map(titleChip).join("")}</div>`;
   } else h+=`<div class="secsub">No poll-era national titles on file (AP 1936&ndash; · Coaches 1950&ndash; · BCS · CFP).${d.cl?` The school claims ${d.cl.claimed_count} titles across other selectors/eras.`:""}</div>`;
   h+=`<div class="secsub">${HIST_DEFINITION}</div></div>`;
-  h+=`<div class="sec"><div class="sectitle">Conference titles</div>
-    <div class="secsub">${(d.ct&&d.ct.length)?d.ct.map(x=>`${x.conference} ${x.season}${x.shared?" (shared)":""}`).join(" · ")
-      :"Conference title history arrives with the NCAA records-book ingest &mdash; not yet on file (never derived from game data alone)."}</div></div>`;
+  // U59: full records-book title history — credited in the conference AS NAMED at
+  // the time (era-honest, never retro-assigned to current affiliations)
+  h+=`<div class="sec"><div class="sectitle">Conference titles <small>credited in the conference as named at the time</small></div>`;
+  if(d.ct&&d.ct.length){
+    const groups={};
+    d.ct.forEach(x=>{(groups[x.conference]=groups[x.conference]||[]).push(x);});
+    h+=`<div class="boxrow"><div class="bva win" style="font-size:20px;font-weight:800">${d.ct.length}</div>
+      <div class="bk">conference title${d.ct.length===1?"":"s"} on the NCAA records-book ledger</div></div>`;
+    h+=Object.entries(groups).map(([c,rows])=>`<div class="secsub"><b>${esc(c)}</b> (${rows.length}): ${rows.map(x=>`${x.season}${x.shared?"*":""}`).join(", ")}</div>`).join("");
+    h+=`<div class="secsub" style="color:var(--text3)">* shared title. Source: NCAA records book (Standings.pdf).</div>`;
+  } else h+=`<div class="secsub">No conference titles on the NCAA records-book ledger for this program.</div>`;
+  h+=`</div>`;
+  // U59: national award winners (records-book ingest; Heisman via heisman.com)
+  if(d.aw&&d.aw.length){
+    h+=`<div class="sec"><div class="sectitle">National award winners <small>${d.aw.length}</small></div>`;
+    d.aw.slice(0,14).forEach(a=>{ h+=`<div class="boxrow"><div class="bva">${a.season}</div>
+      <div class="bk">${esc(a.player)} <small>· ${esc(a.award)}${a.note&&/^[A-Z]{1,4} ·/.test(a.note)?` · ${esc(a.note.split(" ·")[0])}`:""}</small></div></div>`; });
+    if(d.aw.length>14) h+=`<div class="secsub">+ ${d.aw.length-14} more in History &amp; Records.</div>`;
+    h+=`<div class="secsub" style="color:var(--text3)">Source: NCAA records book (Awards.pdf); Heisman via heisman.com.</div></div>`;
+  }
   const mine=(d.rv||[]).map(r=>{
     if(String(r.team_a_id)===String(teamId)) return r;
     // flip to this team's perspective (official AND raw)
