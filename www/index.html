@@ -5266,8 +5266,14 @@ function renderPickemEmpty(){
     rank your confidence 1–10, and try to beat the Hashmark Model. Private groups with
     friends, season standings with your two worst weeks dropped. Free forever, no prizes,
     for entertainment only.</div></div>
+    <div class="sec"><div class="sectitle">Season Predictions</div><div class="secsub">
+    Call the conference champions, the CFP field, the national champion, and every team's
+    win total — season calls lock at the first kickoff, then you're scored on calibration
+    all year against the Model.</div>
+    <div class="navrow"><button class="navbtn primary" data-go-pred><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Make season calls</button></div></div>
     <div class="note">${BRAND_LINE}</div></div>`;
   document.querySelector(".back").onclick=navBack;
+  const gpe=document.querySelector("[data-go-pred]"); if(gpe) gpe.onclick=()=>openPredictions();
 }
 const pkLocked = g => new Date(g.kickoff) <= new Date();
 function renderPickem(){
@@ -5328,7 +5334,8 @@ function renderPickem(){
     } else h += `<div class="secsub">No groups yet — create one and share the invite code.</div>`;
     h += `<div class="navrow"><button class="navbtn" id="newgroup"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Create group</button>
       <button class="navbtn" id="joingroup"><svg class="ic" aria-hidden="true"><use href="#i-link"/></svg> Join with code</button>
-      <button class="navbtn" data-go="pkboard"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> Global board</button></div></div>`;
+      <button class="navbtn" data-go="pkboard"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> Global board</button>
+      <button class="navbtn" data-go-pred><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Season Predictions</button></div></div>`;
   }
   h += `<div class="note"><b>Hashmark Pick'em — free forever, no prizes.</b> Weekly slate of 10, straight-up winners with
     confidence ranks. Season standings drop your two worst weeks. The Hashmark Model plays in every group — beating it earns
@@ -5352,6 +5359,7 @@ function renderPickem(){
   const jg=document.getElementById("joingroup"); if(jg) jg.onclick=joinGroupPrompt;
   document.querySelectorAll("[data-grpboard]").forEach(b=>b.onclick=()=>openPickemBoard(b.dataset.grpboard));
   const gb=document.querySelector('[data-go="pkboard"]'); if(gb) gb.onclick=()=>openPickemBoard(null);
+  const gp=document.querySelector("[data-go-pred]"); if(gp) gp.onclick=()=>openPredictions();
 }
 function pkAssistTop(){
   const g = pk.slate.filter(x=>x.model_conf).sort((a,b)=>b.model_conf-a.model_conf)[0];
@@ -5509,6 +5517,295 @@ async function refreshPushSub(){
       await authFetch("PATCH", `push_subscriptions?user_id=eq.${authUser.id}&endpoint=eq.${encodeURIComponent(j.endpoint)}`,
         {last_seen:new Date().toISOString()}); }
   }catch(_e){}
+}
+
+// ================= U65 — PREDICTION COMPETITION (the U61 engine's UI) =================
+// Prize-free forever; zero cash vocabulary; skill prediction scored for calibration.
+// Reads: prediction_markets (public) / own picks / prediction_scores / season+lifetime
+// boards. The ONLY write path is the prediction_pick RPC (server-time locks, one pick
+// per account per market by primary key — the UI reflects what the server enforces).
+// Groups REUSE pickem groups via the prediction_group_board RPC.
+let pred = { open:[], mine:{}, sel:{}, expand:{}, groups:[] };
+const PRED_SEASON_TYPES = [["conf_champion","Conference champions"],["cfp_field","CFP field — in or out"],
+  ["national_champion","National champion"],["award_winner","Awards"],["win_total","Team win totals"]];
+const PRED_WEEK_TYPES = [["game_winner","Game winners"],["upset_pick","Upset calls"],["team_points_ou","Team points"]];
+const PRED_METHOD_URL = "https://github.com/mcdmission5/hashmark-model/blob/main/PREDICTIONS_METHODOLOGY.md";
+async function predRpc(fn, body){
+  const { data } = await sb.auth.getSession();
+  const tok = data && data.session && data.session.access_token;
+  if(!tok) throw new Error("sign in required");
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:"POST",
+    headers:{apikey:KEY, Authorization:"Bearer "+tok, "Content-Type":"application/json"},
+    body:JSON.stringify(body||{})});
+  const j = await res.json().catch(()=>null);
+  if(!res.ok) throw new Error((j&&(j.message||j.hint))||("HTTP "+res.status));
+  return j;
+}
+const predLocked = m => m.status!=="open" || new Date(m.locks_at) <= new Date();
+function predLockTxt(iso){
+  const ms = new Date(iso) - Date.now();
+  if(ms<=0) return "locked";
+  const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), mi=Math.floor(ms%36e5/6e4);
+  return d ? `locks in ${d}d ${String(h).padStart(2,"0")}h`
+           : h ? `locks in ${h}h ${String(mi).padStart(2,"0")}m` : `locks in ${mi}m`;
+}
+let _predTick=null;
+function predArmTick(){
+  if(_predTick) return;
+  _predTick=setInterval(()=>{
+    const els=document.querySelectorAll("[data-predlk]");
+    if(!els.length){ clearInterval(_predTick); _predTick=null; return; }
+    els.forEach(el=>{ el.textContent=predLockTxt(el.dataset.predlk); });
+  }, 30000);
+}
+function predProbOpts(k){
+  // mirror the RPC's floor exactly: round(1/k + 0.005, 2) — below it a pick would call
+  // its own choice less likely than a blind uniform guess
+  const min = Math.round(100/k + 0.5);
+  const vals=[min];
+  for(let p=Math.ceil((min+1)/5)*5; p<=95; p+=5) vals.push(p);
+  vals.push(99);
+  return [...new Set(vals)].map(p=>({value:String(p), label:p+"%"}));
+}
+async function openPredictions(){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading predictions…</div>`;
+  try{
+    const [open, mine, groups] = await Promise.all([
+      api(`prediction_markets?select=market_key,season,week,market_type,question,subject,options,model_prob,difficulty,locks_at,status&status=eq.open&order=locks_at.asc,market_key.asc&limit=1000`),
+      authUser ? authFetch("GET", `prediction_picks?select=market_key,option_idx,prob&user_id=eq.${authUser.id}`) : {data:[]},
+      authUser ? authFetch("GET", `pickem_groups?select=id,name,invite_code`) : {data:[]} ]);
+    pred.open = open;
+    pred.mine = {}; (mine.data||[]).forEach(p=>pred.mine[p.market_key]=p);
+    pred.groups = groups.data||[];
+    pred.scored = authUser ? (await authFetch("GET",
+      `prediction_scores?select=market_key,option_idx,prob,correct,points&user_id=eq.${authUser.id}&order=resolved_at.desc&limit=25`)).data||[] : [];
+    pred.scoredQ = {};
+    if(pred.scored.length){
+      const keys = pred.scored.map(s=>encodeURIComponent('"'+s.market_key+'"')).join(",");
+      (await api(`prediction_markets?select=market_key,question,options,outcome_idx&market_key=in.(${keys})`)
+        .catch(()=>[])).forEach(m=>pred.scoredQ[m.market_key]=m);
+    }
+    renderPredictions();
+  }catch(e){
+    app.innerHTML = backHeader("Predictions")+`<div class="list"><div class="err">Couldn't load predictions: ${esc(e.message||e)}</div></div>`;
+    document.querySelector(".back").onclick=navBack;
+  }
+}
+function predExplainerHTML(){
+  return `<div class="sec"><div class="sectitle">Calibration is the whole game</div><div class="secsub">
+    Every call names an option <b>and how sure you are</b> — and the score rewards honest
+    probabilities, not hot takes. In our full 2025 replay, the Model and a copycat that made
+    the <b>same 596 correct picks</b> — every one staked at a flat 85% — finished
+    <b><span style="color:var(--model)">10,905</span> points to 836</b>. Identical picks,
+    thirteen times the points, purely from saying <i>how sure</i> more honestly.
+    <br>&bull; A true coin-flip call is worth about 4&times; a heavy favorite.
+    <br>&bull; Naming a long shot at a tiny probability earns &asymp;0 when it misses — there
+    is no farming safe "won't happen" calls.
+    <br>&bull; Confident and wrong goes <b>hard negative</b>. Say what you believe.
+    <br><a href="${PRED_METHOD_URL}" target="_blank" rel="noopener" style="color:var(--amber)">Full scoring methodology &rsaquo;</a></div></div>`;
+}
+function predCard(m){
+  const locked = predLocked(m);
+  const my = pred.mine[m.market_key];
+  const st = pred.sel[m.market_key] || {};
+  const k = m.options.length;
+  const qTop = m.options.reduce((b,o)=>(o.q!=null && (b==null||o.q>b.q))?o:b, null);
+  const modelLine = qTop && qTop.q!=null
+    ? `<span style="color:var(--model)">Model: ${esc(qTop.label)} about ${Math.round(qTop.q*100)} of 100</span> &middot; ` : "";
+  const lockBit = locked
+    ? `<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked`
+    : `<span data-predlk="${esc(m.locks_at)}" style="font-variant-numeric:tabular-nums">${predLockTxt(m.locks_at)}</span>
+       <small>(${new Date(m.locks_at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})})</small>`;
+  const myLine = my
+    ? `<div class="secsub" style="padding:4px 0 0;color:var(--amber)">Your pick: <b>${esc((m.options[my.option_idx]||{}).label||"?")}</b> at ${Math.round(my.prob*100)}%${locked?"":" — you can change it until lock"}</div>` : "";
+  const curOpt = st.opt!=null ? st.opt : (my ? my.option_idx : null);
+  let optHTML;
+  if(k<=4){
+    optHTML = m.options.map(o=>`<button class="navbtn ${curOpt===o.i?"primary":""}" data-predopt="${esc(m.market_key)}" data-predix="${o.i}" ${locked||!authUser?"disabled":""}>${esc(o.label)}</button>`).join("");
+  } else {
+    optHTML = `<div data-predoptsel="${esc(m.market_key)}"></div>`;
+  }
+  return `<div class="sec" style="padding:8px 10px;margin:6px 0">
+    <div style="font-weight:600;padding:0 0 4px">${esc(m.question)}</div>
+    <div class="secsub" style="padding:0 0 6px">${modelLine}${lockBit} &middot; <span title="Harder calls are worth more — weight is fixed when the market opens">weight &times;${Number(m.difficulty).toFixed(2)}</span></div>
+    <div class="navrow" style="flex-wrap:wrap">${optHTML}
+      <span style="align-self:center;color:var(--text2)">how sure?</span><div data-predprob="${esc(m.market_key)}"></div></div>
+    ${myLine}<div class="authmsg" data-predmsg="${esc(m.market_key)}"></div></div>`;
+}
+function predGroupHTML(title, items, gkey){
+  const exp = pred.expand[gkey] ?? (items.length<=14);
+  let h = `<div class="sec" style="padding:8px 10px;margin:6px 0">
+    <button class="navbtn" style="width:100%;justify-content:space-between" data-predexp="${esc(gkey)}">
+      <span><b>${esc(title)}</b> &middot; ${items.length} market${items.length===1?"":"s"}</span>
+      <svg class="ic" aria-hidden="true"><use href="#i-chev-${exp?"d":"r"}"/></svg></button></div>`;
+  if(exp) h += items.map(predCard).join("");
+  return h;
+}
+function renderPredictions(){
+  const signedIn = !!authUser;
+  const seasonMkts = pred.open.filter(m=>m.week==null);
+  const weekMkts = pred.open.filter(m=>m.week!=null);
+  let h = `<div class="cmp">${backHeader("Predictions")}<div class="list" style="padding-top:6px">`;
+  h += predExplainerHTML();
+  if(!signedIn) h += `<div class="sec"><div class="secsub">Sign in to make calls — your season and lifetime standings need an identity. Every stat stays free without it.</div>
+    <div class="navrow"><button class="navbtn primary" data-acct="signin">Sign in</button></div></div>`;
+  if(!pred.open.length){
+    h += `<div class="sec"><div class="sectitle">The 2026 slate opens with the season data flip</div><div class="secsub">
+      Season-long calls — a win total for every FBS team, conference champions, the CFP field,
+      the national champion, the Heisman — publish as soon as the 2026 model data goes live,
+      and every one of them <b>locks at the season's first kickoff (Aug 29)</b>. Weekly calls
+      follow each week. The Hashmark Model enters its own probabilities on every market and
+      is ranked with everyone else.</div></div>`;
+  }
+  if(seasonMkts.length){
+    h += `<div class="sec"><div class="sectitle">Season calls</div><div class="secsub" style="padding:0 0 2px">
+      Every season-long market locks at the first kickoff — after that the board is frozen and scores settle as results arrive.</div></div>`;
+    // favorite team's win total rides above the fold (never buried in the big group)
+    const favId = authProfile && authProfile.favorite_team_id;
+    const favWT = favId ? seasonMkts.find(m=>m.market_type==="win_total" && m.subject && m.subject.team_id===favId) : null;
+    if(favWT) h += predCard(favWT);
+    for(const [t,label] of PRED_SEASON_TYPES){
+      const items = seasonMkts.filter(m=>m.market_type===t && m!==favWT);
+      if(items.length) h += predGroupHTML(label, items, "s:"+t);
+    }
+  }
+  if(weekMkts.length){
+    const weeks = [...new Set(weekMkts.map(m=>m.week))].sort((a,b)=>a-b);
+    for(const wk of weeks){
+      h += `<div class="sec"><div class="sectitle">Week ${wk} calls</div><div class="secsub" style="padding:0 0 2px">Each market locks at its game's kickoff.</div></div>`;
+      for(const [t,label] of PRED_WEEK_TYPES){
+        const items = weekMkts.filter(m=>m.week===wk && m.market_type===t);
+        if(items.length) h += predGroupHTML(label, items, "w"+wk+":"+t);
+      }
+    }
+  }
+  // ---- your resolved calls ----
+  if(signedIn && pred.scored.length){
+    h += `<div class="sec"><div class="sectitle">Your resolved calls</div>`;
+    pred.scored.forEach(s=>{
+      const m = pred.scoredQ[s.market_key];
+      const optLabel = m ? esc((m.options[s.option_idx]||{}).label||"?") : "?";
+      const outLabel = m && m.outcome_idx!=null ? esc((m.options[m.outcome_idx]||{}).label||"?") : "—";
+      const neg = Number(s.points) < 0;
+      h += `<div class="boxrow"><div class="bk">${m?esc(m.question):esc(s.market_key)}<br>
+        <small>you: ${optLabel} at ${Math.round(s.prob*100)}% &middot; result: ${outLabel}</small></div>
+        <div class="bvb" style="${neg?"color:var(--warn)":""}">${s.points>0?"+":""}${Number(s.points).toFixed(1)}</div></div>`;
+    });
+    h += `</div>`;
+  }
+  // ---- standings entry points ----
+  h += `<div class="sec"><div class="sectitle">Standings</div>
+    <div class="navrow"><button class="navbtn" data-predboard=""><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> National board</button>
+    <button class="navbtn" data-predboard="lifetime"><svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg> Lifetime</button>
+    ${pred.groups.map(g=>`<button class="navbtn" data-predboard="g:${esc(g.id)}">${esc(g.name)}</button>`).join("")}</div>
+    <div class="secsub" style="padding:4px 0 0">Groups are your pick'em groups — same invite codes, same members, the Model ranked in every one.</div></div>`;
+  h += `<div class="note"><b>Hashmark Predictions — free forever, no prizes, no entry fees.</b> Skill calls scored for
+    calibration, ranked nationally and for life. The Hashmark Model competes under the same rules. For entertainment only. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML = h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-predexp]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.predexp; pred.expand[k]=!(pred.expand[k] ?? false); renderPredictions(); });
+  document.querySelectorAll("[data-predopt]").forEach(b=>b.onclick=()=>{
+    const key=b.dataset.predopt;
+    (pred.sel[key]=pred.sel[key]||{}).opt=Number(b.dataset.predix);
+    predSave(key); renderPredictions(); });
+  // k>4 markets get a select instead of a button wall
+  document.querySelectorAll("[data-predoptsel]").forEach(hostEl=>{
+    const key=hostEl.dataset.predoptsel;
+    const m=pred.open.find(x=>x.market_key===key); if(!m) return;
+    const locked=predLocked(m), my=pred.mine[key], st=pred.sel[key]||{};
+    const cur = st.opt!=null ? String(st.opt) : (my ? String(my.option_idx) : "");
+    mountAppSelect(hostEl, [{value:"",label:"choose"}, ...m.options.map(o=>({value:String(o.i),label:o.label}))],
+      cur, v=>{ if(v===""){ return; } (pred.sel[key]=pred.sel[key]||{}).opt=Number(v); predSave(key); },
+      {slim:true, ariaLabel:"Your call", disabled:locked||!authUser});
+  });
+  document.querySelectorAll("[data-predprob]").forEach(hostEl=>{
+    const key=hostEl.dataset.predprob;
+    const m=pred.open.find(x=>x.market_key===key); if(!m) return;
+    const locked=predLocked(m), my=pred.mine[key], st=pred.sel[key]||{};
+    const cur = st.prob!=null ? String(st.prob) : (my ? String(Math.round(my.prob*100)) : "");
+    mountAppSelect(hostEl, [{value:"",label:"sure?"}, ...predProbOpts(m.options.length)],
+      cur, v=>{ if(v===""){ return; } (pred.sel[key]=pred.sel[key]||{}).prob=Number(v); predSave(key); },
+      {slim:true, ariaLabel:"How sure you are", disabled:locked||!authUser});
+  });
+  document.querySelectorAll("[data-predboard]").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.predboard;
+    if(v.startsWith("g:")) openPredictionsBoard(v.slice(2));
+    else openPredictionsBoard(null, v==="lifetime");
+  });
+  predArmTick();
+}
+async function predSave(key){
+  const m = pred.open.find(x=>x.market_key===key); if(!m) return;
+  const st = pred.sel[key]||{};
+  const my = pred.mine[key];
+  const opt = st.opt!=null ? st.opt : (my ? my.option_idx : null);
+  const prob = st.prob!=null ? st.prob : (my ? Math.round(my.prob*100) : null);
+  const msg = t=>{ const el=document.querySelector(`[data-predmsg="${CSS.escape(key)}"]`); if(el) el.textContent=t; };
+  if(opt==null || !prob){ msg("Pick an option and how sure you are — it saves automatically."); return; }
+  msg("Saving…");
+  try{
+    const r = await predRpc("prediction_pick", {p_market:key, p_option:opt, p_prob:prob/100});
+    pred.mine[key] = {market_key:key, option_idx:r.option_idx, prob:Number(r.prob)};
+    try{ track("feature_open","prediction_pick"); }catch(_e){}
+    msg(`Saved: ${(m.options[r.option_idx]||{}).label||"?"} at ${Math.round(Number(r.prob)*100)}% — changeable until lock.`);
+  }catch(e){
+    // the server is the authority — a lock refusal lands here verbatim
+    msg("Not saved: "+ (e.message||e));
+  }
+}
+async function openPredictionsBoard(groupId, lifetime){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading standings…</div>`;
+  let rows=[], season=null, title;
+  try{
+    if(groupId){
+      const g = pred.groups.find(x=>x.id===groupId);
+      title = g ? g.name+" — predictions" : "Group predictions";
+      if(!lifetime){
+        const s = await api(`prediction_season_board?select=season&order=season.desc&limit=1`);
+        season = s.length ? s[0].season : null;
+      }
+      rows = await predRpc("prediction_group_board", {p_group:groupId, p_season:season});
+    } else if(lifetime){
+      title = "Lifetime board";
+      rows = await api(`prediction_lifetime_board?select=*&order=rank.asc.nullslast&limit=200`);
+    } else {
+      title = "National board";
+      const s = await api(`prediction_season_board?select=season&order=season.desc&limit=1`);
+      season = s.length ? s[0].season : null;
+      rows = season!=null ? await api(`prediction_season_board?select=*&season=eq.${season}&order=rank.asc.nullslast&limit=200`) : [];
+    }
+  }catch(e){
+    app.innerHTML = backHeader("Standings")+`<div class="list"><div class="err">Couldn't load standings: ${esc(e.message||e)}</div></div>`;
+    document.querySelector(".back").onclick=navBack; return;
+  }
+  const me = authUser && rows.find(r=>r.user_id===authUser.id);
+  let h = `<div class="cmp">${backHeader("Predictions")}<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">${esc(title)}${season!=null?` <small>${season} season</small>`:(lifetime?" <small>all seasons</small>":"")}</div>`;
+  if(me && me.percentile!=null)
+    h += `<div class="secsub" style="color:var(--amber)"><b>You're ahead of ${Math.round(me.percentile)}% of ranked predictors.</b></div>`;
+  if(!rows.length) h += `<div class="secsub">No scored calls yet — standings appear when the first markets resolve. The Model is ranked here with everyone else.</div>`;
+  rows.forEach((r,i)=>{
+    const model = r.is_model;
+    h += `<div class="boxrow${model?" is-model":""}${authUser&&r.user_id===authUser.id?" is-me":""}"><div class="bva">${r.rank??i+1}</div>
+      <div class="bk">${model?'<svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg> ':""}${esc(r.display_name)}
+        <small>${r.correct}/${r.picks} correct${lifetime&&r.seasons?` &middot; ${r.seasons} season${r.seasons===1?"":"s"}`:""}</small></div>
+      <div class="bvb" style="${Number(r.points)<0?"color:var(--warn)":""}">${Number(r.points).toFixed(1)}</div></div>`;
+  });
+  h += `</div><div class="navrow">
+    <button class="navbtn" data-predboard=""><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> National</button>
+    <button class="navbtn" data-predboard="lifetime"><svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg> Lifetime</button>
+    ${pred.groups.map(g=>`<button class="navbtn" data-predboard="g:${esc(g.id)}">${esc(g.name)}</button>`).join("")}</div>
+    <div class="note">Points reward calibration — see <a href="${PRED_METHOD_URL}" target="_blank" rel="noopener" style="color:var(--amber)">the methodology</a>. No prizes, ever. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-predboard]").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.predboard;
+    if(v.startsWith("g:")) openPredictionsBoard(v.slice(2));
+    else openPredictionsBoard(null, v==="lifetime");
+  });
 }
 
 // ---------- User-driven Simulator: pick winners -> standings, champions, 12-team CFP field ----------
@@ -8735,6 +9032,8 @@ const NAV_ROUTES={
   standings:()=>openStandings(),
   sim:   ()=>openSimulator(),
   pickem:()=>openPickem(),
+  predictions:()=>openPredictions(),                       // U65
+  predictionsboard:p=>openPredictionsBoard(p&&p.g, p&&p.lt), // U65
   method:()=>openMethodology(),
   history:()=>openHistory(),
   kickoff:()=>openKickoffHub(),   // U50
@@ -8884,6 +9183,8 @@ function installNavWraps(){
  ["openKickoffHub","kickoff"],   // U50 (U38 rule: every new view maps a section)
  ["openPolls","polls"],          // U51
  ["openDaily","daily"],          // U52
+ ["openPredictions","predictions"],   // U65
+ ["openPredictionsBoard","predictionsboard",(g,lt)=>({g,lt})],   // U65
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
@@ -9012,6 +9313,7 @@ const TAB_DEFS={
   sim:      ["Sim","trophy",()=>gatedSimulator()],
   matchup:  ["Matchup","vs",()=>openMatchup()],
   pkboard:  ["Board","globe",()=>openPickemBoard()],
+  predict:  ["Predict","target",()=>openPredictions()],   // U65
   crowd:    ["Crowd/Model","trend",()=>openUpsetRadar()],
   rankings: ["Rankings","trophy",()=>openPreseason()],
   signature:["Signature","flame",()=>openSignature()],
@@ -9020,7 +9322,7 @@ const TAB_DEFS={
 const TABSETS={
   home:    ["home","games","picks","stats","explore"],
   games:   ["home","games","sim","matchup"],
-  picks:   ["home","picks","pkboard","crowd"],
+  picks:   ["home","picks","predict","pkboard","crowd"],   // U65: Predict joins the Picks family
   stats:   ["home","stats","rankings","signature","whatwins"],
   explore: ["home","games","picks","stats","explore"],   // Explore keeps the full map
 };
@@ -9028,6 +9330,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   scores:"games", sim:"games", matchup:"games", matchupgrid:"games", box:"games", compare:"games",
   game:"games",   // U38 rule: every new view maps a section — the game page lives in Games
   pickem:"picks", pickemboard:"picks", crowdmodel:"picks",
+  predictions:"picks", predictionsboard:"picks",   // U65 (U38 rule: every new view maps a section)
   stats:"stats", standings:"stats", standingsboard:"stats", preseason:"stats", signature:"stats",
   sigboard:"stats", whatwins:"stats", playerrank:"stats", quadrant:"stats", luck:"stats",
   gauntlet:"stats", gauntletwall:"stats", oddstime:"stats", movers:"stats", nileconomy:"stats",
@@ -9043,6 +9346,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   // team/player/playercard are reachable from every section, so they are STICKY (keep the current set)
 const VIEW_TAB={ home:"home", scores:"games", sim:"sim", matchup:"matchup", matchupgrid:"matchup",
   compare:"matchup", box:"games", game:"games", pickem:"picks", pickemboard:"pkboard", crowdmodel:"crowd",
+  predictions:"predict", predictionsboard:"predict",   // U65
   stats:"stats", preseason:"rankings", signature:"signature", sigboard:"signature",
   whatwins:"whatwins", explore:"explore" };
 let _tabSection="home";
