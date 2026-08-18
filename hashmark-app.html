@@ -6011,7 +6011,7 @@ const CONF_FLAGS={"Pac-12":"tiebreakers not yet published — provisional H2H, m
   "Conference USA":"post-H2H order unverified — provisional",
   "Mid-American":"3-plus-team tail order unverified — provisional",
   "Mountain West":"written CFP-ranking step unverified — omitted"};
-const MW_INELIGIBLE=new Set(["North Dakota State"]);   // FCS transition: no CCG/CFP until 2028
+const MW_INELIGIBLE=new Set();   // EMPTY for 2026 — the Jun 24 2026 NCAA vote made FCS-transition teams (NDSU, Sac State) immediately CCG/bowl/CFP-eligible; keep in sync with conference_rules.INELIGIBLE_SCHOOLS_2026
 function confEngineCtx(picks){
   // conference records + results from CONFERENCE games only (conference_game flag —
   // Pac-12 Week-13 flex rematches are officially non-conference and never count)
