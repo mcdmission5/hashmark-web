@@ -2800,9 +2800,10 @@ async function openCoachBoard(){
   const S=rows._season, most=(window._hmCdLeast?[...rows].reverse():rows);
   let h=`<div class="cmp">${backHeader("Coach calls")}<div class="list" style="padding-top:6px">
     <div class="sec"><div class="sectitle" style="color:var(--model)">Fourth-down aggressiveness &middot; ${S||"—"}</div>
-    <div class="secsub">Of each coach's <b>clear model-GO chances</b> — fourth downs where the
-    band cleared zero, not mere lean — the share they actually went for. High = trusts the
-    numbers on the clearest calls; low = kicks them away.</div>
+    <div class="secsub">Of every fourth down where <b>GO graded best in the model</b> — from
+    narrow leans to band-clear calls — the share each coach actually went for. High = follows
+    the numbers; low = kicks them away. Each row also shows the <b>band-clear subset</b> on
+    its own (those are rarer, and the honest headline stat needs the bigger sample).</div>
     <div class="navrow" style="padding:4px 0 4px">
       <button class="navbtn ${!window._hmCdLeast?"primary":""}" data-cdsort="most">Most aggressive</button>
       <button class="navbtn ${window._hmCdLeast?"primary":""}" data-cdsort="least">Least</button></div></div>`;
@@ -2815,11 +2816,14 @@ async function openCoachBoard(){
       <div class="bvb" style="color:var(--model)">${r.aggr_index!=null?Math.round(100*Number(r.aggr_index))+"%":"—"}</div></div>`;
   });
   h+=`<div class="sec" style="border-left:3px solid var(--model);padding:8px 10px"><div class="secsub">
-    <b>Honesty box.</b> Only <b>band-clear</b> chances count toward the index — spots the model
-    itself calls too close, or low leverage, are excluded, so a coach is never dinged for a
-    coin flip. FBS teams with a named coach and 20+ fourth-down decisions only. The model's
-    recommendations carry real uncertainty (see any game page's decision panel) — this board
-    measures alignment with them, not football wisdom.</div></div>
+    <b>Honesty box.</b> The index counts every fourth down the model graded GO as best —
+    including narrow leans the model itself would call too close, because band-clear chances
+    alone are too rare to rank on (many coaches see fewer than five a season; the row shows
+    that subset separately). So a low index can mean prudence on coin flips, not cowardice —
+    read the clear-chance count before judging anyone. FBS teams with a named coach and 20+
+    fourth-down decisions only. The model's recommendations carry real uncertainty (see any
+    game page's decision panel) — this board measures alignment with them, not football
+    wisdom.</div></div>
     ${cdHonestyHTML()}
     <div class="note"><b>Coach decision analytics — never wagering advice.</b> Win probabilities per option
     from our own play-by-play models with honest uncertainty bands. ${BRAND_LINE}</div></div></div>`;
