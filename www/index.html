@@ -1972,7 +1972,7 @@ function _apiTTL(q){
   // U65: prediction markets carry kickoff-scale lock times — the default 3h bucket
   // served PURGED fixture markets mid-verify (the v77b/U52 stale-surface class again);
   // the whole prediction_ family rides the same 5-min bucket as pick'em slates.
-  if(/^pickem_|^prediction_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
+  if(/^pickem_|^prediction_|^fantasy_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
   return 3*3600e3;                                                 // ratings/standings/stats: hours
 }
 async function _apiFetch(q){
@@ -5273,10 +5273,12 @@ function renderPickemEmpty(){
     Call the conference champions, the CFP field, the national champion, and every team's
     win total — season calls lock at the first kickoff, then you're scored on calibration
     all year against the Model.</div>
-    <div class="navrow"><button class="navbtn primary" data-go-pred><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Make season calls</button></div></div>
+    <div class="navrow"><button class="navbtn primary" data-go-pred><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Make season calls</button>
+    <button class="navbtn" data-go-fan><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> Fantasy lineup</button></div></div>
     <div class="note">${BRAND_LINE}</div></div>`;
   document.querySelector(".back").onclick=navBack;
   const gpe=document.querySelector("[data-go-pred]"); if(gpe) gpe.onclick=()=>openPredictions();
+  const gfe=document.querySelector("[data-go-fan]"); if(gfe) gfe.onclick=()=>openFantasy();
 }
 const pkLocked = g => new Date(g.kickoff) <= new Date();
 function renderPickem(){
@@ -5338,7 +5340,8 @@ function renderPickem(){
     h += `<div class="navrow"><button class="navbtn" id="newgroup"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Create group</button>
       <button class="navbtn" id="joingroup"><svg class="ic" aria-hidden="true"><use href="#i-link"/></svg> Join with code</button>
       <button class="navbtn" data-go="pkboard"><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> Global board</button>
-      <button class="navbtn" data-go-pred><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Season Predictions</button></div></div>`;
+      <button class="navbtn" data-go-pred><svg class="ic" aria-hidden="true"><use href="#i-target"/></svg> Season Predictions</button>
+      <button class="navbtn" data-go-fan><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> Fantasy</button></div></div>`;
   }
   h += `<div class="note"><b>Hashmark Pick'em — free forever, no prizes.</b> Weekly slate of 10, straight-up winners with
     confidence ranks. Season standings drop your two worst weeks. The Hashmark Model plays in every group — beating it earns
@@ -5363,6 +5366,7 @@ function renderPickem(){
   document.querySelectorAll("[data-grpboard]").forEach(b=>b.onclick=()=>openPickemBoard(b.dataset.grpboard));
   const gb=document.querySelector('[data-go="pkboard"]'); if(gb) gb.onclick=()=>openPickemBoard(null);
   const gp=document.querySelector("[data-go-pred]"); if(gp) gp.onclick=()=>openPredictions();
+  const gf=document.querySelector("[data-go-fan]"); if(gf) gf.onclick=()=>openFantasy();
 }
 function pkAssistTop(){
   const g = pk.slate.filter(x=>x.model_conf).sort((a,b)=>b.model_conf-a.model_conf)[0];
@@ -5809,6 +5813,326 @@ async function openPredictionsBoard(groupId, lifetime){
     if(v.startsWith("g:")) openPredictionsBoard(v.slice(2));
     else openPredictionsBoard(null, v==="lifetime");
   });
+}
+
+// ================= U66 — HASHMARK FANTASY (the U62 engine's UI) =================
+// Prize-free forever. 6 fixed slots (QB RB RB WR WR TE) from the public eligible pool;
+// ONE entry per account per week (DB primary key); lineups lock at the week's first
+// kickoff by SERVER time and the ONLY write path is the fantasy_set_lineup RPC — the UI
+// mirrors exactly what the server enforces (the U65 rule). Two scores per week stored
+// side by side: CONVENTIONAL (half-PPR from official box scores, complete coverage) and
+// HASHMARK GRADE (0-100 weekly performance grades from OUR attributed play-by-play —
+// with the U62 attribution policy surfaced verbatim: a coverage gap is excluded with its
+// measured reason and the total is normalized, NEVER silently deflated as if bad play).
+// Reuses predRpc (authed RPC helper), predLockTxt/predArmTick (lock countdowns), and the
+// pick'em groups via the fantasy_group_board RPC.
+let fan = { weeks:[], wk:null, entry:null, model:null, draft:{}, names:{},
+            mode: (localStorage.getItem("hm_fan_mode")||"conv"), groups:[] };
+const FAN_SLOTS=["QB","RB1","RB2","WR1","WR2","TE"];
+const FAN_SLOT_POS={QB:"QB",RB1:"RB",RB2:"RB",WR1:"WR",WR2:"WR",TE:"TE"};
+const _fanPoolCache={};
+// test hook (the U50 _u50Offset pattern): window._hmFanSeason renders a past season's
+// real data through the identical code path for verification — inert in production.
+const fanSeason=()=>window._hmFanSeason||SEASON_SCHED;
+const fanLocked=w=>w && new Date(w.locks_at) <= new Date();
+function fanSchool(tid){ return (teamMeta[tid]||{}).school || ""; }
+async function fanNames(ids){
+  const need=[...new Set(ids.filter(Boolean))].filter(id=>!fan.names[id]);
+  if(need.length){
+    const q=need.map(id=>encodeURIComponent('"'+id+'"')).join(",");
+    (await api(`fantasy_pool?select=athlete_id,player,team_id,position&season=eq.${fanSeason()}&athlete_id=in.(${q})`))
+      .forEach(p=>fan.names[p.athlete_id]=p);
+  }
+}
+async function openFantasy(wk){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading fantasy…</div>`;
+  try{
+    await ensureTeamMeta();
+    const S=fanSeason();
+    fan.weeks = await api(`fantasy_weeks?select=week,locks_at,final&season=eq.${S}&order=week.asc`);
+    if(!fan.weeks.length){ renderFantasyEmpty(); return; }
+    const openW = fan.weeks.find(w=>!w.final && !fanLocked(w));
+    const finals = fan.weeks.filter(w=>w.final);
+    fan.wk = wk!=null ? fan.weeks.find(w=>w.week===wk) : (openW || finals[finals.length-1] || fan.weeks[0]);
+    const W=fan.wk.week;
+    const [mine, groups] = await Promise.all([
+      authUser ? authFetch("GET", `fantasy_entries?select=lineup,updated_at&season=eq.${S}&week=eq.${W}&user_id=eq.${authUser.id}`) : {data:[]},
+      authUser ? authFetch("GET", `pickem_groups?select=id,name`) : {data:[]} ]);
+    fan.entry = (mine.data||[])[0]||null;
+    fan.groups = groups.data||[];
+    fan.draft = fan.entry ? {...fan.entry.lineup} : {};
+    fan.model = null; fan.myScore=null; fan.modelScore=null;
+    if(fanLocked(fan.wk) && authUser){
+      const r = await authFetch("GET", `fantasy_entries?select=lineup&season=eq.${S}&week=eq.${W}&user_id=eq.${MODEL_UID}`);
+      fan.model = ((r.data||[])[0]||{}).lineup||null;
+    }
+    if(fan.wk.final){
+      const uids=[MODEL_UID].concat(authUser?[authUser.id]:[]).map(u=>encodeURIComponent('"'+u+'"')).join(",");
+      const sc = await api(`fantasy_scores?select=user_id,conv_points,grade_score,grade_covered,grade_flag,detail&season=eq.${S}&week=eq.${W}&user_id=in.(${uids})`);
+      fan.modelScore = sc.find(s=>s.user_id===MODEL_UID)||null;
+      fan.myScore = authUser ? sc.find(s=>s.user_id===authUser.id)||null : null;
+    }
+    await fanNames([...Object.values(fan.draft), ...(fan.model?Object.values(fan.model):[])]);
+    renderFantasy();
+  }catch(e){
+    app.innerHTML = backHeader("Fantasy")+`<div class="list"><div class="err">Couldn't load fantasy: ${esc(e.message||e)}</div></div>`;
+    document.querySelector(".back").onclick=navBack;
+  }
+}
+function renderFantasyEmpty(){
+  app.innerHTML = backHeader("Fantasy")+`<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">Hashmark Fantasy</div><div class="secsub">
+    The season's scoring weeks publish with the schedule — check back soon. Six slots,
+    two scores, the Model fields its own team. Free forever, no prizes.</div></div>
+    <div class="note">${BRAND_LINE}</div></div>`;
+  document.querySelector(".back").onclick=navBack;
+}
+function fanModeToggle(){
+  return `<div class="navrow" style="padding:2px 0 6px">
+    <button class="navbtn ${fan.mode==="conv"?"primary":""}" data-fanmode="conv">Conventional</button>
+    <button class="navbtn ${fan.mode==="grade"?"primary":""}" data-fanmode="grade">Hashmark Grade</button></div>
+  <div class="secsub" style="padding:0 2px 4px">${fan.mode==="conv"
+    ? "Half-PPR points from the official box scores — passing yards &times;0.04 (TD +4, INT &minus;2), rushing/receiving yards &times;0.1 (TD +6), receptions +0.5, fumbles lost &minus;2. Complete coverage: every slot always scores."
+    : `<span style="color:var(--model)"><b>The analytics-native score no other fantasy game has:</b></span> each slot scores its player's 0-100 weekly Hashmark performance grade, computed from our garbage-filtered, attributed play-by-play — how WELL a player played per touch, not just volume.`}</div>`;
+}
+function fanGradeHonesty(){
+  return `<div class="sec" style="border-left:3px solid var(--model);padding:8px 10px"><div class="secsub">
+    <b>Grade mode's honest limit:</b> public play-by-play attribution is seasonal — in 2025,
+    weeks 1&ndash;8 carried names on &asymp;97&ndash;99% of rushes, weeks 9&ndash;16 &asymp;1%.
+    A slot whose real box-score game can't be attributed is <b>excluded with its measured
+    reason and your total is normalized over covered slots</b> — a coverage gap never reads
+    as bad play. Until the public data improves, Grade mode effectively runs
+    <b>partial-season for RBs late in the year</b>; Conventional always scores every slot.</div></div>`;
+}
+function fanSlotRow(slot, aid, opts){
+  const o=opts||{};
+  const p=aid?fan.names[aid]:null;
+  const who = p ? `<b>${esc(p.player)}</b> <small>${esc(fanSchool(p.team_id))} &middot; ${esc(p.position)}</small>`
+               : `<span style="color:var(--text2)">empty — pick a ${FAN_SLOT_POS[slot]}</span>`;
+  const detail = o.detail ? fanDetailHTML(o.detail) : "";
+  const btn = o.locked ? "" :
+    `<div class="bvb"><button class="navbtn" data-fanpick="${slot}">${aid?'<svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg> Swap':'<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Choose'}</button></div>`;
+  return `<div class="boxrow"><div class="bva">${slot}</div><div class="bk">${who}${detail}</div>${btn}</div>`;
+}
+function fanDetailHTML(d){
+  // per-slot scoring detail from fantasy_scores.detail — the attribution policy verbatim
+  let h=`<br><small>conv <b>${Number(d.conv).toFixed(1)}</b>`;
+  if(fan.mode==="grade"){
+    if(d.status==="scored") h+=` &middot; grade <b style="color:var(--model)">${Number(d.grade).toFixed(1)}</b>`;
+    else if(d.status==="no_attribution")
+      h+=` &middot; <span style="color:var(--amber)">grade excluded — ${esc(d.note||"attribution coverage gap")}</span>`;
+    else if(d.status==="dnp") h+=` &middot; no game — scores 0 in both modes`;
+    else h+=` &middot; ${esc(d.note||"under the weekly usage floor — counts 0, not normalized")}`;
+  }
+  return h+"</small>";
+}
+function renderFantasy(){
+  const S=fanSeason(), W=fan.wk.week, locked=fanLocked(fan.wk), final=fan.wk.final;
+  const signedIn=!!authUser;
+  let h = `<div class="cmp">${backHeader("Fantasy")}<div class="list" style="padding-top:6px">`;
+  h += `<div class="sec"><div class="sectitle">Hashmark Fantasy &middot; ${S} week ${W}</div><div class="secsub">
+    Six slots — QB, two RB, two WR, TE — from the full FBS pool. One lineup per account per
+    week, editable until the week's first kickoff, then frozen. Every week you get scored
+    <b>two ways</b>; the Hashmark Model fields its own team under a published rule and locks
+    like everyone else. Beat it if you can.</div>${fanModeToggle()}</div>`;
+  if(fan.mode==="grade") h += fanGradeHonesty();
+  if(!signedIn) h += `<div class="sec"><div class="secsub">Sign in to enter a lineup — every stat stays free without it.</div>
+    <div class="navrow"><button class="navbtn primary" data-acct="signin">Sign in</button></div></div>`;
+  // ---- lock status ----
+  const lockBit = final ? "week final — scores below" : locked
+    ? `<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked — no edits until next week opens`
+    : `<span data-predlk="${esc(fan.wk.locks_at)}" style="font-variant-numeric:tabular-nums">${predLockTxt(fan.wk.locks_at)}</span>
+       <small>(${new Date(fan.wk.locks_at).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})})</small>`;
+  h += `<div class="sec"><div class="secsub" style="padding:0 0 4px">${lockBit}</div>`;
+  // ---- my lineup (builder / read-only / scored) ----
+  if(final && fan.myScore){
+    const s=fan.myScore;
+    const lead = fan.mode==="conv" ? `${Number(s.conv_points).toFixed(1)} pts`
+      : (s.grade_score!=null ? `<span style="color:var(--model)">${Number(s.grade_score).toFixed(1)}</span>` : "—");
+    h += `<div class="sectitle">Your week: ${lead}</div>`;
+    if(fan.mode==="grade" && s.grade_flag) h+=`<div class="secsub" style="color:var(--amber)">${esc(s.grade_flag)}</div>`;
+    FAN_SLOTS.forEach(sl=>{ h += fanSlotRow(sl, (fan.entry&&fan.entry.lineup[sl])||((s.detail[sl]||{}).athlete_id), {locked:true, detail:s.detail[sl]}); });
+  } else {
+    h += `<div class="sectitle">${locked?"Your locked lineup":"Your lineup"}</div>`;
+    if(locked && !fan.entry && signedIn) h+=`<div class="secsub">No entry this week — the next open week is a fresh start.</div>`;
+    FAN_SLOTS.forEach(sl=>{ h += fanSlotRow(sl, fan.draft[sl], {locked:locked||!signedIn}); });
+    if(!locked && signedIn){
+      const full = FAN_SLOTS.every(sl=>fan.draft[sl]);
+      h += `<div class="navrow" style="padding-top:6px"><button class="navbtn primary" id="fansave" ${full?"":"disabled"}>
+        <svg class="ic" aria-hidden="true"><use href="#i-save"/></svg> ${fan.entry?"Update lineup":"Save lineup"}</button></div>
+        <div class="authmsg" id="fanmsg">${full?"":"Fill all six slots to save — the server takes complete lineups only."}</div>`;
+      if(fan.entry) h+=`<div class="secsub">Saved lineup is live — changes take effect when you press Update. Editable until lock.</div>`;
+    }
+  }
+  h += `</div>`;
+  // ---- the Model's lineup ----
+  h += `<div class="sec"><div class="sectitle" style="color:var(--model)"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg> The Model's lineup</div>`;
+  if(!locked){
+    h += `<div class="secsub">Hidden until lock — like everyone's. Its rule is published: week 1 =
+      last season's top Hashmark grades per position; after that, cumulative season points.</div>`;
+  } else if(fan.model){
+    if(final && fan.modelScore){
+      const ms=fan.modelScore;
+      const lead = fan.mode==="conv" ? `${Number(ms.conv_points).toFixed(1)} pts`
+        : (ms.grade_score!=null ? `${Number(ms.grade_score).toFixed(1)}` : "—");
+      h += `<div class="secsub" style="color:var(--model)"><b>${lead}</b>${fan.mode==="grade"&&ms.grade_flag?` &middot; ${esc(ms.grade_flag)}`:""}</div>`;
+      FAN_SLOTS.forEach(sl=>{ h += fanSlotRow(sl, fan.model[sl], {locked:true, detail:(ms.detail||{})[sl]}); });
+    } else {
+      FAN_SLOTS.forEach(sl=>{ h += fanSlotRow(sl, fan.model[sl], {locked:true}); });
+    }
+  } else h += `<div class="secsub">${signedIn?"No Model entry stored for this week.":"Sign in to see the Model's locked lineup."}</div>`;
+  h += `</div>`;
+  // ---- week nav (results browsing) + boards ----
+  const wkIdx=fan.weeks.findIndex(w=>w.week===W);
+  h += `<div class="sec"><div class="navrow">
+    ${wkIdx>0?`<button class="navbtn" data-fanwk="${fan.weeks[wkIdx-1].week}"><svg class="ic" aria-hidden="true"><use href="#i-chev-l"/></svg> Wk ${fan.weeks[wkIdx-1].week}</button>`:""}
+    ${wkIdx<fan.weeks.length-1?`<button class="navbtn" data-fanwk="${fan.weeks[wkIdx+1].week}">Wk ${fan.weeks[wkIdx+1].week} <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button>`:""}
+    <button class="navbtn" data-fanboard=""><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> Boards</button>
+    ${fan.groups.map(g=>`<button class="navbtn" data-fanboard="g:${esc(g.id)}">${esc(g.name)}</button>`).join("")}</div>
+    <div class="secsub" style="padding:4px 0 0">Groups are your pick'em groups — same invite codes, same members, the Model ranked in every one.</div></div>`;
+  h += `<div class="note"><b>Hashmark Fantasy — free forever, no prizes, no entry fees.</b> A season-long skill lineup
+    game scored two ways; the Hashmark Grade mode grades performance per touch from our own attributed play-by-play.
+    For entertainment only. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-fanmode]").forEach(b=>b.onclick=()=>{ fan.mode=b.dataset.fanmode;
+    try{ localStorage.setItem("hm_fan_mode",fan.mode); }catch(_e){} renderFantasy(); });
+  document.querySelectorAll("[data-fanpick]").forEach(b=>b.onclick=()=>fanPick(b.dataset.fanpick));
+  document.querySelectorAll("[data-fanwk]").forEach(b=>b.onclick=()=>openFantasy(Number(b.dataset.fanwk)));
+  document.querySelectorAll("[data-fanboard]").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.fanboard; openFantasyBoard(v.startsWith("g:")?v.slice(2):null); });
+  const sv=document.getElementById("fansave"); if(sv) sv.onclick=fanSave;
+  predArmTick();
+}
+async function fanSave(){
+  const msg=t=>{const m=document.getElementById("fanmsg"); if(m) m.textContent=t;};
+  msg("Saving…");
+  try{
+    const r=await predRpc("fantasy_set_lineup",
+      {p_season:fanSeason(), p_week:fan.wk.week, p_lineup:fan.draft});
+    fan.entry={lineup:r.lineup, updated_at:new Date().toISOString()};
+    try{ track("feature_open","fantasy_save"); }catch(_e){}
+    msg("Lineup saved — editable until "+new Date(r.locks_at).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+".");
+  }catch(e){
+    // the server is the authority — lock/position/pool/duplicate refusals land verbatim
+    msg("Not saved: "+(e.message||e));
+  }
+}
+async function fanPool(pos){
+  const S=fanSeason(), k=S+":"+pos;
+  if(_fanPoolCache[k]) return _fanPoolCache[k];
+  const [pool, top] = await Promise.all([
+    api(`fantasy_pool?select=athlete_id,player,team_id,position&season=eq.${S}&position=eq.${pos}&order=player.asc&limit=2500`),
+    api(`fantasy_player_week?select=athlete_id,conv_points&season=eq.${S-1}&position=eq.${pos}&order=conv_points.desc&limit=400`).catch(()=>[])]);
+  const pts={};
+  top.forEach(r=>{ pts[r.athlete_id]=(pts[r.athlete_id]||0)+Number(r.conv_points); });
+  pool.forEach(p=>{ p.pts=pts[p.athlete_id]||0; });
+  _fanPoolCache[k]={pool, ranked:[...pool].filter(p=>p.pts>0).sort((a,b)=>b.pts-a.pts)};
+  return _fanPoolCache[k];
+}
+async function fanPick(slot){
+  const pos=FAN_SLOT_POS[slot];
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="fanpickov";
+  ov.innerHTML=`<div class="authsheet" style="max-height:80vh;display:flex;flex-direction:column">
+    <div class="authhd"><div class="authttl">${slot} — pick a ${pos}</div>
+    <button class="pickx" data-fanx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <input class="authin" id="fansearch" placeholder="Search the full FBS pool…" autocomplete="off">
+    <div class="authsub" id="fanpoolhint">Loading the pool…</div>
+    <div id="fanpoollist" style="overflow-y:auto;flex:1"></div></div>`;
+  document.body.appendChild(ov); navOverlay(ov);   // U17
+  ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
+  ov.querySelector("[data-fanx]").onclick=ovDismiss;
+  const {pool, ranked}=await fanPool(pos);
+  const used=new Set(Object.entries(fan.draft).filter(([s])=>s!==slot).map(([,v])=>v));
+  const hint=ov.querySelector("#fanpoolhint"), list=ov.querySelector("#fanpoollist");
+  const rows=items=>items.slice(0,60).map(p=>`<button class="authrowbtn" data-fanaid="${esc(p.athlete_id)}" ${used.has(p.athlete_id)?"disabled":""}
+      style="display:flex;justify-content:space-between;width:100%"><span><b>${esc(p.player)}</b> <small>${esc(fanSchool(p.team_id))}</small></span>
+      <small>${p.pts?p.pts.toFixed(0)+" pts &rsquo;"+String((fanSeason()-1)%100):"&mdash;"}${used.has(p.athlete_id)?" &middot; in lineup":""}</small></button>`).join("");
+  const paint=q=>{
+    const t=(q||"").trim().toLowerCase();
+    const items = t.length>=2 ? pool.filter(p=>p.player.toLowerCase().includes(t)||fanSchool(p.team_id).toLowerCase().includes(t)) : ranked;
+    hint.textContent = t.length>=2 ? `${items.length} match${items.length===1?"":"es"} in the ${pos} pool`
+      : `Top ${pos}s by last season's fantasy points — or search all ${pool.length}.`;
+    list.innerHTML = rows(items) || `<div class="authsub">No matches.</div>`;
+    list.querySelectorAll("[data-fanaid]").forEach(b=>b.onclick=async()=>{
+      fan.draft[slot]=b.dataset.fanaid;
+      await fanNames([b.dataset.fanaid]);
+      ovClose(ov); renderFantasy();
+    });
+  };
+  ov.querySelector("#fansearch").oninput=e=>paint(e.target.value);
+  paint("");
+}
+async function openFantasyBoard(groupId){
+  window.scrollTo(0,0);
+  app.innerHTML = `<div class="loading">Loading boards…</div>`;
+  const S=fanSeason();
+  if(!fan.weeks.length){  // deep link: the board can open before any lineup view did
+    fan.weeks = await api(`fantasy_weeks?select=week,locks_at,final&season=eq.${S}&order=week.asc`).catch(()=>[]);
+    if(authUser && !fan.groups.length)
+      fan.groups = (await authFetch("GET", `pickem_groups?select=id,name`)).data||[];
+  }
+  const scope = fan._boardScope||"season";   // "season" | week number
+  let rows=[], title, gname="";
+  try{
+    if(groupId){
+      const g=fan.groups.find(x=>x.id===groupId); gname=g?g.name:"Group";
+      rows = await predRpc("fantasy_group_board", {p_group:groupId, p_season:S, p_week: scope==="season"?null:scope});
+      rows = rows.map(r=>({user_id:r.user_id, display_name:r.display_name, is_model:r.is_model,
+        conv:r.conv, conv_rank:r.conv_rank, grade:r.grade, grade_rank:r.grade_rank}));
+      title=`${gname} — fantasy`;
+    } else if(scope==="season"){
+      rows = (await api(`fantasy_season_board?select=*&season=eq.${S}&order=conv_rank.asc.nullslast&limit=200`))
+        .map(r=>({user_id:r.user_id, display_name:r.display_name, is_model:r.is_model,
+          conv:r.conv_total, conv_rank:r.conv_rank, grade:r.grade_total, grade_rank:r.grade_rank,
+          weeks:r.weeks_played, gweeks:r.grade_weeks}));
+      title="Season board";
+    } else {
+      rows = (await api(`fantasy_week_board?select=*&season=eq.${S}&week=eq.${scope}&order=conv_rank.asc.nullslast&limit=200`))
+        .map(r=>({user_id:r.user_id, display_name:r.display_name, is_model:r.is_model,
+          conv:r.conv_points, conv_rank:r.conv_rank, grade:r.grade_score, grade_rank:r.grade_rank, flag:r.grade_flag}));
+      title=`Week ${scope} board`;
+    }
+  }catch(e){
+    app.innerHTML = backHeader("Fantasy")+`<div class="list"><div class="err">Couldn't load boards: ${esc(e.message||e)}</div></div>`;
+    document.querySelector(".back").onclick=navBack; return;
+  }
+  if(fan.mode==="grade") rows.sort((a,b)=>(a.grade_rank??1e9)-(b.grade_rank??1e9));
+  const finals=fan.weeks.filter(w=>w.final).map(w=>w.week);
+  let h = `<div class="cmp">${backHeader("Fantasy")}<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">${esc(title)} <small>${S}</small></div>${fanModeToggle()}
+    <div class="navrow" style="padding:0 0 6px">
+      <button class="navbtn ${scope==="season"?"primary":""}" data-fanscope="season">Season</button>
+      ${finals.slice(-4).map(w=>`<button class="navbtn ${scope===w?"primary":""}" data-fanscope="${w}">Wk ${w}</button>`).join("")}</div>`;
+  if(!rows.length) h += `<div class="secsub">No scored weeks yet — boards fill in after the first Sunday scoring run. The Model is ranked here with everyone else.</div>`;
+  rows.forEach((r,i)=>{
+    const model=r.is_model;
+    const rank = fan.mode==="conv" ? (r.conv_rank??i+1) : (r.grade_rank??"—");
+    const val  = fan.mode==="conv" ? Number(r.conv||0).toFixed(1)
+      : (r.grade!=null&&(r.grade_rank!=null||Number(r.grade)>0) ? Number(r.grade).toFixed(1) : "—");
+    const sub = r.weeks!=null ? `${r.weeks} wk${r.weeks===1?"":"s"}${fan.mode==="grade"&&r.gweeks!=null?` &middot; ${r.gweeks} graded`:""}`
+              : (fan.mode==="grade"&&r.flag?esc(r.flag):"");
+    h += `<div class="boxrow${model?" is-model":""}${authUser&&r.user_id===authUser.id?" is-me":""}"><div class="bva">${rank}</div>
+      <div class="bk">${model?'<svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg> ':""}${esc(r.display_name)}${sub?` <small>${sub}</small>`:""}</div>
+      <div class="bvb"${model?' style="color:var(--model)"':""}>${val}</div></div>`;
+  });
+  h += `</div><div class="navrow">
+    <button class="navbtn" data-fangoto><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> My lineup</button>
+    <button class="navbtn" data-fanboard=""><svg class="ic" aria-hidden="true"><use href="#i-globe"/></svg> National</button>
+    ${fan.groups.map(g=>`<button class="navbtn" data-fanboard="g:${esc(g.id)}">${esc(g.name)}</button>`).join("")}</div>
+    <div class="note">Two boards, one game — Conventional ranks half-PPR points; Hashmark Grade ranks our per-touch
+    performance grades (weeks a coverage gap made ungradeable carry a flag, never a silent zero). No prizes, ever. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-fanmode]").forEach(b=>b.onclick=()=>{ fan.mode=b.dataset.fanmode;
+    try{ localStorage.setItem("hm_fan_mode",fan.mode); }catch(_e){} openFantasyBoard(groupId); });
+  document.querySelectorAll("[data-fanscope]").forEach(b=>b.onclick=()=>{
+    fan._boardScope = b.dataset.fanscope==="season"?"season":Number(b.dataset.fanscope);
+    openFantasyBoard(groupId); });
+  document.querySelectorAll("[data-fanboard]").forEach(b=>b.onclick=()=>{
+    const v=b.dataset.fanboard; openFantasyBoard(v.startsWith("g:")?v.slice(2):null); });
+  const gt=document.querySelector("[data-fangoto]"); if(gt) gt.onclick=()=>openFantasy();
 }
 
 // ---------- User-driven Simulator: pick winners -> standings, champions, 12-team CFP field ----------
@@ -9037,6 +9361,8 @@ const NAV_ROUTES={
   pickem:()=>openPickem(),
   predictions:()=>openPredictions(),                       // U65
   predictionsboard:p=>openPredictionsBoard(p&&p.g, p&&p.lt), // U65
+  fantasy:p=>openFantasy(p&&p.wk),                           // U66
+  fantasyboard:p=>openFantasyBoard(p&&p.g),                  // U66
   method:()=>openMethodology(),
   history:()=>openHistory(),
   kickoff:()=>openKickoffHub(),   // U50
@@ -9188,6 +9514,8 @@ function installNavWraps(){
  ["openDaily","daily"],          // U52
  ["openPredictions","predictions"],   // U65
  ["openPredictionsBoard","predictionsboard",(g,lt)=>({g,lt})],   // U65
+ ["openFantasy","fantasy",wk=>({wk})],   // U66
+ ["openFantasyBoard","fantasyboard",g=>({g})],   // U66
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
@@ -9317,6 +9645,7 @@ const TAB_DEFS={
   matchup:  ["Matchup","vs",()=>openMatchup()],
   pkboard:  ["Board","globe",()=>openPickemBoard()],
   predict:  ["Predict","target",()=>openPredictions()],   // U65
+  fantasy:  ["Fantasy","star",()=>openFantasy()],         // U66
   crowd:    ["Crowd/Model","trend",()=>openUpsetRadar()],
   rankings: ["Rankings","trophy",()=>openPreseason()],
   signature:["Signature","flame",()=>openSignature()],
@@ -9325,7 +9654,7 @@ const TAB_DEFS={
 const TABSETS={
   home:    ["home","games","picks","stats","explore"],
   games:   ["home","games","sim","matchup"],
-  picks:   ["home","picks","predict","pkboard","crowd"],   // U65: Predict joins the Picks family
+  picks:   ["home","picks","predict","fantasy","pkboard"],   // U65/U66: Predict + Fantasy join Picks (Crowd/Model stays reachable from Board + Explore)
   stats:   ["home","stats","rankings","signature","whatwins"],
   explore: ["home","games","picks","stats","explore"],   // Explore keeps the full map
 };
@@ -9334,6 +9663,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   game:"games",   // U38 rule: every new view maps a section — the game page lives in Games
   pickem:"picks", pickemboard:"picks", crowdmodel:"picks",
   predictions:"picks", predictionsboard:"picks",   // U65 (U38 rule: every new view maps a section)
+  fantasy:"picks", fantasyboard:"picks",           // U66
   stats:"stats", standings:"stats", standingsboard:"stats", preseason:"stats", signature:"stats",
   sigboard:"stats", whatwins:"stats", playerrank:"stats", quadrant:"stats", luck:"stats",
   gauntlet:"stats", gauntletwall:"stats", oddstime:"stats", movers:"stats", nileconomy:"stats",
@@ -9350,6 +9680,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
 const VIEW_TAB={ home:"home", scores:"games", sim:"sim", matchup:"matchup", matchupgrid:"matchup",
   compare:"matchup", box:"games", game:"games", pickem:"picks", pickemboard:"pkboard", crowdmodel:"crowd",
   predictions:"predict", predictionsboard:"predict",   // U65
+  fantasy:"fantasy", fantasyboard:"fantasy",           // U66
   stats:"stats", preseason:"rankings", signature:"signature", sigboard:"signature",
   whatwins:"whatwins", explore:"explore" };
 let _tabSection="home";
