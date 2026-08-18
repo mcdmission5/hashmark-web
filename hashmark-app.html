@@ -1950,7 +1950,10 @@ function _apiTTL(q){
   // 3h bucket froze it mid-verify, the same failure v77b fixed for loop_heartbeat.
   if(/^live_|^loop_heartbeat|^clicker_counts/.test(q)) return 0;   // live + health: never
   if(/^news_items|^availability_report/.test(q)) return 2*60e3;    // news: minutes
-  if(/^pickem_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
+  // U65: prediction markets carry kickoff-scale lock times — the default 3h bucket
+  // served PURGED fixture markets mid-verify (the v77b/U52 stale-surface class again);
+  // the whole prediction_ family rides the same 5-min bucket as pick'em slates.
+  if(/^pickem_|^prediction_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
   return 3*3600e3;                                                 // ratings/standings/stats: hours
 }
 async function _apiFetch(q){
