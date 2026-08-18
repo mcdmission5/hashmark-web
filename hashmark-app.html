@@ -1953,7 +1953,7 @@ function _apiTTL(q){
   // U65: prediction markets carry kickoff-scale lock times — the default 3h bucket
   // served PURGED fixture markets mid-verify (the v77b/U52 stale-surface class again);
   // the whole prediction_ family rides the same 5-min bucket as pick'em slates.
-  if(/^pickem_|^prediction_|^fantasy_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
+  if(/^pickem_|^prediction_|^fantasy_|^coach_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
   return 3*3600e3;                                                 // ratings/standings/stats: hours
 }
 async function _apiFetch(q){
@@ -2602,12 +2602,13 @@ function wpSparkline(series, color){
   </svg>`;
 }
 async function fetchLiveBundle(id){
-  const [series, pace, plays] = await Promise.all([
+  const [series, pace, plays, decisions] = await Promise.all([
     api(`live_win_prob?select=fetched_at,period,clock,status,home_points,away_points,home_wp,leverage,segment&game_id=eq.${id}&order=fetched_at.asc&limit=600`).catch(()=>[]),
     api(`live_stat_pace?select=fetched_at,team,side,subject_type,subject,stat,so_far,projected,band&game_id=eq.${id}&order=fetched_at.desc&limit=40`).catch(()=>[]),
-    api(`live_recent_plays?select=payload,fetched_at&game_id=eq.${id}&limit=1`).catch(()=>[]) ]);
+    api(`live_recent_plays?select=payload,fetched_at&game_id=eq.${id}&limit=1`).catch(()=>[]),
+    api(`coach_decisions?select=*&game_id=eq.${id}&order=play_no.desc&limit=3`).catch(()=>[]) ]);
   const newest=pace.length?pace[0].fetched_at:null;
-  return {series, pace:pace.filter(p=>p.fetched_at===newest), plays:(plays[0]||{}).payload||null};
+  return {series, pace:pace.filter(p=>p.fetched_at===newest), plays:(plays[0]||{}).payload||null, decisions};
 }
 function liveSection(g, bundle){
   const tH=teamMeta[g.home_team_id]||{school:g.home_team}, tA=teamMeta[g.away_team_id]||{school:g.away_team};
@@ -2627,7 +2628,8 @@ function liveSection(g, bundle){
       <div class="sectitle" style="padding-top:8px">On-Track Pace <small>projected finals at current pace</small></div>
       ${bundle.pace.slice(0,6).map(p=>`<div class="boxrow"><div class="bva">${p.so_far==null?"—":Number(p.so_far).toFixed(0)}</div>
         <div class="bk">${esc(p.subject||p.team)} ${esc(p.stat)}<small>on track for ~${Number(p.projected).toFixed(0)}${p.band?` ±${Number(p.band).toFixed(0)}`:""}</small></div></div>`).join("")}`:""}
-  </div>`;
+  </div>
+  ${(bundle.decisions&&bundle.decisions.length)?`<div class="sec"><div class="sectitle" style="color:var(--model)">Coach's call <small>latest decision spots</small></div></div>`+bundle.decisions.map(cdRowHTML).join("")+`<div class="navrow"><button class="navbtn" data-cdboard><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> Season aggressiveness board</button></div>`:""}`;
 }
 function startGamePoll(id){
   if(_gamePollTimer) return;
@@ -2640,6 +2642,7 @@ function startGamePoll(id){
       const lastRow=bundle.series[bundle.series.length-1];
       if(lastRow && lastRow.status!=="in_progress"){ stopGamePoll("final"); openGame(id); return; }
       host.innerHTML=liveSection(g, bundle);
+      cdWire();   // U67: the poll replaces #liveout — re-wire the decision-board button
     }catch(e){}
   }, 45000);
 }
@@ -2652,12 +2655,15 @@ async function renderGameLive(g){
     <div class="note"><b>Live.</b> House win-probability + pace models, updated ~every 5 minutes on gamedays; this page refreshes while open. Probabilities and paces only — never a rating. ${BRAND_LINE}</div>
   </div></div>`;
   document.querySelector(".back").onclick=navBack;
+  cdWire();
   startGamePoll(g.id);
 }
 async function renderGamePost(g){
-  const [tg, fa] = await Promise.all([
+  const [tg, fa, cds] = await Promise.all([
     api(`team_game_stats?select=team_id,points,opp_points,off_epa,off_plays,stats&game_id=eq.${g.id}`).catch(()=>[]),
-    api(`game_analysis?select=season,week,game_id,lead_angle,headline,body,bullets,charts,player_card,narration_mode&game_id=eq.${g.id}`).catch(()=>[]) ]);
+    api(`game_analysis?select=season,week,game_id,lead_angle,headline,body,bullets,charts,player_card,narration_mode&game_id=eq.${g.id}`).catch(()=>[]),
+    api(`coach_decisions?select=*&game_id=eq.${g.id}&order=play_no.asc&limit=80`).catch(()=>[]) ]);
+  _cdGameId=g.id;
   const row=fa[0]||null;
   let filmCard;
   if(row){
@@ -2682,12 +2688,145 @@ async function renderGamePost(g){
     ${gameHeaderCard(g,null,null)}
     <div class="sec"><div class="sectitle">What happened</div>${filmCard}</div>
     ${epa}
+    ${_cdShowAll ? cdListHTML(cds, "The decisions", false) : cdListHTML(cds, "Notable decisions", true)}${(_cdShowAll=false,"")}
     <div class="navrow"><button class="navbtn primary" id="gpbox" style="flex:1">Full box score</button></div>
     <div class="note"><b>Final.</b> Official result + box from CFBD; the analysis is Hashmark's Film Room read of the play-by-play — every number traces to the computed record. ${BRAND_LINE}</div>
   </div></div>`;
   document.querySelector(".back").onclick=navBack;
   const bx=document.getElementById("gpbox"); if(bx) bx.onclick=()=>openBox(g.id, g.home_team_id);
   const fc=document.getElementById("gpfilm"); if(fc&&row) fc.onclick=ev=>{ if(ev.target.closest("[data-team]")) return; gatedFilm(row,false); };
+  cdWire();
+}
+
+// ================= U67 — COACH DECISIONS (the U60 engine's UI) =================
+// Decision analytics, never wagering advice. Every row comes from the public
+// coach_decisions table (win probability per option, fit from our own play-by-play,
+// with a 95% band on the edge + the R16 calibration floor). THE RESTRAINT IS THE
+// FEATURE: when the band covers zero the verdict is literally "too close to call" —
+// no fake certainty, unlike the confident on-screen verdicts TV shows.
+const CD_OPT_LABEL={go:"Go for it", punt:"Punt", fg:"Field goal", kick:"Kick the XP", go_for_two:"Go for two"};
+const CD_OPT_ORDER=["go","fg","punt","go_for_two","kick"];
+function cdTier(verdict){
+  if(verdict==="too close to call") return ["TOO CLOSE TO CALL","background:var(--surface2);color:var(--text);border:1px solid var(--line2)"];
+  if((verdict||"").startsWith("low leverage")) return ["LOW LEVERAGE","background:var(--surface2);color:var(--text2)"];
+  return ["CLEAR: "+(CD_OPT_LABEL[verdict]||verdict).toUpperCase(),"background:var(--model-tint);color:var(--model);border:1px solid var(--model)"];
+}
+function cdClock(period, secs){
+  const inQ=Math.max(0,Math.round(Number(secs)-(4-Number(period))*900));
+  return `Q${period} ${Math.floor(inQ/60)}:${String(inQ%60).padStart(2,"0")}`;
+}
+function cdSpot(d){
+  const dist=Number(d.distance), ytg=Number(d.ytg);
+  const spot = ytg<=50 ? `opp ${Math.round(ytg)}` : `own ${Math.round(100-ytg)}`;
+  const diff=Number(d.score_diff);
+  const sc = diff===0?"tied":(diff>0?`up ${diff}`:`down ${-diff}`);
+  return d.kind==="two_point"
+    ? `After the TD · ${cdClock(d.period,d.secs_rem)} · ${sc} (pre-try)`
+    : `4th &amp; ${dist===Math.round(dist)?Math.round(dist):dist} at ${spot} · ${cdClock(d.period,d.secs_rem)} · ${sc}`;
+}
+function cdRowHTML(d){
+  const [tier,style]=cdTier(d.verdict);
+  const opts=CD_OPT_ORDER.filter(k=>d.options&&d.options[k]);
+  const wps=opts.map(k=>Number(d.options[k].wp));
+  const lo=Math.min(...wps), hi=Math.max(...wps), span=Math.max(0.02,hi-lo);
+  const bars=opts.map(k=>{
+    const o=d.options[k], wp=Number(o.wp), best=(k===d.recommend);
+    const w=Math.round(8+88*(wp-lo)/span);
+    const pTxt=o.p!=null?` <small>&middot; ${d.kind==="two_point"?"converts":"makes/converts"} ~${Math.round(o.p*100)} of 100</small>`:"";
+    return `<div class="boxrow" style="padding:3px 0"><div class="bva" style="min-width:74px;${best?"color:var(--model);font-weight:700":""}">${(100*wp).toFixed(1)}%</div>
+      <div class="bk"><span${best?' style="color:var(--model);font-weight:600"':""}>${CD_OPT_LABEL[k]||k}</span>${pTxt}
+      <div style="height:4px;border-radius:2px;background:var(--model);opacity:${best?".95":".35"};width:${w}%;margin-top:3px"></div></div></div>`;
+  }).join("");
+  const bandTxt=`edge ${(100*Number(d.edge)).toFixed(1)} &plusmn; band ${(100*Number(d.band_lo)).toFixed(1)} to +${(100*Number(d.band_hi)).toFixed(1)} WP points`;
+  const took = d.actual===d.recommend;
+  const actLine = d.verdict==="too close to call"
+    ? `${esc(d.coach||d.team)} chose: <b>${CD_OPT_LABEL[d.actual]||esc(d.actual)}</b> — defensible either way`
+    : (d.verdict||"").startsWith("low leverage")
+      ? `${esc(d.coach||d.team)} chose: <b>${CD_OPT_LABEL[d.actual]||esc(d.actual)}</b> — either call, the game barely moves`
+      : `${esc(d.coach||d.team)} chose: <b>${CD_OPT_LABEL[d.actual]||esc(d.actual)}</b>${took?' <span style="color:var(--model)">— with the model</span>':` — model saw <b style="color:var(--model)">${CD_OPT_LABEL[d.recommend]||esc(d.recommend)}</b>`}`;
+  return `<div class="sec" style="padding:8px 10px;margin:6px 0">
+    <div class="secsub" style="padding:0 0 4px"><b>${esc(d.team)}</b> vs ${esc(d.opponent)} &middot; ${cdSpot(d)}</div>
+    <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:9px;${style}">${tier}</span>
+    <div style="padding-top:4px">${bars}</div>
+    <div class="secsub" style="padding:4px 0 0"><small>${bandTxt}</small></div>
+    <div class="secsub" style="padding:2px 0 0">${actLine}</div></div>`;
+}
+function cdHonestyHTML(){
+  return `<div class="sec" style="border-left:3px solid var(--model);padding:8px 10px"><div class="secsub">
+    <b>Why no hot take?</b> Each option's win probability comes from our own models, fit from
+    our own play-by-play, with a <b>95% band</b> on the difference — and peer-reviewed work
+    ("Analytics, Have Some Humility," 2025) shows these models carry <b>more uncertainty than
+    TV analysts imply</b>. When the band covers zero, the honest verdict is a tie:
+    <b>too close to call</b> — never a fake "GO." <b>Low leverage</b> means the game barely
+    moves either way. Decision analytics, never wagering advice; overtime stays dark
+    (our model isn't calibrated there, so it says nothing).</div></div>`;
+}
+function cdListHTML(rows, title, expandable){
+  if(!rows.length) return "";
+  const notable=rows.filter(r=>!(r.verdict||"").startsWith("low leverage"));
+  const shown=expandable?notable:rows;
+  let h=`<div class="sec"><div class="sectitle" style="color:var(--model)">${title}</div>`;
+  if(expandable && !notable.length)
+    h+=`<div class="secsub">No high-leverage spots — every fourth-down and two-point call in this game was low leverage (the game barely moved either way).</div>`;
+  h+=`</div>`+shown.map(cdRowHTML).join("");
+  if(expandable && rows.length>notable.length)
+    h+=`<div class="navrow"><button class="navbtn" data-cdall>Show all ${rows.length} decisions (incl. low leverage)</button></div>`;
+  h+=cdHonestyHTML();
+  h+=`<div class="navrow"><button class="navbtn" data-cdboard><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> Season aggressiveness board</button></div>`;
+  return h;
+}
+function cdWire(){
+  const all=document.querySelector("[data-cdall]");
+  if(all) all.onclick=()=>{ _cdShowAll=true; openGame(_gameCur&&_gameCur.id||_cdGameId); };
+  const bd=document.querySelector("[data-cdboard]"); if(bd) bd.onclick=()=>openCoachBoard();
+}
+let _cdShowAll=false, _cdGameId=null;
+async function openCoachBoard(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading coach calls…</div>`;
+  await ensureTeamMeta();
+  let rows=[];
+  try{
+    const seasons=await api(`coach_aggressiveness?select=season&order=season.desc&limit=1`);
+    const S=(window._hmCdSeason)||(seasons[0]||{}).season;
+    if(S){
+      rows=(await api(`coach_aggressiveness?select=*&season=eq.${S}&order=aggr_index.desc.nullslast&limit=800`))
+        // FBS + a real sample + a named coach — the raw table includes lower-division
+        // opponents swept in from the play-by-play (a display filter, not a data edit)
+        .filter(r=>teamMeta[r.team_id] && r.coach && r.faced>=20);
+      rows._season=S;
+    }
+  }catch(e){}
+  const S=rows._season, most=(window._hmCdLeast?[...rows].reverse():rows);
+  let h=`<div class="cmp">${backHeader("Coach calls")}<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle" style="color:var(--model)">Fourth-down aggressiveness &middot; ${S||"—"}</div>
+    <div class="secsub">Of each coach's <b>clear model-GO chances</b> — fourth downs where the
+    band cleared zero, not mere lean — the share they actually went for. High = trusts the
+    numbers on the clearest calls; low = kicks them away.</div>
+    <div class="navrow" style="padding:4px 0 4px">
+      <button class="navbtn ${!window._hmCdLeast?"primary":""}" data-cdsort="most">Most aggressive</button>
+      <button class="navbtn ${window._hmCdLeast?"primary":""}" data-cdsort="least">Least</button></div></div>`;
+  if(!rows.length) h+=`<div class="sec"><div class="secsub">No qualifying seasons yet — the board fills from replayed decisions after games are played.</div></div>`;
+  most.slice(0,25).forEach((r,i)=>{
+    const rank=window._hmCdLeast?rows.length-i:i+1;
+    h+=`<div class="boxrow"><div class="bva">${rank}</div>
+      <div class="bk"><b>${esc(r.coach)}</b> <small>${esc(r.team)}</small><br>
+        <small>took ${r.went_on_clear_go} of ${r.clear_go} clear GO chances &middot; ${r.went}/${r.faced} fourth downs overall &middot; agrees with the model ${Math.round(100*Number(r.agree_rate))}%</small></div>
+      <div class="bvb" style="color:var(--model)">${r.aggr_index!=null?Math.round(100*Number(r.aggr_index))+"%":"—"}</div></div>`;
+  });
+  h+=`<div class="sec" style="border-left:3px solid var(--model);padding:8px 10px"><div class="secsub">
+    <b>Honesty box.</b> Only <b>band-clear</b> chances count toward the index — spots the model
+    itself calls too close, or low leverage, are excluded, so a coach is never dinged for a
+    coin flip. FBS teams with a named coach and 20+ fourth-down decisions only. The model's
+    recommendations carry real uncertainty (see any game page's decision panel) — this board
+    measures alignment with them, not football wisdom.</div></div>
+    ${cdHonestyHTML()}
+    <div class="note"><b>Coach decision analytics — never wagering advice.</b> Win probabilities per option
+    from our own play-by-play models with honest uncertainty bands. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-cdsort]").forEach(b=>b.onclick=()=>{
+    window._hmCdLeast=b.dataset.cdsort==="least"; openCoachBoard(); });
 }
 
 function header(){
@@ -4417,6 +4556,7 @@ const FEATURE_TILES=[
 ];
 const EXPLORE_EXTRA=[
   ["daily","flame","Daily Challenge","amber",false,"Five trivia questions from the history ledgers + the Team Clicker.",()=>openDaily()],   // U52
+  ["coachboard","target","Coach Calls",null,false,"Fourth-down aggressiveness vs the model's clearest chances — with honest bands.",()=>openCoachBoard()],   // U67
   ["teams","star","Teams","amber",false,"Every FBS team — search, pick your favorite.",()=>openTeams()],
   ["method","info","Methodology",null,false,"How the numbers get made.",()=>openMethodology()],
   ["accuracy","check","Checking Our Work","amber",false,"Every call logged before kickoff. Misses stay up.",()=>openCheckingWork()],
@@ -9344,6 +9484,7 @@ const NAV_ROUTES={
   predictionsboard:p=>openPredictionsBoard(p&&p.g, p&&p.lt), // U65
   fantasy:p=>openFantasy(p&&p.wk),                           // U66
   fantasyboard:p=>openFantasyBoard(p&&p.g),                  // U66
+  coachboard:()=>openCoachBoard(),                           // U67
   method:()=>openMethodology(),
   history:()=>openHistory(),
   kickoff:()=>openKickoffHub(),   // U50
@@ -9497,6 +9638,7 @@ function installNavWraps(){
  ["openPredictionsBoard","predictionsboard",(g,lt)=>({g,lt})],   // U65
  ["openFantasy","fantasy",wk=>({wk})],   // U66
  ["openFantasyBoard","fantasyboard",g=>({g})],   // U66
+ ["openCoachBoard","coachboard"],   // U67
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
@@ -9645,6 +9787,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   pickem:"picks", pickemboard:"picks", crowdmodel:"picks",
   predictions:"picks", predictionsboard:"picks",   // U65 (U38 rule: every new view maps a section)
   fantasy:"picks", fantasyboard:"picks",           // U66
+  coachboard:"stats",                              // U67 (a model surface — Stats family)
   stats:"stats", standings:"stats", standingsboard:"stats", preseason:"stats", signature:"stats",
   sigboard:"stats", whatwins:"stats", playerrank:"stats", quadrant:"stats", luck:"stats",
   gauntlet:"stats", gauntletwall:"stats", oddstime:"stats", movers:"stats", nileconomy:"stats",
