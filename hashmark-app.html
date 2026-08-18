@@ -2698,6 +2698,172 @@ async function renderGamePost(g){
   cdWire();
 }
 
+// ================= U68 — GAMEDAY HUB (multi-game live view on U37's substrate) =================
+// Table stakes come from the same ESPN-sourced feed everyone has — the differentiation is
+// ONLY the analytics layer: our win probability, On-Track Pace, the U67 decision panel, and
+// favorite-team personalization. Reads the U58 shared poller's tables exclusively — this
+// page adds ZERO CFBD calls (and zero per-user polling; one server poller feeds everyone).
+let _gdTimer=null, _gdAlerted=new Set(), _gdPrev={}, _gdAlerts=[];
+function gdFollows(){ try{ return new Set(JSON.parse(localStorage.getItem("hm_gd_follow")||"[]")); }catch(_e){ return new Set(); } }
+function gdSetFollow(gid, on){
+  const f=gdFollows(); on?f.add(Number(gid)):f.delete(Number(gid));
+  try{ localStorage.setItem("hm_gd_follow", JSON.stringify([...f])); }catch(_e){}
+}
+async function gdFetch(){
+  const since=new Date(Date.now()-30*60e3).toISOString();
+  const wp=await api(`live_win_prob?select=game_id,fetched_at,period,clock,status,home_points,away_points,home_wp,leverage&fetched_at=gte.${encodeURIComponent(since)}&order=fetched_at.asc&limit=800`).catch(()=>[]);
+  const latest={};
+  wp.forEach(r=>{ latest[r.game_id]=r; });   // ascending: last write per game wins
+  const gids=Object.keys(latest);
+  if(!gids.length) return {live:[], plays:{}, pace:{}, cds:{}};
+  const inq=gids.map(g=>encodeURIComponent('"'+g+'"')).join(",");
+  const [games, plays, pace, cds]=await Promise.all([
+    api(`games?select=id,home_team_id,away_team_id,home_team,away_team,start_date,season&id=in.(${inq})`).catch(()=>[]),
+    api(`live_recent_plays?select=game_id,payload,fetched_at&game_id=in.(${inq})`).catch(()=>[]),
+    api(`live_stat_pace?select=game_id,fetched_at,team,subject,stat,so_far,projected,band&game_id=in.(${inq})&order=fetched_at.desc&limit=120`).catch(()=>[]),
+    api(`coach_decisions?select=*&game_id=in.(${inq})&order=play_no.desc&limit=40`).catch(()=>[]) ]);
+  const gmap={}; games.forEach(g=>gmap[g.id]=g);
+  const pmap={}; plays.forEach(p=>pmap[p.game_id]=p.payload);
+  const pacemap={};
+  pace.forEach(p=>{ (pacemap[p.game_id]=pacemap[p.game_id]||[]).length<3 && pacemap[p.game_id].push(p); });
+  const cdmap={};
+  cds.forEach(d=>{ (cdmap[d.game_id]=cdmap[d.game_id]||[]).length<1 && cdmap[d.game_id].push(d); });
+  const live=gids.map(g=>({wp:latest[g], g:gmap[g], gid:Number(g)})).filter(x=>x.g);
+  return {live, plays:pmap, pace:pacemap, cds:cdmap};
+}
+function gdAlertCheck(x, payload){
+  // fire-once alerts computed CLIENT-side from consecutive shared-poller snapshots
+  const gid=x.gid, prev=_gdPrev[gid], cur=x.wp;
+  const t=(k,label)=>{ const key=gid+":"+k;
+    if(!_gdAlerted.has(key)){ _gdAlerted.add(key); _gdAlerts.unshift({gid, label, at:new Date()});
+      if(_gdAlerts.length>12) _gdAlerts.pop(); } };
+  if(prev && cur.home_wp!=null && prev.home_wp!=null){
+    const swing=Math.abs(cur.home_wp-prev.home_wp);
+    if(swing>=0.15) t("swing"+Math.round(Number(cur.home_wp)*100), `Big swing: ${esc(x.g.home_team)} win probability moved ${Math.round(100*(cur.home_wp-prev.home_wp))>0?"+":""}${Math.round(100*(cur.home_wp-prev.home_wp))} points`);
+    if((prev.home_wp-0.5)*(cur.home_wp-0.5)<0) t("leadflip"+cur.period, `Momentum flip: ${esc(cur.home_wp>=0.5?x.g.home_team:x.g.away_team)} now favored live`);
+  }
+  const sit=payload&&payload.situation;
+  if(sit&&sit.yards_to_goal!=null&&Number(sit.yards_to_goal)<=20){
+    const off=sit.possession==="home"?x.g.home_team:x.g.away_team;
+    t("rz"+cur.period+":"+Math.round(Number(sit.yards_to_goal)/25), `Red zone: ${esc(off)} inside the 20`);
+  }
+  if(cur.home_wp!=null && x.pre!=null){
+    if(x.pre>=0.65&&cur.home_wp<=0.35) t("upset-a", `Upset watch: ${esc(x.g.away_team)} in control at a ${Math.round(x.pre*100)}-of-100 pregame favorite's place`);
+    if(x.pre<=0.35&&cur.home_wp>=0.65) t("upset-h", `Upset watch: ${esc(x.g.home_team)} in control despite a ${Math.round(100-x.pre*100)}-of-100 pregame read against them`);
+  }
+  _gdPrev[gid]=cur;
+}
+function gdDriveCallHTML(x, payload){
+  // "Call this drive" — a for-fun read, scored ON YOUR DEVICE only (no server, no
+  // prizes, no stakes; gambling-free by construction). TD / FG / stop, resolved by
+  // the score change when possession flips.
+  const sit=payload&&payload.situation, drive=payload&&payload.drive;
+  if(!sit||!sit.possession||!drive) return "";
+  const gid=x.gid, off=sit.possession==="home"?x.g.home_team:x.g.away_team;
+  let st={}; try{ st=JSON.parse(localStorage.getItem("hm_gd_call_"+gid)||"{}"); }catch(_e){}
+  const score={home:x.wp.home_points, away:x.wp.away_points};
+  if(st.offense && st.offense!==sit.possession && st.pick){
+    const delta=(st.offense==="home"?score.home-(st.score?st.score.home:0):score.away-(st.score?st.score.away:0));
+    const got=delta>=6?"td":(delta>=3?"fg":"stop");
+    st.streak=(got===st.pick)?(st.streak||0)+1:0;
+    st.last={pick:st.pick, got, hit:got===st.pick};
+    st.pick=null;
+  }
+  if(st.offense!==sit.possession){ st.offense=sit.possession; st.score=score; }
+  try{ localStorage.setItem("hm_gd_call_"+gid, JSON.stringify(st)); }catch(_e){}
+  const res=st.last?`<small>last drive: you called ${st.last.pick.toUpperCase()}, it went ${st.last.got.toUpperCase()} ${st.last.hit?"— got it":""} &middot; streak ${st.streak||0}</small><br>`:"";
+  const mk=k=>`<button class="navbtn ${st.pick===k?"primary":""}" data-gdcall="${gid}:${k}" style="min-height:32px;padding:4px 10px">${k==="td"?"Touchdown":k==="fg"?"Field goal":"Stop"}</button>`;
+  return `<div class="secsub" style="padding:4px 0 0">${res}<b>Call this ${esc(off)} drive</b> <small>(for fun — scored on your device, nothing at stake)</small></div>
+    <div class="navrow" style="padding:2px 0 0">${mk("td")}${mk("fg")}${mk("stop")}</div>`;
+}
+function gdCardHTML(x, payload, pace, cd){
+  const g=x.g, wp=x.wp, home=teamMeta[g.home_team_id]||{school:g.home_team}, away=teamMeta[g.away_team_id]||{school:g.away_team};
+  const follows=gdFollows(), followed=follows.has(x.gid);
+  const wpPct=wp.home_wp==null?null:Math.round(100*Number(wp.home_wp));
+  const lastPlay=payload&&payload.plays&&payload.plays.length?payload.plays[payload.plays.length-1]:null;
+  const lev=Number(wp.leverage||0);
+  return `<div class="sec" style="padding:9px 10px;margin:7px 0${followed?";border-left:3px solid var(--amber)":""}">
+    <div class="secsub" style="display:flex;justify-content:space-between;padding:0 0 4px">
+      <span><b>${esc(away.school)} ${wp.away_points} @ ${esc(home.school)} ${wp.home_points}</b> &middot; Q${wp.period} ${esc(wp.clock||"")}${lev>=0.04?' &middot; <span style="color:var(--model)">high leverage</span>':""}</span>
+      <button class="navbtn" data-gdfollow="${x.gid}" style="min-height:26px;padding:2px 8px">${followed?"Following":"Follow"}</button></div>
+    ${wpPct==null?`<div class="secsub">win probability dark (overtime — our model is honest about not being calibrated there)</div>`
+      :`<div class="boxrow" style="padding:2px 0"><div class="bva" style="color:var(--model)">${wpPct}%</div>
+        <div class="bk">${esc(home.school)} live win probability
+        <div style="height:5px;border-radius:3px;background:var(--model);opacity:.85;width:${Math.max(4,wpPct)}%;margin-top:3px"></div></div></div>`}
+    ${lastPlay?`<div class="secsub" style="padding:2px 0 0"><small>${esc(lastPlay.text)}</small></div>`:""}
+    ${(pace||[]).map(p=>`<div class="secsub" style="padding:1px 0 0"><small>${esc(p.subject||p.team)} ${esc(p.stat)}: ${Number(p.so_far).toFixed(0)} &middot; on track ~${Number(p.projected).toFixed(0)}${p.band?` &plusmn;${Number(p.band).toFixed(0)}`:""}</small></div>`).join("")}
+    ${cd&&cd[0]?`<div class="secsub" style="padding:3px 0 0"><span style="display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;${cdTier(cd[0].verdict)[1]}">${cdTier(cd[0].verdict)[0]}</span>
+      <small> ${cd[0].actual==="pending"?"the model's read before the snap":"latest decision"}: ${esc(cd[0].team)} 4th &amp; ${Math.round(cd[0].distance)} &middot; ${(CD_OPT_LABEL[cd[0].recommend]||cd[0].recommend)} best by ${(100*Number(cd[0].edge)).toFixed(1)} WP pts</small></div>`:""}
+    ${gdDriveCallHTML(x, payload)}
+    <div class="navrow" style="padding-top:4px"><button class="navbtn" data-game="${x.gid}" style="min-height:30px">Game page &rsaquo;</button></div></div>`;
+}
+async function openGameday(){
+  window.scrollTo(0,0);
+  app.innerHTML=`<div class="loading">Loading gameday…</div>`;
+  await ensureTeamMeta();
+  await gdRender(true);
+  if(!_gdTimer){
+    _gdTimer=setInterval(async()=>{
+      if(((history.state||{}).v)!=="gameday"){ clearInterval(_gdTimer); _gdTimer=null; return; }
+      try{ _apiCache.clear(); await gdRender(false); }catch(_e){}
+    }, 45000);
+  }
+}
+async function gdRender(first){
+  const {live, plays, pace, cds}=await gdFetch();
+  // pregame favorite context for the upset alert (matchup pairs, ints only — no ratings)
+  for(const x of live){
+    if(x.pre===undefined){
+      try{
+        const m=await api(`matchup_winprob?select=win_prob_a_home&team_a=eq.${x.g.home_team_id}&team_b=eq.${x.g.away_team_id}&limit=1`);
+        x.pre=m.length?Number(m[0].win_prob_a_home):null;
+      }catch(_e){ x.pre=null; }
+    }
+    gdAlertCheck(x, plays[x.gid]);
+  }
+  const follows=gdFollows();
+  live.sort((a,b)=>{
+    const fa=follows.has(a.gid)||[a.g.home_team_id,a.g.away_team_id].includes(authProfile&&authProfile.favorite_team_id);
+    const fb=follows.has(b.gid)||[b.g.home_team_id,b.g.away_team_id].includes(authProfile&&authProfile.favorite_team_id);
+    return (fb?1:0)-(fa?1:0) || Number(b.wp.leverage||0)-Number(a.wp.leverage||0);
+  });
+  let h=`<div class="cmp">${backHeader("Gameday")}<div class="list" style="padding-top:6px">
+    <div class="sec"><div class="sectitle">Gameday Hub</div><div class="secsub">
+    Every live game, one screen — <b>our analytics layer</b> on the shared feed: live win
+    probability, On-Track Pace, and the coach-decision read with its honest bands. Your
+    followed games ride on top. Updates while open (one shared server poller feeds
+    everyone — this page adds zero data-provider calls).</div></div>`;
+  if(_gdAlerts.length){
+    h+=`<div class="sec"><div class="sectitle">Alerts <small>each fires once</small></div>
+      ${_gdAlerts.slice(0,6).map(a=>`<div class="secsub">&bull; ${a.label} <small>${a.at.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</small></div>`).join("")}</div>`;
+  }
+  if(live.length){
+    h+=live.map(x=>gdCardHTML(x, plays[x.gid], pace[x.gid], cds[x.gid])).join("");
+  } else {
+    // quiet day: the next kickoffs from the schedule (derived, never typed)
+    let nextRows=[];
+    try{ nextRows=await api(`games?select=id,home_team,away_team,start_date&season=eq.${SEASON_SCHED}&start_date=gte.${encodeURIComponent(new Date().toISOString())}&order=start_date.asc&limit=6`);}catch(_e){}
+    h+=`<div class="sec"><div class="sectitle">No games live right now</div><div class="secsub">
+      The hub lights up on gamedays — live win probability, pace, decision reads, and alerts
+      for every game at once.</div></div>`;
+    if(nextRows.length){
+      h+=`<div class="sec"><div class="sectitle">Next up</div>${nextRows.map(g=>`<div class="boxrow" data-game="${g.id}" style="cursor:pointer"><div class="bk">${esc(g.away_team)} at ${esc(g.home_team)}<small>${new Date(g.start_date).toLocaleString([], {weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</small></div></div>`).join("")}</div>`;
+    }
+  }
+  h+=`<div class="note"><b>Gameday Hub.</b> Play-by-play and scores are the shared public feed; the
+    win probability, pace, and decision analytics are Hashmark's own models — probabilities only,
+    never a rating, never advice. Drive calls are a device-local game with nothing at stake. ${BRAND_LINE}</div></div></div>`;
+  app.innerHTML=h;
+  document.querySelector(".back").onclick=navBack;
+  document.querySelectorAll("[data-gdfollow]").forEach(b=>b.onclick=()=>{
+    const gid=Number(b.dataset.gdfollow); gdSetFollow(gid, !gdFollows().has(gid)); gdRender(false); });
+  document.querySelectorAll("[data-gdcall]").forEach(b=>b.onclick=()=>{
+    const [gid,k]=b.dataset.gdcall.split(":");
+    let st={}; try{ st=JSON.parse(localStorage.getItem("hm_gd_call_"+gid)||"{}"); }catch(_e){}
+    st.pick=k; try{ localStorage.setItem("hm_gd_call_"+gid, JSON.stringify(st)); }catch(_e){}
+    gdRender(false); });
+}
+
 // ================= U67 — COACH DECISIONS (the U60 engine's UI) =================
 // Decision analytics, never wagering advice. Every row comes from the public
 // coach_decisions table (win probability per option, fit from our own play-by-play,
@@ -4561,6 +4727,7 @@ const FEATURE_TILES=[
 const EXPLORE_EXTRA=[
   ["daily","flame","Daily Challenge","amber",false,"Five trivia questions from the history ledgers + the Team Clicker.",()=>openDaily()],   // U52
   ["coachboard","target","Coach Calls",null,false,"Fourth-down aggressiveness vs the model's clearest chances — with honest bands.",()=>openCoachBoard()],   // U67
+  ["gameday","flame","Gameday Hub","amber",false,"Every live game on one screen — win prob, pace, decision reads, alerts.",()=>openGameday()],   // U68
   ["teams","star","Teams","amber",false,"Every FBS team — search, pick your favorite.",()=>openTeams()],
   ["method","info","Methodology",null,false,"How the numbers get made.",()=>openMethodology()],
   ["accuracy","check","Checking Our Work","amber",false,"Every call logged before kickoff. Misses stay up.",()=>openCheckingWork()],
@@ -9489,6 +9656,7 @@ const NAV_ROUTES={
   fantasy:p=>openFantasy(p&&p.wk),                           // U66
   fantasyboard:p=>openFantasyBoard(p&&p.g),                  // U66
   coachboard:()=>openCoachBoard(),                           // U67
+  gameday:()=>openGameday(),                                 // U68
   method:()=>openMethodology(),
   history:()=>openHistory(),
   kickoff:()=>openKickoffHub(),   // U50
@@ -9643,6 +9811,7 @@ function installNavWraps(){
  ["openFantasy","fantasy",wk=>({wk})],   // U66
  ["openFantasyBoard","fantasyboard",g=>({g})],   // U66
  ["openCoachBoard","coachboard"],   // U67
+ ["openGameday","gameday"],   // U68
 ].forEach(([name,v,mapper])=>{
   const f=window[name];
   if(typeof f!=="function" || _NAV_WRAPPED.has(name)) return;
@@ -9773,6 +9942,7 @@ const TAB_DEFS={
   pkboard:  ["Board","globe",()=>openPickemBoard()],
   predict:  ["Predict","target",()=>openPredictions()],   // U65
   fantasy:  ["Fantasy","star",()=>openFantasy()],         // U66
+  gameday:  ["Gameday","flame",()=>openGameday()],        // U68
   crowd:    ["Crowd/Model","trend",()=>openUpsetRadar()],
   rankings: ["Rankings","trophy",()=>openPreseason()],
   signature:["Signature","flame",()=>openSignature()],
@@ -9780,7 +9950,7 @@ const TAB_DEFS={
 };
 const TABSETS={
   home:    ["home","games","picks","stats","explore"],
-  games:   ["home","games","sim","matchup"],
+  games:   ["home","games","gameday","sim","matchup"],   // U68: the hub joins Games
   picks:   ["home","picks","predict","fantasy","pkboard"],   // U65/U66: Predict + Fantasy join Picks (Crowd/Model stays reachable from Board + Explore)
   stats:   ["home","stats","rankings","signature","whatwins"],
   explore: ["home","games","picks","stats","explore"],   // Explore keeps the full map
@@ -9792,6 +9962,7 @@ const VIEW_SECTION={ home:"home", landing:"home",
   predictions:"picks", predictionsboard:"picks",   // U65 (U38 rule: every new view maps a section)
   fantasy:"picks", fantasyboard:"picks",           // U66
   coachboard:"stats",                              // U67 (a model surface — Stats family)
+  gameday:"games",                                 // U68
   stats:"stats", standings:"stats", standingsboard:"stats", preseason:"stats", signature:"stats",
   sigboard:"stats", whatwins:"stats", playerrank:"stats", quadrant:"stats", luck:"stats",
   gauntlet:"stats", gauntletwall:"stats", oddstime:"stats", movers:"stats", nileconomy:"stats",
@@ -9809,6 +9980,7 @@ const VIEW_TAB={ home:"home", scores:"games", sim:"sim", matchup:"matchup", matc
   compare:"matchup", box:"games", game:"games", pickem:"picks", pickemboard:"pkboard", crowdmodel:"crowd",
   predictions:"predict", predictionsboard:"predict",   // U65
   fantasy:"fantasy", fantasyboard:"fantasy",           // U66
+  gameday:"gameday",                                   // U68
   stats:"stats", preseason:"rankings", signature:"signature", sigboard:"signature",
   whatwins:"whatwins", explore:"explore" };
 let _tabSection="home";
