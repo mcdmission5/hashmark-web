@@ -108,7 +108,7 @@
   .subtitle{color:var(--text2);font-size:12.5px;margin:2px 0 12px}
   .subtitle b{color:var(--text);font-weight:600}
   .fdline{height:2px;background:var(--amber);box-shadow:0 0 12px rgba(246,180,60,.5);border-radius:2px}
-  .list{padding:6px 12px 90px}
+  .list{padding:6px 12px 18px}   /* U70 (P3 #14): body already pads 76px for the tab bar — 90px here stacked to ~170px of dead bottom space */
   .row{display:flex;align-items:center;gap:12px;padding:12px 8px;border-bottom:1px solid var(--line)}
   .rank{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:15px;
     color:var(--text2);width:26px;text-align:right;flex:none}
@@ -740,7 +740,8 @@
   .stbtns{display:flex;gap:5px;flex:none}
   .stb{width:34px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--bg);
     color:var(--text2);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
-  .stb.w{background:#5BD39A;color:#10130c;border-color:#5BD39A}
+  .stb.w{background:var(--user);color:#10130c;border-color:var(--user)}      /* U70: an active pick control is YOURS (U49) */
+  .stb.w.mdl{background:var(--model);color:#10130c;border-color:var(--model)} /* ...unless the model default made it */
   .stb.l{background:#E5705C;color:#10130c;border-color:#E5705C}
   .strec small{color:var(--text2);font-weight:600;font-size:10px;margin-left:6px}
   .stfinal{opacity:.85} .stfinal .stlock{display:flex;align-items:center;gap:5px;
@@ -1199,6 +1200,7 @@
   /* omnibox */
   .omni{position:fixed;inset:0;z-index:80;background:rgba(11,15,20,.94);display:none;flex-direction:column;padding:14px}
   .omni.show{display:flex;animation:hmRise .25s ease}
+  .omni input,.omni .results{width:100%;max-width:560px;margin-left:auto;margin-right:auto}   /* U70: keep the app column on desktop */
   .omni input{background:var(--surface2);border:1px solid var(--line2);border-radius:12px;color:var(--text);
     font-family:"Barlow",sans-serif;font-size:16px;padding:13px 14px;width:100%;outline:none}
   .omni .results{overflow-y:auto;margin-top:10px}
@@ -2572,7 +2574,7 @@ async function renderGamePre(g){
     const per={}; const picks=[];
     rows.forEach(r=>{ per[r.team]=(per[r.team]||0); if(per[r.team]<2){ per[r.team]++; picks.push(r); } });
     if(picks.length) kpCard=`<div class="sec"><div class="sectitle">Key players <small>final ${SEASON_RESULTS} Hashmark Grades</small></div>
-      ${picks.slice(0,4).map(r=>`<div class="boxrow"><div class="bva ${r.rating>=70?"win":""}">${Number(r.rating).toFixed(0)}</div>
+      ${picks.slice(0,4).map(r=>`<div class="boxrow"><div class="bva"${r.rating>=70?' style="color:var(--model)"':""}>${Number(r.rating).toFixed(0)}</div>
         <div class="bk">${esc(r.player)} <small>${esc(r.team)} · ${esc(r.role)} · ${Math.round(r.percentile||0)}th pct</small></div></div>`).join("")}
       <div class="secsub">Prior-season value grades — returning status per each team's page.</div></div>`;
   }catch(e){}
@@ -4981,6 +4983,9 @@ function teamPicker(excludeId, cb){
     <div class="picklist"></div></div>`;
   document.body.appendChild(ov);
   const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
+  // U70 (P3 #12): desktop autofocus — typed queries were lost until a manual click.
+  // pointer:fine only, so touch devices don't pop the keyboard over the list.
+  if(matchMedia("(pointer:fine)").matches) setTimeout(()=>search.focus(), 60);
   const draw=q=>{ q=(q||"").toLowerCase().trim();
     const rk=_pickerRanks||{hm:{},poll:{},pollName:null};
     list.innerHTML=teams.filter(t=>teamMatch(t,q)).map(t=>{ const c=hx(t.color), dis=String(t.id)===String(excludeId);
@@ -5324,7 +5329,7 @@ async function openAsk(teamId){
     <button class="pickx" data-authx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="authsub">Answers come only from Hashmark's public stats — season-labeled, source-cited.
     No betting talk, ever.</div>
-    <div id="askout" style="min-height:60px;font-size:13px;white-space:pre-wrap"></div>
+    <div id="askout" style="min-height:60px;max-height:46vh;overflow-y:auto;font-size:13px;white-space:pre-wrap"></div>
     <input class="authin" id="askq" placeholder="e.g. How did Indiana do last season?">
     <button class="authprimary" id="askgo">Ask</button>
     <div class="authfine">For entertainment only. ${""}</div></div>`;
@@ -5342,7 +5347,7 @@ async function openAsk(teamId){
     out.textContent="";
     const reader=r.body.getReader(); const dec=new TextDecoder();
     while(true){ const {done,value}=await reader.read(); if(done) break;
-      out.textContent += dec.decode(value); }
+      out.textContent += dec.decode(value); out.scrollTop=out.scrollHeight; }   // U70: the stream stays in view
   };
 }
 
@@ -5464,6 +5469,13 @@ async function openNewsArchive(teamId){
 async function teamNewsHTML(teamId){
   try{
     const items = await api(`news_items?select=headline,url,source,published_at,team_tags,image_url,image_credit&team_tags=cs.{${teamId}}&order=published_at.desc&limit=8`);
+    // U70 (P3 #18): this team's OWN stories lead — an item whose primary tag (first
+    // tag, the monogram it wears) is another school is secondary coverage here and
+    // sorts below, recency preserved within each group (a Michigan-crested recruiting
+    // story had outranked five Georgia-native ones).
+    items.sort((a,b)=>{ const pa=String((a.team_tags||[])[0])===String(teamId)?0:1;
+      const pb=String((b.team_tags||[])[0])===String(teamId)?0:1;
+      return pa-pb || (a.published_at<b.published_at?1:-1); });
     // Part 0.4: "N new" chip since last visit (localStorage last-seen per team)
     const seenKey=`hm_news_seen_${teamId}`;
     const seen=localStorage.getItem(seenKey);
@@ -7098,13 +7110,15 @@ function simGameBrowser(){
     let html=`<div class="confbar" style="padding:0 0 8px">${weeks.map(w=>`<button class="confpill ${wk===w?"on":""}" data-gbwk="${w}">W${w}</button>`).join("")}<button class="confpill ${wk==="ccg"?"on":""}" data-gbwk="ccg">CCGs</button></div>`;
     if(wk==="ccg"){
       Object.entries(c.ccg||{}).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cf,x])=>{
+        const cv=sim.userPicks["ccg|"+cf]?"":" mdl";   // U70: same voice split for title games
         html+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(shortConf(cf))} title game</div>
           <div class="ha">${esc(nm(x.pair[0]))} vs ${esc(nm(x.pair[1]))}${sim.userPicks["ccg|"+cf]?" · your pick":""}</div></div></div>
-          <div class="stbtns"><button class="stb ${x.winner===x.pair[0]?"w":""}" data-gbccg="${esc(cf)}" data-gbpick="${x.pair[0]}">${esc(monogram(nm(x.pair[0])))}</button>
-          <button class="stb ${x.winner===x.pair[1]?"w":""}" data-gbccg="${esc(cf)}" data-gbpick="${x.pair[1]}">${esc(monogram(nm(x.pair[1])))}</button></div></div>`; });
+          <div class="stbtns"><button class="stb ${x.winner===x.pair[0]?"w"+cv:""}" data-gbccg="${esc(cf)}" data-gbpick="${x.pair[0]}">${esc(monogram(nm(x.pair[0])))}</button>
+          <button class="stb ${x.winner===x.pair[1]?"w"+cv:""}" data-gbccg="${esc(cf)}" data-gbpick="${x.pair[1]}">${esc(monogram(nm(x.pair[1])))}</button></div></div>`; });
     } else {
       sim.games.filter(g=>g.week===wk).forEach(g=>{
         const h=String(g.home_team_id), a=String(g.away_team_id), w=String(eff[g.id]);
+        const voice=sim.userPicks[g.id]!=null?"":" mdl";   // U70: teal = the model favorite made this pick
         if(sim.locked[g.id]){
           html+=`<div class="stgame stfinal"><div class="stopp"><div><div class="on">${esc(nm(a))} @ ${esc(nm(h))}</div>
             <div class="ha">Final — ${esc(nm(String(sim.locked[g.id])))} won</div></div></div>
@@ -7112,8 +7126,8 @@ function simGameBrowser(){
           return; }
         html+=`<div class="stgame"><div class="stopp"><div><div class="on">${esc(nm(a))} @ ${esc(nm(h))}</div>
           <div class="ha">${sim.userPicks[g.id]!=null?"your pick":"model favorite"}</div></div></div>
-          <div class="stbtns"><button class="stb ${w===a?"w":""}" data-gbg="${g.id}" data-gbpick="${a}">${esc(monogram(nm(a)))}</button>
-          <button class="stb ${w===h?"w":""}" data-gbg="${g.id}" data-gbpick="${h}">${esc(monogram(nm(h)))}</button></div></div>`; });
+          <div class="stbtns"><button class="stb ${w===a?"w"+voice:""}" data-gbg="${g.id}" data-gbpick="${a}">${esc(monogram(nm(a)))}</button>
+          <button class="stb ${w===h?"w"+voice:""}" data-gbg="${g.id}" data-gbpick="${h}">${esc(monogram(nm(h)))}</button></div></div>`; });
     }
     document.getElementById("gbsheet").innerHTML=html;
     document.querySelectorAll("[data-gbwk]").forEach(b=>b.onclick=()=>{ wk=b.dataset.gbwk==="ccg"?"ccg":+b.dataset.gbwk; draw(); });
@@ -8448,6 +8462,7 @@ function openPicker(slot){
     <div class="picklist"></div></div>`;
   document.body.appendChild(ov);
   const list=ov.querySelector(".picklist"), search=ov.querySelector(".picksearch");
+  if(matchMedia("(pointer:fine)").matches) setTimeout(()=>search.focus(), 60);   // U70 (P3 #12)
   function draw(q){
     q=(q||"").toLowerCase().trim();
     list.innerHTML = board2026.filter(b=>teamMatch(b.teams,q))
@@ -10151,7 +10166,7 @@ function waterfallSVG(comps, overall, t){
   parts.forEach((p,i)=>{ const y=8+i*RH;
     const a=X(Math.min(cum,cum+p.v)), b=X(Math.max(cum,cum+p.v));
     s+=`<text x="${PL-8}" y="${y+10}" fill="var(--text2)" font-size="9" text-anchor="end">${CMETA[p.k].name}</text>`;
-    s+=`<rect x="${a}" y="${y+2}" width="${Math.max(2,b-a)}" height="11" rx="2.5" fill="${p.v>=0?"#5BD39A":"#E5705C"}" opacity=".9"><title>${esc(CMETA[p.k].name+" "+f3(p.v)+" — "+CMETA[p.k].tip)}</title></rect>`;
+    s+=`<rect x="${a}" y="${y+2}" width="${Math.max(2,b-a)}" height="11" rx="2.5" fill="${p.v>=0?"var(--model)":"#E5705C"}" opacity=".9"><title>${esc(CMETA[p.k].name+" "+f3(p.v)+" — "+CMETA[p.k].tip)}</title></rect>`;
     s+=vlab(a,b,y+11,f3(p.v),false);
     cum+=p.v;
     if(i<parts.length-1) s+=`<line x1="${X(cum)}" y1="${y+13}" x2="${X(cum)}" y2="${y+RH+2}" stroke="rgba(148,163,184,.4)"/>`;
@@ -10159,7 +10174,7 @@ function waterfallSVG(comps, overall, t){
   const fy=8+parts.length*RH;
   const fa=X(Math.min(0,overall)), fb=X(Math.max(0,overall));
   s+=`<text x="${PL-8}" y="${fy+10}" fill="var(--text)" font-size="9" font-weight="700" text-anchor="end">Rating</text>`;
-  s+=`<rect x="${fa}" y="${fy+2}" width="${Math.max(2,fb-fa)}" height="11" rx="2.5" fill="${col}" stroke="var(--amber)" stroke-width="1"/>`;
+  s+=`<rect x="${fa}" y="${fy+2}" width="${Math.max(2,fb-fa)}" height="11" rx="2.5" fill="var(--model)"/>`;   // U70: the rating IS model output — teal, never the team color (a red team read as a negative total)
   s+=vlab(fa,fb,fy+11,f3(overall),true);
   return s+`</svg><div class="secsub" style="padding:0 2px 4px">From FBS average to the final rating — every factor's exact contribution (${phaseLabel()}).</div>`;
 }
