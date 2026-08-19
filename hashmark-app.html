@@ -7826,6 +7826,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
   const loadPlayers=async yr=>{
     C.data.pl35=C.data.pl35||{};
     if(!C.data.pl35[yr]){
+      await ensureCoverage();   // U69: measured era line for LIMITED DATA tips
       const rows=await J(`player_season?select=athlete_id,player,position,category,stats,headline&team_id=eq.${teamId}&season=eq.${yr}`);
       let grades=[];
       if(SHOW_HASHMARK_RATINGS && rows.length){
@@ -7833,7 +7834,7 @@ function wireTeamPanels(teamId, t, games, e, swap26){
         const [qb,pv]=await Promise.all([
           J(`qb_value_rating?select=player,plays,rating,percentile,qualified&season=eq.${yr}&team=eq.${school}`),
           J(`player_value_rating?select=player,role,plays,rating,percentile,qualified&season=eq.${yr}&team=eq.${school}`)]);
-        grades=[...qb.map(r=>({...r,role:"qb"})),...pv];
+        grades=[...qb.map(r=>({...r,role:"qb",season:yr})),...pv.map(r=>({...r,season:yr}))];   // U69: the badge tip cites the season's measured coverage
       }
       C.data.pl35[yr]={rows,grades};
     }
@@ -8540,27 +8541,58 @@ const CAT_ORDER = ["passing","rushing","receiving","defensive","kicking"];
 // UG1 shrinkage explainer — ONE source for the player page and the U35 team
 // Players panel (the badge must mean the same thing everywhere it appears).
 const SHRINK_TIP="Below the qualifying floor (150 QB plays · 100 carries · 40 targets · 10 kicks), the number shown is shrunk toward 50 — the FBS average — in proportion to sample size, and it ranks nowhere until it qualifies. Small samples lie; the shrinkage says so out loud.";
-// QA-FIX-1 P2-3: one badge was covering two different truths. Public play-by-play attributes
-// only ~half of 2025 rush/receiving plays to a named player, so a 173-carry starter can sit
-// under the grade engine's floor THROUGH NO FAULT OF HIS USAGE — that is a data-coverage gap,
-// not a small sample, and calling it LOW SAMPLE misread stars as bench players. When the
-// OFFICIAL season workload clears the qualifying floor but the graded plays do not, the badge
-// now says what is actually true. Copy/branch only — no grade-engine change (UG3 doctrine).
-const LIMITED_TIP="Play attribution is incomplete this season: public play-by-play names the ball-carrier on only part of rushing/receiving plays, so this player's graded-play count sits under the qualifying floor even though his official workload clears it. The grade is shrunk toward 50 on the plays we can attribute — a data-coverage limit, not a usage one.";
-// official-workload floors mirroring the qualify floors (receptions proxy the 40-target floor)
+// QA-FIX-1 P2-3 established the two-badge split (coverage gap vs small sample).
+// U69 makes it WEEK-AWARE and MEASURED: U62 proved attribution is temporal, not flat
+// (2025: weeks 1-8 ~97-99% of rushes named, weeks 9-16 ~1%), so season-flat workload
+// thresholds mis-badged both ends. Now the player's OWN attributed share decides
+// (graded < 60% of official workload — the U62 exclusion rule), the tip carries HIS
+// measured numbers, and the era line quotes the pbp_coverage_week table the engine
+// publishes — an early-week line with real coverage never badges; a late-week gap
+// always does, with the number.
+let _covRows=null;
+async function ensureCoverage(){
+  if(_covRows) return _covRows;
+  try{ _covRows=await api(`pbp_coverage_week?select=season,week,role,plays,attributed,pct&order=season.desc,week.asc&limit=200`); }
+  catch(_e){ _covRows=[]; }
+  return _covRows;
+}
+function covEraLine(season, role){
+  const rows=(_covRows||[]).filter(r=>r.season===season&&r.role===role);
+  if(!rows.length) return "";
+  const pc=xs=>Math.round(100*xs.reduce((a,r)=>a+r.attributed,0)/Math.max(1,xs.reduce((a,r)=>a+r.plays,0)));
+  const late=rows.filter(r=>r.week>=9);
+  const who=role==="rush"?"the ball-carrier":"the target";
+  if(late.length && pc(rows.filter(r=>r.week<=8))-pc(late)>=20)
+    return ` Public play-by-play named ${who} on ~${pc(rows.filter(r=>r.week<=8))}% of plays through week 8 but ~${pc(late)}% after (${season}, measured) — late-season work goes untracked.`;
+  return ` Public play-by-play named ${who} on ~${pc(rows)}% of ${season} plays (measured).`;
+}
 function attributionStarved(gradeRow, cats){
   if(!gradeRow || gradeRow.qualified || !cats) return false;
   const g=(c,k)=>Number(((cats||{})[c]||{})[k]||0);
-  const role=String(gradeRow.role||"");
-  if(role==="rushing")   return g("rushing","car")>=100;
-  if(role==="receiving") return g("receiving","rec")>=30;
+  const graded=Number(gradeRow.plays||0), role=String(gradeRow.role||"");
+  // the grade tables store role='rush' — the original 'rushing' equality NEVER matched,
+  // so the rusher LIMITED branch had silently never fired (caught in U69's verify)
+  if(/^rush/.test(role))     { const car=g("rushing","car"); return car>=20 && graded<0.6*car; }
+  if(role==="receiving")     { const rec=g("receiving","rec"); return rec>=10 && graded<0.6*rec; }
   return false;   // QB passing + kicking attribution is near-complete — a miss there IS low sample
 }
-const sampleBadge=(gradeRow, cats)=> gradeRow && !gradeRow.qualified
-  ? (attributionStarved(gradeRow, cats)
-      ? `<span class="lowsample limited" data-tip="${esc(LIMITED_TIP)}">LIMITED DATA</span>`
-      : `<span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`)
-  : "";
+function sampleBadge(gradeRow, cats){
+  if(!gradeRow || gradeRow.qualified) return "";
+  if(attributionStarved(gradeRow, cats)){
+    const g=(c,k)=>Number(((cats||{})[c]||{})[k]||0);
+    const rush=/^rush/.test(String(gradeRow.role||""));
+    const graded=Number(gradeRow.plays||0);
+    const off=rush?g("rushing","car"):g("receiving","rec");
+    const season=Number(gradeRow.season)||SEASON_RESULTS;
+    const tip=`Play attribution is incomplete: only ${graded} of this player's ${off} official `
+      +(rush?`carries carry his name as ball-carrier`:`catches have an attributed target`)
+      +` in the public play-by-play, so the graded-play count sits under the qualifying floor even though the official workload clears it.`
+      +covEraLine(season, rush?"rush":"recv")
+      +` The grade is shrunk toward 50 on the plays we can attribute — a data-coverage limit, not a usage one.`;
+    return `<span class="lowsample limited" data-tip="${esc(tip)}">LIMITED DATA</span>`;
+  }
+  return `<span class="lowsample" data-tip="${esc(SHRINK_TIP)}">LOW SAMPLE</span>`;
+}
 
 async function openPlayer(aid){
   window.scrollTo(0,0);
@@ -8575,7 +8607,8 @@ async function openPlayer(aid){
     let grades=[];
     if(SHOW_HASHMARK_RATINGS && idx[0] && idx[0].player){
       const nm=encodeURIComponent(idx[0].player);
-      const [qb, pv, gn] = await Promise.all([
+      const [_cov69, qb, pv, gn] = await Promise.all([
+        ensureCoverage(),   // U69: measured era line for LIMITED DATA tips
         api(`qb_value_rating?select=season,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]),
         api(`player_value_rating?select=season,role,team,plays,rating,percentile,qualified&player=eq.${nm}&order=season.desc`).catch(()=>[]),
         api(`player_grade_narratives?select=season,role,team,narrative,narration_mode&player=eq.${nm}&order=season.desc`).catch(()=>[]) ]);
