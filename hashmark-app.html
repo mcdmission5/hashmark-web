@@ -8568,7 +8568,9 @@ function covEraLine(season, role){
 }
 function attributionStarved(gradeRow, cats){
   if(!gradeRow || gradeRow.qualified || !cats) return false;
-  const g=(c,k)=>Number(((cats||{})[c]||{})[k]||0);
+  // player_season stats key UPPERCASE (CAR/REC) — the original lowercase read always
+  // returned 0, the second half of why this branch had never fired (U69 verify)
+  const g=(c,k)=>{ const o=(cats||{})[c]||{}; return Number(o[k] ?? o[k.toUpperCase()] ?? 0); };
   const graded=Number(gradeRow.plays||0), role=String(gradeRow.role||"");
   // the grade tables store role='rush' — the original 'rushing' equality NEVER matched,
   // so the rusher LIMITED branch had silently never fired (caught in U69's verify)
@@ -8579,7 +8581,7 @@ function attributionStarved(gradeRow, cats){
 function sampleBadge(gradeRow, cats){
   if(!gradeRow || gradeRow.qualified) return "";
   if(attributionStarved(gradeRow, cats)){
-    const g=(c,k)=>Number(((cats||{})[c]||{})[k]||0);
+    const g=(c,k)=>{ const o=(cats||{})[c]||{}; return Number(o[k] ?? o[k.toUpperCase()] ?? 0); };
     const rush=/^rush/.test(String(gradeRow.role||""));
     const graded=Number(gradeRow.plays||0);
     const off=rush?g("rushing","car"):g("receiving","rec");
