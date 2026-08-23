@@ -12054,6 +12054,7 @@ async function openFilmRoom(wk){
 async function checkReturnFeed(){
   try{
     if(sessionStorage.getItem("hm_feed_sess")) return;             // <=1 surface/session
+    if(sessionStorage.getItem("hm_join_token")) return;            // U72: a pending ?join= invite wins the first surface
     const lastSeen=localStorage.getItem("hm_last_visit");
     localStorage.setItem("hm_last_visit", new Date().toISOString());
     const seen=JSON.parse(localStorage.getItem("hm_feed_seen")||"{}");
