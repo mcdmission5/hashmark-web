@@ -303,9 +303,9 @@
   .cmprow.big .cmpval{font-size:14.5px}
   .cmprow.big .cmptrk{height:12px}
   /* team-picker overlay */
-  .pickov{position:fixed;inset:0;z-index:80;background:rgba(8,11,15,.74);
+  .pickov{position:fixed;inset:0;height:100vh;height:100dvh;z-index:80;background:rgba(8,11,15,.74);   /* U73: anchor to the visible bottom */
     backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center}
-  .picksheet{width:100%;max-width:460px;max-height:84vh;background:var(--surface);
+  .picksheet{width:100%;max-width:460px;max-height:84vh;max-height:84dvh;background:var(--surface);   /* U73: dvh so the list never runs behind mobile toolbars */
     border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0;
     display:flex;flex-direction:column;overflow:hidden}
   .pickhd{display:flex;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
@@ -1039,12 +1039,25 @@
   .acctbtn:not(.signin){padding:0;width:38px;height:38px;border-radius:50%}
   .acctav{display:flex;align-items:center;justify-content:center;width:100%;height:100%;
     font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:15px;color:var(--amber)}
-  .authov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);
+  /* U73: vh resolves against the LARGEST mobile viewport, so with browser toolbars showing a
+     bottom-anchored sheet's action button sat off-screen while its content still fit inside
+     92vh — overflow never engaged. dvh (with the vh line kept as the old-browser fallback)
+     tracks the toolbars; height on .authov anchors flex-end to the VISIBLE bottom even where
+     fixed inset:0 resolves against the larger viewport. */
+  .authov{position:fixed;inset:0;height:100vh;height:100dvh;z-index:80;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);   /* U73: 80 like .pickov — at 50 the z-60 tab bar drew OVER the sheet's button zone on phones */
     display:flex;align-items:flex-end;justify-content:center}
   @media(min-width:560px){ .authov{align-items:center} }
   .authsheet{width:100%;max-width:430px;background:var(--bg);border:1px solid var(--line);
-    border-radius:18px 18px 0 0;padding:18px 18px 26px;max-height:92vh;overflow:auto}
+    border-radius:18px 18px 0 0;padding:18px 18px calc(26px + env(safe-area-inset-bottom));
+    max-height:92vh;max-height:92dvh;overflow:auto;overscroll-behavior:contain}
   @media(min-width:560px){ .authsheet{border-radius:18px} }
+  /* U73: sticky action row for tall sheets — the primary button pins to the sheet's visible
+     bottom edge regardless of content length. Negative margins swallow the sheet padding so
+     the row's own padding is the bottom spacing whether pinned or at rest. */
+  .authact{position:sticky;bottom:0;z-index:2;background:var(--bg);border-top:1px solid var(--line);
+    margin:10px -18px calc(-26px - env(safe-area-inset-bottom));
+    padding:8px 18px calc(14px + env(safe-area-inset-bottom))}
+  .authov.kbup .authsheet{max-height:100%}
   .authhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
   .authttl{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:18px}
   .authsub{color:var(--text2);font-size:12.5px;line-height:1.45;margin-bottom:14px}
@@ -2187,6 +2200,29 @@ function closeAuth(){ const o=document.getElementById("authov"); if(!o) return; 
   const i=_ovStack.findIndex(en=>en.dom===o); if(i>=0) _ovStack.splice(i,1);
   o.remove(); }
 function authMsg(t, ok){ const m=document.getElementById("authmsg"); if(m){ m.textContent=t; m.className="authmsg "+(ok?"ok":"err"); } }
+// U73: keyboard resilience for bottom sheets. The on-screen keyboard shrinks only the VISUAL
+// viewport — vh and dvh both ignore it — so a bottom-anchored sheet's action button could sit
+// behind the keyboard with nothing scrollable. Lift any open sheet above the keyboard and let
+// the sheet's own overflow (plus the sticky .authact row) keep the button reachable.
+(function(){
+  const vv=window.visualViewport; if(!vv) return;
+  const fit=()=>{
+    if(vv.scale && Math.abs(vv.scale-1)>0.05) return;   // pinch-zoom, not a keyboard
+    const kb=Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.querySelectorAll(".authov").forEach(ov=>{
+      if(kb>80){ ov.classList.add("kbup"); ov.style.height=vv.height+"px";
+        ov.style.transform=vv.offsetTop?`translateY(${vv.offsetTop}px)`:""; }
+      else{ ov.classList.remove("kbup"); ov.style.height=""; ov.style.transform=""; }
+    });
+  };
+  vv.addEventListener("resize", fit);
+  vv.addEventListener("scroll", fit);
+})();
+// U73: a focused input inside a sheet scrolls itself clear of the keyboard/sticky row.
+document.addEventListener("focusin", e=>{
+  if(e.target && e.target.closest && e.target.closest(".authsheet"))
+    setTimeout(()=>{ try{ e.target.scrollIntoView({block:"nearest"}); }catch(_e){} }, 300);
+});
 function openAuthModal(){
   if(!sb){ return; }
   const ov=document.createElement("div"); ov.className="authov"; ov.id="authov";
@@ -5369,7 +5405,7 @@ async function openAsk(teamId){
     <button class="pickx" data-authx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="authsub">Answers come only from Hashmark's public stats — season-labeled, source-cited.
     No betting talk, ever.</div>
-    <div id="askout" style="min-height:60px;max-height:46vh;overflow-y:auto;font-size:13px;white-space:pre-wrap"></div>
+    <div id="askout" style="min-height:60px;max-height:46vh;max-height:46dvh;overflow-y:auto;font-size:13px;white-space:pre-wrap"></div>
     <input class="authin" id="askq" placeholder="e.g. How did Indiana do last season?">
     <button class="authprimary" id="askgo">Ask</button>
     <div class="authfine">For entertainment only. ${""}</div></div>`;
@@ -5658,7 +5694,7 @@ function pkClaimSheet(){
       <input class="authin" id="hin" maxlength="20" autocomplete="off" spellcheck="false" placeholder="your_handle">
       <div class="authmsg" id="hmsg"></div>
       <div class="secsub" id="hprev" style="padding:2px 0 8px"></div>
-      <button class="authprimary" id="hclaim" disabled>Claim handle</button></div>`;
+      <div class="authact"><button class="authprimary" id="hclaim" disabled>Claim handle</button></div></div>`;
     document.body.appendChild(ov);
     let done=false;
     const finish=v=>{ if(!done){ done=true; resolve(v); } };
@@ -5693,7 +5729,9 @@ function pkClaimSheet(){
         finish(true); ovClose(ov);
       }catch(e){ msg.textContent=e.message||"claim failed"; msg.className="authmsg err"; btn.disabled=false; }
     };
-    setTimeout(()=>{ try{ inp.focus(); }catch(_e){} }, 50);
+    // U73: pointer:fine only (the U70 rule) — on phones an auto-popped keyboard covered
+    // the sheet's button with nothing scrollable; let the user tap the input themselves.
+    if(matchMedia("(pointer:fine)").matches) setTimeout(()=>{ try{ inp.focus(); }catch(_e){} }, 50);
   });
 }
 async function pkRequireHandle(){
@@ -5830,8 +5868,8 @@ function pkCreateSheet(){
       Confidence: rank your picks 1..N; correct picks score their rank.</div>
     <div class="pksetrow"><span>The Model plays as a member</span><button class="navbtn pkflip on" data-set="model">On</button></div>
     <div class="pksetrow"><span>Drop lowest weeks (season standings)</span><div id="cgdrop"></div></div>
-    <div class="authmsg" id="cgmsg"></div>
-    <button class="authprimary" id="cggo">Create group</button></div>`;
+    <div class="authact"><div class="authmsg" id="cgmsg" style="margin:0 2px 6px"></div>
+    <button class="authprimary" id="cggo">Create group</button></div></div>`;
   document.body.appendChild(ov);
   navOverlay(ov);
   ov.querySelector("[data-cx]").onclick=ovDismiss;
@@ -6431,8 +6469,8 @@ function pkSettingsSheet(){
     <div class="pksetrow"><span>Scoring (locks at the first human pick)</span><div id="gsmode"></div></div>
     <div class="pksetrow"><span>New password (blank = keep)</span></div>
     <input class="authin" id="gspass" maxlength="60" placeholder="Unchanged" autocomplete="new-password">
-    <div class="authmsg" id="gsmsg"></div>
-    <button class="authprimary" id="gssave">Save settings</button></div>`;
+    <div class="authact"><div class="authmsg" id="gsmsg" style="margin:0 2px 6px"></div>
+    <button class="authprimary" id="gssave">Save settings</button></div></div>`;
   document.body.appendChild(ov);
   navOverlay(ov);
   ov.querySelector("[data-gx]").onclick=ovDismiss;
@@ -7113,7 +7151,7 @@ async function fanPool(pos){
 async function fanPick(slot){
   const pos=FAN_SLOT_POS[slot];
   const ov=document.createElement("div"); ov.className="authov"; ov.id="fanpickov";
-  ov.innerHTML=`<div class="authsheet" style="max-height:80vh;display:flex;flex-direction:column">
+  ov.innerHTML=`<div class="authsheet" style="max-height:80vh;max-height:80dvh;display:flex;flex-direction:column">
     <div class="authhd"><div class="authttl">${slot} — pick a ${pos}</div>
     <button class="pickx" data-fanx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <input class="authin" id="fansearch" placeholder="Search the full FBS pool…" autocomplete="off">
