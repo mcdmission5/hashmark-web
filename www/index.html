@@ -404,10 +404,17 @@
   .pkgrow:active{opacity:.85}
   .pkchips{display:flex;justify-content:space-between;gap:8px;padding:0 2px 4px;
     font-size:11px;color:var(--text3);font-family:"IBM Plex Mono",monospace}
-  .pkcmpbtn{display:flex;align-items:center;gap:6px;width:100%;margin-top:6px;min-height:34px;
-    background:transparent;border:1px dashed var(--line2);border-radius:9px;color:var(--text2);
-    font:600 11.5px Inter,system-ui,sans-serif;cursor:pointer;justify-content:center}
+  /* U74-C: side-by-side SOLID expander buttons (token surface fill, amber-interactive per
+     U49); .open flips the chevron and takes the amber voice while its drawer is out. */
+  .pkcmprow{display:flex;gap:8px;margin-top:8px}
+  .pkcmpbtn{flex:1;display:flex;align-items:center;gap:6px;min-height:36px;
+    background:var(--surface2);border:1px solid var(--line);border-radius:9px;color:var(--text);
+    font:700 11.5px Inter,system-ui,sans-serif;cursor:pointer;justify-content:center;transition:.15s}
+  .pkcmpbtn:hover{border-color:var(--amber)}
+  .pkcmpbtn.open{border-color:var(--amber);color:var(--amber)}
   .pkcmpbtn .ic{width:14px;height:14px}
+  .pkcmpbtn .chev{width:12px;height:12px;transform:rotate(90deg);transition:transform .15s}
+  .pkcmpbtn.open .chev{transform:rotate(-90deg)}
   .pkdrawer{border-top:1px solid var(--line);margin-top:6px;padding-top:4px}
   .pklink{font-family:"IBM Plex Mono",monospace;font-size:12px;word-break:break-all;
     border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:6px 0;color:var(--text2)}
@@ -2100,6 +2107,22 @@ async function applySession(session){
   if(uid !== _authUid){ _authUid = uid; if(app.querySelector(".hsec")) load(); }
   // U72: a pending ?join=TOKEN survives the sign-in detour — resume the join sheet
   if(uid){ try{ if(sessionStorage.getItem("hm_join_token")) setTimeout(()=>{ try{ pkJoinBoot(); }catch(_e){} }, 600); }catch(_e){} }
+  if(uid){ try{ maybeOnboardHandle(); }catch(_e){} }   // U74-E
+}
+// U74-E: the handle claim moved into onboarding. A NEW account (created minutes ago) gets the
+// required sheet immediately after first sign-in; a legacy handle-less account gets the
+// dismissible sheet once per session (pick'em actions still hard-gate via pkRequireHandle).
+// A pending join invite defers to the join sheet — its own Join click gates the handle.
+let _handleOnboarded=false;
+function maybeOnboardHandle(){
+  if(!authUser||_handleOnboarded) return;
+  if(authProfile&&authProfile.handle) return;
+  if(sessionStorage.getItem("hm_join_token")) return;
+  const isNew=authUser.created_at&&(Date.now()-new Date(authUser.created_at).getTime()<15*60e3);
+  if(!isNew&&sessionStorage.getItem("hm_handle_nudged")) return;
+  _handleOnboarded=true;
+  try{ sessionStorage.setItem("hm_handle_nudged","1"); }catch(_e){}
+  setTimeout(()=>{ try{ pkClaimSheet({required:isNew}); }catch(_e){} }, isNew?500:1500);
 }
 // Profile reads/writes via direct REST with the SESSION's access token, so the user's JWT is
 // always on the request (avoids any from() token-attachment timing on reload). RLS still applies.
@@ -2159,12 +2182,17 @@ try{
 }catch(_e){}
 // U72: the ONE join path — ?join=TOKEN handled at BOOT (no hash router, batch-12 decision).
 // Captured outside the session-start guard so a same-tab reload with a link still joins.
+// U74: capture ONLY here — the sheet itself opens from the boot .then() at the bottom of the
+// script, AFTER landingDue()/load() has run. The old 900ms timer here raced the boot
+// navigation: openLanding() is nav-wrapped, so navPush -> navPurgeOverlays() REMOVED the join
+// sheet on every first-visit device (the owner's field failure — the sheet opened, then the
+// landing purge destroyed it). Firing from sessionStorage after boot also survives an
+// SW-update reload, where replaceState has already stripped ?join= from the URL.
 try{
   const _jm=location.search.match(/[?&]join=([a-z0-9]{6,64})/i);
   if(_jm){
     sessionStorage.setItem("hm_join_token", _jm[1].toLowerCase());
     history.replaceState(null,"",location.pathname+location.hash);
-    setTimeout(()=>{ try{ pkJoinBoot(); }catch(_e){} }, 900);
   }
 }catch(_e){}
 // U72 #6: reminders without push — arm the Picks-tab badge shortly after boot
@@ -2604,7 +2632,9 @@ async function openGame(gameId){
     document.querySelector(".back").onclick=navBack;
   }
 }
-async function renderGamePre(g){
+// U74-C: the PRE-state card builders, shared verbatim by the full game page and the
+// pick'em in-card "Game page" drawer — one renderer, never a fork.
+async function gamePreCards(g){
   const a=g.home_team_id, b=g.away_team_id, lo=Math.min(+a,+b), hi=Math.max(+a,+b);
   const [stRows, pr, wpRow, hh, allTime, rivRow] = await Promise.all([
     api(`standings?select=team_id,wins,losses&season=eq.${g.season}&team_id=in.(${a},${b})`).catch(()=>[]),
@@ -2677,6 +2707,10 @@ async function renderGamePre(g){
         return `<div class="boxrow"><div class="bk">${m2.season} · ${esc(m2.away_team)} ${m2.away_points} @ ${esc(m2.home_team)} ${m2.home_points}</div>
           <div class="bvb"><small>${esc(hw?m2.home_team:m2.away_team)} W</small></div></div>`; }).join("")}</div>`;
   }
+  return {st, ratings, wpCard, mkt, kpCard, hhCard};
+}
+async function renderGamePre(g){
+  const {st, ratings, wpCard, mkt, kpCard, hhCard} = await gamePreCards(g);
   app.innerHTML=`<div class="cmp">${backHeader("Game")}<div class="list" style="padding-top:4px">
     ${gameHeaderCard(g,st,ratings)}
     ${mkt?`<div class="mktline" style="text-align:center;padding:0 0 6px">${mkt}</div>`:""}
@@ -5684,12 +5718,16 @@ function pkName(uid, handle, dn){
 }
 
 // ---------------- U72 #1: the handle claim sheet ----------------
-function pkClaimSheet(){
+function pkClaimSheet(opts){
+  // U74-E: opts.required = the account-creation onboarding mode — no dismiss affordances
+  // (new accounts pick a handle before continuing); default stays the dismissible sheet.
+  const req=!!(opts&&opts.required);
   return new Promise(resolve=>{
-    const ov=document.createElement("div"); ov.className="authov";
-    ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Claim your @handle</div>
-      <button class="pickx" data-hx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
-      <div class="authsub">Your public name on every pick'em board. 3–20 characters:
+    if(document.getElementById("pkclaimov")){ resolve(false); return; }
+    const ov=document.createElement("div"); ov.className="authov"; ov.id="pkclaimov";
+    ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">${req?"Choose your @handle":"Claim your @handle"}</div>
+      ${req?"":`<button class="pickx" data-hx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button>`}</div>
+      <div class="authsub">${req?"One quick step to finish your account: your":"Your"} public name on every pick'em board. 3–20 characters:
       a&ndash;z, 0&ndash;9, underscore. One rename every 30 days.</div>
       <input class="authin" id="hin" maxlength="20" autocomplete="off" spellcheck="false" placeholder="your_handle">
       <div class="authmsg" id="hmsg"></div>
@@ -5699,8 +5737,9 @@ function pkClaimSheet(){
     let done=false;
     const finish=v=>{ if(!done){ done=true; resolve(v); } };
     navOverlay(ov, ()=>{ try{ ov.remove(); }catch(_e){} finish(false); });
-    ov.querySelector("[data-hx]").onclick=()=>{ finish(false); ovDismiss(); };
-    ov.onclick=e=>{ if(e.target===ov){ finish(false); ovDismiss(); } };
+    const hx=ov.querySelector("[data-hx]");
+    if(hx) hx.onclick=()=>{ finish(false); ovDismiss(); };
+    if(!req) ov.onclick=e=>{ if(e.target===ov){ finish(false); ovDismiss(); } };
     const inp=ov.querySelector("#hin"), msg=ov.querySelector("#hmsg"),
           prev=ov.querySelector("#hprev"), btn=ov.querySelector("#hclaim");
     let deb=null, okNow=false;
@@ -5891,18 +5930,20 @@ function pkCreateSheet(){
     try{
       const r=await predRpc("create_group",{p_name:name,
         p_is_private:ov.querySelector('[data-set="priv"]').classList.contains("on"),
-        p_password:ov.querySelector("#cgpass").value||null,
+        p_password:ov.querySelector("#cgpass").value.trim()||null,   // U74-B: never store a stray edge space
         p_scoring_mode:mode, p_drop_n:dropN,
         p_model_plays:ov.querySelector('[data-set="model"]').classList.contains("on")});
       ovClose(ov);
       pkShareSheet({id:r.id, name, invite_code:r.invite_code, commissioner:authUser.id,
-        password_set:!!ov.querySelector("#cgpass").value}, ()=>openPickemGroup(r.id));
+        password_set:!!ov.querySelector("#cgpass").value.trim()}, ()=>openPickemGroup(r.id));
     }catch(e){ msg.textContent=e.message||"couldn't create the group"; msg.className="authmsg err"; }
   };
 }
 function pkShareSheet(g, onDone){
   const link=`https://hash-mark.com/?join=${g.invite_code}`;
-  const smsBody=encodeURIComponent(`Join my Hashmark pick'em group — no gambling, just bragging rights: ${link}`);
+    // U74-A1: the link goes FIRST (some SMS clients truncate long prefills from the end) and the
+  // whole body stays encodeURIComponent-ed so the link's ?/&/= survive the sms: URI's own parsing.
+  const smsBody=encodeURIComponent(`${link}\nJoin my Hashmark pick'em group — no gambling, just bragging rights.`);
   const ov=document.createElement("div"); ov.className="authov";
   ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">${esc(g.name)}</div>
     <button class="pickx" data-sx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
@@ -5953,15 +5994,21 @@ async function pkJoinBoot(){
 }
 async function pkJoinSheet(code, fromBoot){
   if(_pkJoinBusy) return; _pkJoinBusy=true;
-  let pv=null;
-  try{ pv=await pkAnonRpc("group_preview",{code}); }catch(_e){}
+  // U74: idempotent — the boot .then() and the auth-callback resume can both fire;
+  // one preview sheet per session, never a stacked duplicate.
+  if(document.getElementById("pkjoinov")){ _pkJoinBusy=false; return; }
+  let pv=null, netFail=false;
+  try{ pv=await pkAnonRpc("group_preview",{code}); }catch(_e){ netFail=true; }
   _pkJoinBusy=false;
   if(!pv){
+    // U74: a network failure is NOT an invalid link — keep the token so a retry/reload
+    // still routes to the preview; only a genuine no-match burns it.
+    if(netFail){ alert("Couldn't load the invite right now — check your connection and reload; the invite is still pending."); return; }
     alert("That invite link didn't match a group — ask for a fresh link (they can be regenerated).");
     if(fromBoot) sessionStorage.removeItem("hm_join_token");
     return;
   }
-  const ov=document.createElement("div"); ov.className="authov";
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="pkjoinov";
   ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Join “${esc(pv.name)}”</div>
     <button class="pickx" data-jx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <div class="authsub">${pv.member_count} member${pv.member_count===1?"":"s"} ·
@@ -5982,7 +6029,9 @@ async function pkJoinSheet(code, fromBoot){
     msg.textContent="joining…"; msg.className="authmsg";
     try{
       const pe=ov.querySelector("#jpass");
-      const gid=await predRpc("join_group",{code, password:pe?pe.value||null:null});
+      // U74-B: leading/trailing whitespace trimmed — mobile keyboards add trailing
+      // spaces constantly; interior spaces are never touched.
+      const gid=await predRpc("join_group",{code, password:pe?pe.value.trim()||null:null});
       sessionStorage.removeItem("hm_join_token");
       ovClose(ov); openPickemGroup(gid);
     }catch(e){ msg.textContent=e.message||"couldn't join"; msg.className="authmsg err"; }
@@ -6154,8 +6203,7 @@ async function pkgRenderPicks(host){
       <div class="secsub" style="padding:0 0 6px">${new Date(game.start_date).toLocaleString([], {weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}
         · ${locked?`<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked`:`<span data-pkcd="${esc(game.start_date)}">${pkCdTxt(game.start_date)}</span>`}
         ${res?` · <b>${esc(res===game.home_team_id?game.home_team:game.away_team)} won</b>${myHit}`:""}
-        ${dist?` · group: ${dist.homePct>=50?dist.homePct:100-dist.homePct}% ${esc(dist.homePct>=50?game.home_team:game.away_team)}`:""}
-        · <span data-game="${game.id}" role="link" style="color:var(--amber);font-weight:600;cursor:pointer">Game page ›</span></div>
+        ${dist?` · group: ${dist.homePct>=50?dist.homePct:100-dist.homePct}% ${esc(dist.homePct>=50?game.home_team:game.away_team)}`:""}</div>
       ${(chipA||chipH)?`<div class="pkchips"><span>${chipA||"&nbsp;"}</span><span>${chipH||"&nbsp;"}</span></div>`:""}
       <div class="navrow">
         <button class="navbtn ${myTeam===game.away_team_id?"primary":""}" data-pkgpick="${game.id}" data-pkteam="${game.away_team_id}" ${locked||!authUser?"disabled":""}>${esc(game.away_team)}</button>
@@ -6169,8 +6217,12 @@ async function pkgRenderPicks(host){
         <input class="authin" style="max-width:210px" id="tbguess" type="number" min="0" max="200"
           placeholder="Tiebreak: total points" value="${pkg.tbMine!=null?pkg.tbMine:""}" ${locked?"disabled":""}></div>`:""}
       <div class="authmsg" id="pkm-${game.id}"></div>
-      <button class="pkcmpbtn" data-pkcmp="${game.id}"><svg class="ic" aria-hidden="true"><use href="#i-vs"/></svg> Compare teams</button>
+      <div class="pkcmprow">
+        <button class="pkcmpbtn" data-pkcmp="${game.id}" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-vs"/></svg> Compare teams <svg class="ic chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+        <button class="pkcmpbtn" data-pkgp="${game.id}" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg> Game page <svg class="ic chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+      </div>
       <div class="pkdrawer" id="pkdrawer-${game.id}" hidden></div>
+      <div class="pkdrawer" id="pkgpdrawer-${game.id}" hidden></div>
     </div>`;
   });
   if(!rows.length) h+=`<div class="secsub">No games on this week's slate.</div>`;
@@ -6198,7 +6250,8 @@ async function pkgRenderPicks(host){
       pkgSaveGame(gid2);
     }, {slim:true, ariaLabel:"Confidence rank", disabled:locked||!authUser});
   });
-  host.querySelectorAll("[data-pkcmp]").forEach(b=>b.onclick=()=>pkgToggleCompare(Number(b.dataset.pkcmp)));
+  host.querySelectorAll("[data-pkcmp]").forEach(b=>b.onclick=()=>pkgToggleDrawer(Number(b.dataset.pkcmp),"cmp"));
+  host.querySelectorAll("[data-pkgp]").forEach(b=>b.onclick=()=>pkgToggleDrawer(Number(b.dataset.pkgp),"gp"));
   const tbIn=host.querySelector("#tbguess");
   if(tbIn) tbIn.onchange=async()=>{
     const v=Number(tbIn.value);
@@ -6242,13 +6295,26 @@ function pkgRefreshButtons(gid2, team){
   document.querySelectorAll(`[data-pkgpick="${gid2}"]`).forEach(b=>
     b.classList.toggle("primary", Number(b.dataset.pkteam)===team));
 }
-async function pkgToggleCompare(gid2){
-  const d=document.getElementById("pkdrawer-"+gid2);
+// U74-C: one drawer open per card — opening either expander collapses the other; both
+// re-tap to collapse; chevron + amber .open state mirror the drawer.
+function pkgToggleDrawer(gid2, kind){
+  const ids={cmp:"pkdrawer-", gp:"pkgpdrawer-"}, attrs={cmp:"data-pkcmp", gp:"data-pkgp"};
+  const d=document.getElementById(ids[kind]+gid2);
+  const btn=document.querySelector(`[${attrs[kind]}="${gid2}"]`);
+  if(!d||!pkg.games[gid2]) return;
+  const opening=d.hidden;
+  const other=kind==="cmp"?"gp":"cmp";
+  const od=document.getElementById(ids[other]+gid2);
+  const ob=document.querySelector(`[${attrs[other]}="${gid2}"]`);
+  if(opening&&od&&!od.hidden){ od.hidden=true; if(ob){ ob.classList.remove("open"); ob.setAttribute("aria-expanded","false"); } }
+  d.hidden=!opening;
+  if(btn){ btn.classList.toggle("open", opening); btn.setAttribute("aria-expanded", String(opening)); }
+  if(!opening||d.dataset.loaded) return;
+  if(kind==="cmp") pkgLoadCompare(gid2, d);
+  else pkgLoadGamePre(gid2, d);
+}
+async function pkgLoadCompare(gid2, d){
   const game=pkg.games[gid2];
-  if(!d||!game) return;
-  if(!d.hidden){ d.hidden=true; return; }
-  d.hidden=false;
-  if(d.dataset.loaded){ return; }
   d.innerHTML=`<div class="loading" style="padding:10px">Loading comparison…</div>`;
   try{
     const a=game.away_team_id, hm=game.home_team_id;
@@ -6281,6 +6347,23 @@ async function pkgToggleCompare(gid2){
       openMatchup(game.home_team_id, game.away_team_id, game.neutral_site?"neutral":"aHome"); });
   }catch(e){ d.innerHTML=`<div class="secsub">Comparison unavailable right now.</div>`; }
 }
+// U74-C: the in-card game summary — the game page's PRE renderers verbatim (win % +
+// projected margin, market chip, key players, series line) with the full page one tap away.
+async function pkgLoadGamePre(gid2, d){
+  d.innerHTML=`<div class="loading" style="padding:10px">Loading game summary…</div>`;
+  try{
+    const g=(await api(`games?select=${GAME_SEL}&id=eq.${gid2}`))[0];
+    if(!g) throw new Error("no game");
+    const {wpCard, mkt, kpCard, hhCard} = await gamePreCards(g);
+    let h="";
+    if(mkt) h+=`<div class="mktline" style="text-align:center;padding:4px 0 2px">${mkt}</div>`;
+    h+=wpCard+kpCard+hhCard;
+    if(!h) h=`<div class="secsub">Game details land as the season data fills in.</div>`;
+    h+=`<div class="navrow" style="padding-top:6px"><button class="navbtn" data-pkgpfull="${gid2}">Open full game page <svg class="ic" aria-hidden="true"><use href="#i-chev-r"/></svg></button></div>`;
+    d.innerHTML=h; d.dataset.loaded="1";
+    d.querySelectorAll("[data-pkgpfull]").forEach(b=>b.onclick=()=>openGame(gid2));
+  }catch(e){ d.innerHTML=`<div class="secsub">Game summary unavailable right now.</div>`; }
+}
 
 // ---- #5: standings + champion banner + trophy case ----
 async function pkgRenderStandings(host){
@@ -6310,9 +6393,33 @@ async function pkgRenderStandings(host){
   }
   const drops=g.drop_n_weeks>0;
   h+=`<div class="sec"><div class="sectitle">${pk.season} season</div>`;
-  if(!cur.length)
-    h+=`<div class="secsub">No scored weeks yet — results post after the week's games finish and
+  if(!cur.length){
+    // U74-D: an unscored group is NOT empty — every member lists at 0 immediately,
+    // sorted by join order; the honest results-timing note stays.
+    let roster=null;
+    try{ roster=authUser?await predRpc("group_roster",{p_gid:pkg.gid}):await pkAnonRpc("group_roster",{p_gid:pkg.gid}); }catch(_e){}
+    if(g.is_system){
+      const n=roster&&roster.member_count!=null?roster.member_count:null;
+      if(n!=null){
+        const meIn=roster&&roster.you_in;
+        h+=`<div class="secsub" style="padding:0 2px 4px"><b>${meIn?`You + ${Math.max(0,n-1)} other${n===2?"":"s"} are in`:`${n} player${n===1?"":"s"} are in`}</b> — the National Pool board fills in as weeks score.</div>`;
+      }
+    } else if(roster&&Array.isArray(roster.members)&&roster.members.length){
+      h+=`<div class="pkstand hd"><span>#</span><span>Member</span><span>Points</span><span title="Weekly wins"><svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg></span><span>Best</span><span>Win%</span><span>Wks</span></div>`;
+      const mem=[...roster.members].sort((x,y)=>(x.joined_at||"").localeCompare(y.joined_at||""));
+      if(g.model_plays) mem.push({user_id:MODEL_UID, handle:"model", joined_at:null});
+      mem.forEach((r,i)=>{
+        const me=authUser&&r.user_id===authUser.id;
+        const model=r.user_id===MODEL_UID;
+        h+=`<div class="pkstand${model?" is-model":""}${me?" is-me":""}">
+          <span>${i+1}</span>
+          <span>${pkName(r.user_id,r.handle,r.display_name)}${me?" <small>(you)</small>":""}${r.joined_at?` <small>joined ${new Date(r.joined_at).toLocaleDateString([], {month:"short", day:"numeric"})}</small>`:""}</span>
+          <span><b>0</b></span><span></span><span></span><span></span><span><small>0</small></span></div>`;
+      });
+    }
+    h+=`<div class="secsub" style="padding-top:4px">No scored weeks yet — results post after the week's games finish and
       the weekly scoring pass runs (opening-weekend results land with the first weekly pass).</div>`;
+  }
   else{
     h+=`<div class="pkstand hd"><span>#</span><span>Member</span><span>${drops?"After drops":"Points"}</span><span title="Weekly wins"><svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg></span><span>Best</span><span>Win%</span><span>Wks</span></div>`;
     cur.forEach((r,i)=>{
@@ -6486,7 +6593,7 @@ function pkSettingsSheet(){
     const m=ov.querySelector("#gsmsg");
     m.textContent="saving…"; m.className="authmsg";
     try{
-      const pw=ov.querySelector("#gspass").value;
+      const pw=ov.querySelector("#gspass").value.trim();   // U74-B: never store a stray edge space
       await predRpc("set_group_settings",{gid:pkg.gid,
         p_joins_paused:ov.querySelector('[data-set="pause"]').classList.contains("on"),
         p_model_plays:ov.querySelector('[data-set="model"]').classList.contains("on"),
@@ -10700,7 +10807,10 @@ initAuth();
 if(typeof PREVIEW_UNLOCK!=="undefined" && PREVIEW_UNLOCK){   // batch 8 #4: full-view preview
   _boardsOpen=true; _hubOK=true; _matchupOpen=true; _wwOpen=true; _simResultsOK=true;
 }
-loadSeasonPhase().then(()=>{ landingDue() ? openLanding() : load(); setTimeout(checkReturnFeed, 2500); });   // C1 boot + U13 return surface (absorbed the batch-8 banner)
+loadSeasonPhase().then(()=>{ landingDue() ? openLanding() : load(); setTimeout(checkReturnFeed, 2500);
+  // U74: a stored ?join= token routes to the preview on EVERY boot (signed-in, signed-out,
+  // landing, post-SW-reload) — and only from here, after the boot navigation's overlay purge.
+  setTimeout(()=>{ try{ pkJoinBoot(); }catch(_e){} }, 600); });   // C1 boot + U13 return surface (absorbed the batch-8 banner)
 </script>
 
 <script>
