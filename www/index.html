@@ -428,6 +428,30 @@
   .pkstand.is-model{color:var(--model)}
   .pkstand.is-me{color:var(--amber)}
   .pkstand .ic{width:13px;height:13px}
+  /* U75 #3: ESPN-style picks grid — horizontal scroll, sticky member column */
+  .pkgridwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
+  .pkgrid{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%}
+  .pkgrid th,.pkgrid td{padding:6px 4px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line)}
+  .pkgrid thead th{color:var(--text3);font-size:10px;font-weight:700;background:var(--surface);position:sticky;top:0;z-index:1}
+  .pkgrid th small{opacity:.5;margin:0 1px}
+  .pkgrid .pkgm-name{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;
+    min-width:104px;max-width:104px;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .pkgrid thead .pkgm-name{z-index:3}
+  .pkgrid .pkgm-tot{position:sticky;right:0;background:var(--surface);z-index:2}
+  .pkgrid tr.is-model .pkgm-name{color:var(--model)}
+  .pkgrid tr.is-me .pkgm-name{color:var(--amber)}
+  .pkgrid td.pkcell{font-weight:700;color:var(--text2);font-family:"Barlow Condensed",sans-serif}
+  .pkgrid td.correct{background:rgba(91,211,154,.16);color:#4bbf88}
+  .pkgrid td.wrong{background:rgba(229,112,92,.13);color:#c9705f}
+  .pkgrid td.hidden{color:var(--text3);opacity:.5}
+  .pkgrid tr.is-focus .pkgm-name{box-shadow:inset 3px 0 0 var(--amber)}
+  .pkgrid tr.is-focus td{background:rgba(230,180,80,.08)}
+  /* U75 #3: per-game group consensus bar (post-lock only) */
+  .pkconsensus{padding:4px 0 0}
+  .pkconbar{height:6px;border-radius:4px;background:var(--surface2);overflow:hidden}
+  .pkconbar i{display:block;height:100%;background:var(--amber);border-radius:4px}
+  .pkconlbl{font-size:11px;color:var(--text2);padding-top:3px}
+  .pkconlbl small{color:var(--text3)}
   .pkstand small{color:var(--text3)}
   .pkchamp .sectitle .ic{width:15px;height:15px;color:var(--amber)}
   .tabdot{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block;
@@ -436,6 +460,9 @@
   .pksrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:3px 2px;font-size:12.5px}
   .pksrow .pkv{font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--text2)}
   .pksrow .pkv:last-child{text-align:right}
+  .pksrow.pkshd{padding-bottom:5px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+  .pksrow.pkshd .pkv{font-family:"Barlow Condensed",sans-serif;font-weight:800;color:var(--text);
+    font-size:12.5px;text-transform:none;letter-spacing:0}
   .pksrow .pkv small{opacity:.6;font-size:10px}
   .pksrow .pkv.lead{color:#28D17A}
   .pksrow .pkv.wp{color:var(--text)}
@@ -5704,7 +5731,10 @@ function pkStatStrip(g, stats){
   if(!stats) return "";
   const a=g.away_team_id, hm=g.home_team_id;
   if(!a||!hm) return "";
-  let rows="";
+  // U75 #4: a team-name header so every value below sits on the same side as its team —
+  // away (left) left-aligned, home (right) right-aligned, matching the .pksrow columns.
+  const nmA=(teamMeta[a]||{}).school||g.away_team||"Away", nmH=(teamMeta[hm]||{}).school||g.home_team||"Home";
+  let rows=`<div class="pksrow pkshd"><span class="pkv">${esc(nmA)}</span><span class="pkk"></span><span class="pkv">${esc(nmH)}</span></div>`;
   const infoIc=`<svg class="ic pkinfo" aria-hidden="true"><use href="#i-info"/></svg>`;
   PK_STATS.forEach(s=>{
     const ra=stats.stat[`${a}|${s.key}`], rh=stats.stat[`${hm}|${s.key}`];
@@ -6140,7 +6170,7 @@ function renderPickemGroupShell(){
       ${g.drop_n_weeks?` · drops your ${g.drop_n_weeks} lowest week${g.drop_n_weeks>1?"s":""}`:""}
       ${g.model_plays?` · <span class="u-model">@model plays</span>`:""}</small></div>
     <div class="navrow" style="padding:6px 2px">
-      ${["picks","standings","slate"].map(t=>`<button class="navbtn ${pkg.tab===t?"primary":""}" data-pktab="${t}">${t==="picks"?"Picks":t==="standings"?"Standings":"Slate"}</button>`).join("")}
+      ${["picks","grid","standings","slate"].map(t=>`<button class="navbtn ${pkg.tab===t?"primary":""}" data-pktab="${t}">${t==="picks"?"Picks":t==="grid"?"Grid":t==="standings"?"Standings":"Slate"}</button>`).join("")}
       ${canInvite?`<button class="navbtn" id="pkshare2"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Invite</button>`:""}</div>
     <div id="pkgbody"><div class="loading">Loading…</div></div>
     <div class="note"><b>${esc(g.name)}.</b> Per-game kickoff locks — picks stay hidden from the
@@ -6161,6 +6191,7 @@ async function pkgLoadTab(){
   host.innerHTML=`<div class="loading">Loading…</div>`;
   try{
     if(pkg.tab==="picks") await pkgRenderPicks(host);
+    else if(pkg.tab==="grid") await pkgRenderGrid(host);
     else if(pkg.tab==="standings") await pkgRenderStandings(host);
     else await pkgRenderSlate(host);
   }catch(e){ host.innerHTML=`<div class="err">Couldn't load: ${esc(e.message||e)}</div>`; }
@@ -6204,9 +6235,13 @@ async function pkgRenderPicks(host){
     const byGame={};
     allPicks.filter(p=>p.user_id!==MODEL_UID).forEach(p=>{ (byGame[p.game_id]=byGame[p.game_id]||[]).push(p); });
     Object.entries(byGame).forEach(([gid2,ps])=>{ const game=pkg.games[gid2];
-      if(!game||!pkLockedIso(game.start_date)||ps.length<2) return;
+      if(!game||!pkLockedIso(game.start_date)||ps.length<1) return;   // consensus shows only AFTER lock
       const hp=ps.filter(p=>p.pick_team===game.home_team_id).length;
-      pkg.dist[gid2]={homePct:Math.round(100*hp/ps.length)}; });
+      // U75 #3: raw counts so the card can say "N of M took [Team]" (custom groups only —
+      // National uses the server crowd %). Reported side = the group's majority pick.
+      const homeMaj=hp>=ps.length-hp;
+      pkg.dist[gid2]={homePct:Math.round(100*hp/ps.length), m:ps.length,
+        n:homeMaj?hp:ps.length-hp, teamId:homeMaj?game.home_team_id:game.away_team_id}; });
   }
   pkg.tb=null; pkg.tbMine=null;
   if(g.is_system){
@@ -6255,9 +6290,18 @@ async function pkgRenderPicks(host){
     h+=`<div class="sec pkgame" style="padding:8px 10px;margin:6px 0">
       <div class="secsub" style="padding:0 0 6px">${new Date(game.start_date).toLocaleString([], {weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}
         · ${locked?`<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked`:`<span data-pkcd="${esc(game.start_date)}">${pkCdTxt(game.start_date)}</span>`}
-        ${res?` · <b>${esc(res===game.home_team_id?game.home_team:game.away_team)} won</b>${myHit}`:""}
-        ${dist?` · group: ${dist.homePct>=50?dist.homePct:100-dist.homePct}% ${esc(dist.homePct>=50?game.home_team:game.away_team)}`:""}</div>
+        ${res?` · <b>${esc(res===game.home_team_id?game.home_team:game.away_team)} won</b>${myHit}`:""}</div>
       ${(chipA||chipH)?`<div class="pkchips"><span>${chipA||"&nbsp;"}</span><span>${chipH||"&nbsp;"}</span></div>`:""}
+      ${dist&&locked?(()=>{   // U75 #3: per-game consensus — post-lock ONLY (the card's `locked` gate + the server RLS both enforce it)
+        const pct=Math.max(dist.homePct,100-dist.homePct);
+        const majTeam = dist.teamId!=null ? dist.teamId : (dist.homePct>=50?game.home_team_id:game.away_team_id);
+        const majNm = majTeam===game.home_team_id?game.home_team:game.away_team;
+        const majN = dist.n!=null ? dist.n : null, majM = dist.m!=null ? dist.m : null;
+        const label = majN!=null ? `${majN} of ${majM} took ${esc(majNm)}`
+                                  : `${pct}% took ${esc(majNm)}`;
+        return `<div class="pkconsensus"><div class="pkconbar"><i style="width:${pct}%"></i></div>
+          <div class="pkconlbl">${label} <small>· your group</small></div></div>`;
+      })():""}
       <div class="navrow">
         <button class="navbtn ${myTeam===game.away_team_id?"primary":""}" data-pkgpick="${game.id}" data-pkteam="${game.away_team_id}" ${locked||!authUser?"disabled":""}>${esc(game.away_team)}</button>
         <span style="align-self:center;color:var(--text2)">${game.neutral_site?"vs":"@"}</span>
@@ -6418,6 +6462,69 @@ async function pkgLoadGamePre(gid2, d){
   }catch(e){ d.innerHTML=`<div class="secsub">Game summary unavailable right now.</div>`; }
 }
 
+// ---- U75 #3: ESPN-style picks GRID — members × games, one cell per pick ----
+// The hidden-until-lock rule is enforced SERVER-SIDE (pgp_sel RLS: a member sees others'
+// picks only for games whose kickoff has passed), so any other-member pick that appears
+// here is already locked. Own picks always show. abbr/monogram only — never a logo.
+async function pkgRenderGrid(host){
+  const g=pkg.g, wk=pkg.week;
+  if(wk==null){ host.innerHTML=`<div class="secsub">No slate yet.</div>`; return; }
+  const games=pkg.sl.filter(r=>r.week===wk).map(r=>pkg.games[r.game_id]).filter(Boolean)
+    .sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
+  // roster (every member, so a member with zero visible picks still gets a row)
+  let roster=null;
+  try{ roster=authUser?await predRpc("group_roster",{p_gid:pkg.gid}):await pkAnonRpc("group_roster",{p_gid:pkg.gid}); }catch(_e){}
+  let members=(roster&&Array.isArray(roster.members))?roster.members.slice():[];
+  members.sort((a,b)=>(a.joined_at||"").localeCompare(b.joined_at||""));
+  if(g.model_plays && !members.some(m=>m.user_id===MODEL_UID)) members.push({user_id:MODEL_UID, handle:"model"});
+  // all visible picks for the week (RLS already hides pre-lock other-member picks)
+  let picks=[];
+  if(authUser){
+    const r=await authFetch("GET", `pickem_group_picks?select=game_id,user_id,pick_team&group_id=eq.${pkg.gid}&season=eq.${pk.season}&week=eq.${wk}`);
+    picks=r.data||[];
+  }
+  // the Model's picks (system group reveals via RPC post-kickoff; custom groups carry them in picks)
+  if(g.model_plays && g.is_system){
+    try{ (await pkAnonRpc("pickem_model_reveal",{p_season:pk.season, p_week:wk})).forEach(r=>{
+      if(r.model_pick_team) picks.push({game_id:r.game_id, user_id:MODEL_UID, pick_team:r.model_pick_team}); }); }catch(_e){}
+  }
+  const pickOf={};
+  picks.forEach(p=>{ pickOf[p.user_id+"|"+p.game_id]=p.pick_team; });
+  const result={}, locked={};
+  games.forEach(gm=>{ locked[gm.id]=pkLockedIso(gm.start_date);
+    if(gm.completed&&gm.home_points!=null&&gm.home_points!==gm.away_points)
+      result[gm.id]=gm.home_points>gm.away_points?gm.home_team_id:gm.away_team_id; });
+  const abbr=id=>{ const t=teamMeta[id]; return t?monogram(t.school):"?"; };
+  // weekly total per member = correct picks among FINAL games (context; official scoring is the standings)
+  const totals={};
+  members.forEach(m=>{ let c=0; games.forEach(gm=>{ if(result[gm.id]!=null && pickOf[m.user_id+"|"+gm.id]===result[gm.id]) c++; }); totals[m.user_id]=c; });
+  let h=pkgWeekBtns(wk);
+  h+=`<div class="secsub" style="padding:0 2px 6px">Everyone's picks, side by side. Other members' picks stay hidden until each game locks — the number in the last column is correct picks among finished games.</div>`;
+  h+=`<div class="pkgridwrap"><table class="pkgrid"><thead><tr>
+    <th class="pkgm-name">Member</th>
+    ${games.map(gm=>`<th title="${esc(gm.away_team)} @ ${esc(gm.home_team)}"><span data-game="${gm.id}" style="cursor:pointer">${abbr(gm.away_team_id)}<small>@</small>${abbr(gm.home_team_id)}</span>${locked[gm.id]?"":` <svg class="ic" aria-hidden="true" style="width:9px;height:9px;opacity:.5"><use href="#i-lock"/></svg>`}</th>`).join("")}
+    <th class="pkgm-tot" title="Correct among finished games"><svg class="ic" aria-hidden="true" style="width:12px;height:12px"><use href="#i-check"/></svg></th></tr></thead><tbody>`;
+  members.forEach(m=>{
+    const me=authUser&&m.user_id===authUser.id, model=m.user_id===MODEL_UID;
+    const foc=pkg.focusMember&&m.user_id===pkg.focusMember;   // U75 #3: highlight the member tapped from standings
+    h+=`<tr class="${model?"is-model":""}${me?" is-me":""}${foc?" is-focus":""}"${foc?' data-focusrow="1"':''}><td class="pkgm-name">${pkName(m.user_id,m.handle,m.display_name)}${me?" <small>(you)</small>":""}</td>`;
+    games.forEach(gm=>{
+      const pk2=pickOf[m.user_id+"|"+gm.id];
+      let cls="pkcell", txt="—";
+      if(pk2!=null){ txt=abbr(pk2);
+        if(result[gm.id]!=null) cls+= pk2===result[gm.id] ? " correct" : " wrong";
+      } else if(!locked[gm.id] && !me){ cls+=" hidden"; txt="·"; }   // pre-lock, another member: hidden
+      h+=`<td class="${cls}">${txt}</td>`;
+    });
+    h+=`<td class="pkgm-tot"><b>${totals[m.user_id]}</b></td></tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  host.innerHTML=h;
+  pkgWireWeeks(host, ()=>pkgLoadTab());
+  const fr=host.querySelector("[data-focusrow]"); if(fr) try{ fr.scrollIntoView({block:"nearest"}); }catch(_e){}
+  pkg.focusMember=null;   // one-shot highlight
+}
+
 // ---- #5: standings + champion banner + trophy case ----
 async function pkgRenderStandings(host){
   const g=pkg.g;
@@ -6464,7 +6571,7 @@ async function pkgRenderStandings(host){
       mem.forEach((r,i)=>{
         const me=authUser&&r.user_id===authUser.id;
         const model=r.user_id===MODEL_UID;
-        h+=`<div class="pkstand${model?" is-model":""}${me?" is-me":""}">
+        h+=`<div class="pkstand${model?" is-model":""}${me?" is-me":""}" data-mrow="${r.user_id}" style="cursor:pointer">
           <span>${i+1}</span>
           <span>${pkName(r.user_id,r.handle,r.display_name)}${me?" <small>(you)</small>":""}${r.joined_at?` <small>joined ${new Date(r.joined_at).toLocaleDateString([], {month:"short", day:"numeric"})}</small>`:""}</span>
           <span><b>0</b></span><span></span><span></span><span></span><span><small>0</small></span></div>`;
@@ -6479,7 +6586,7 @@ async function pkgRenderStandings(host){
       const me=authUser&&r.user_id===authUser.id;
       const model=r.user_id===MODEL_UID;
       const winPct=r.picked_ct?Math.round(100*r.correct_ct/r.picked_ct):null;
-      h+=`<div class="pkstand${model?" is-model":""}${me?" is-me":""}">
+      h+=`<div class="pkstand${model?" is-model":""}${me?" is-me":""}" data-mrow="${r.user_id}" style="cursor:pointer">
         <span>${i+1}</span>
         <span>${pkName(r.user_id,r.handle,r.display_name)}${me?" <small>(you)</small>":""}</span>
         <span><b>${r.counted_points}</b>${drops&&r.dropped_points?` <small>(${r.total_points} raw)</small>`:""}</span>
@@ -6496,6 +6603,12 @@ async function pkgRenderStandings(host){
   h+=`</div><div class="sec"><div class="sectitle">Weekly</div>${pkgWeekBtns(pkg.week)}<div id="pkwkscores"></div></div>`;
   host.innerHTML=h;
   pkgWireWeeks(host, ()=>pkgWeekScores());
+  // U75 #3: tap a member -> the picks grid (their week, everyone side by side), row highlighted
+  host.querySelectorAll("[data-mrow]").forEach(el=>el.onclick=()=>{
+    pkg.focusMember=el.dataset.mrow; pkg.tab="grid";
+    document.querySelectorAll("[data-pktab]").forEach(x=>x.classList.toggle("primary",x.dataset.pktab==="grid"));
+    pkgLoadTab();
+  });
   pkgWeekScores();
 }
 async function pkgWeekScores(){
