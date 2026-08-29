@@ -1990,19 +1990,26 @@ function textOn(bg){const h=hx(bg).replace("#","");if(h.length<6)return"#fff";
 // short, everything else hours. Fresh hit = instant; stale hit = serve cached NOW and
 // refresh in the background so the next render is current.
 const _apiCache=new Map();
+// U75 — SYSTEMIC per-endpoint freshness policy. The old code guessed with scattered
+// regexes and let anything unlisted inherit the 3-HOUR default; that exact class of bug
+// has now bitten FOUR times (loop_heartbeat v77b, clicker_counts U52, prediction_* U65,
+// and live SCORES U75 — the `games` table serving 3h-stale during a live game). The policy
+// is now an explicit ordered table: FIRST match wins, and the 3h default is reserved for
+// data that genuinely only changes on a daily rebuild. RULE FOR NEW TABLES: anything that
+// can change intraday MUST be listed here — never rely on the default for live/gameday data.
+const _API_FRESHNESS = [
+  [/^live_|^loop_heartbeat|^clicker_counts/,   0],          // live wp/pace/plays + health: never cache
+  [/^games\?/,                                 30e3],       // scoreboard: live scores overlay + gameday finals
+  [/^news_items|^availability_report/,         2*60e3],     // news: minutes
+  // pick'em / prediction / fantasy / coach markets carry kickoff-scale lock times (U65)
+  [/^pickem_|^prediction_|^fantasy_|^coach_|^profiles|^conditional_probs|^market_lines/, 5*60e3],
+  // boards that shift as gameday results land (but not second-to-second)
+  [/^signature_stats|^matchup_|^poll_rankings|^standings\?/, 10*60e3],
+];
+const _API_DEFAULT_TTL = 3*3600e3;   // ONLY daily-rebuild data: ratings, history, season stats, NIL
 function _apiTTL(q){
-  // loop_heartbeat joined the never-cache set in the watchdog hardening: a health read
-  // served from the default 3h bucket showed DEAD for hours after a heal — and would have
-  // shown ok for hours into a real death, defeating the entire surface.
-  // U52: clicker_counts is a LIVE leaderboard (taps land every second) — the default
-  // 3h bucket froze it mid-verify, the same failure v77b fixed for loop_heartbeat.
-  if(/^live_|^loop_heartbeat|^clicker_counts/.test(q)) return 0;   // live + health: never
-  if(/^news_items|^availability_report/.test(q)) return 2*60e3;    // news: minutes
-  // U65: prediction markets carry kickoff-scale lock times — the default 3h bucket
-  // served PURGED fixture markets mid-verify (the v77b/U52 stale-surface class again);
-  // the whole prediction_ family rides the same 5-min bucket as pick'em slates.
-  if(/^pickem_|^prediction_|^fantasy_|^coach_|^profiles|^conditional_probs/.test(q)) return 5*60e3;
-  return 3*3600e3;                                                 // ratings/standings/stats: hours
+  for(const [re,ttl] of _API_FRESHNESS) if(re.test(q)) return ttl;
+  return _API_DEFAULT_TTL;
 }
 async function _apiFetch(q){
   const res = await fetch(SUPABASE_URL+"/rest/v1/"+q, {headers:{apikey:KEY,Authorization:"Bearer "+KEY}});
@@ -2360,9 +2367,34 @@ const fetchTeamSeason = async id =>
   (await api(`team_season?select=*&season=eq.${SEASON_RESULTS}&team_id=eq.${id}`))[0]||null;
 const fetchTeamGames = async id =>
   api(`games?select=${GAME_SEL}&or=(home_team_id.eq.${id},away_team_id.eq.${id})&order=season.asc,week.asc`);
+const _scoresCacheAt = {};
 async function fetchSeasonGames(season){
-  if(!scoresCache[season]) scoresCache[season] = await api(`games?select=${GAME_SEL}&season=eq.${season}&order=week.asc&limit=2000`);
+  // U75: the permanent per-session scoresCache froze scores for the whole session — during
+  // a live game a returning visitor never saw finals land. The CURRENT season now expires
+  // every 30s (api() itself is also 30s on `games`); prior seasons stay permanent (static).
+  const stale = season===SEASON_SCHED && (Date.now()-(_scoresCacheAt[season]||0) > 30e3);
+  if(!scoresCache[season] || stale){
+    scoresCache[season] = await api(`games?select=${GAME_SEL}&season=eq.${season}&order=week.asc&limit=2000`);
+    _scoresCacheAt[season] = Date.now();
+  }
   return scoresCache[season];
+}
+// U75: live-score overlay — the `games` table does NOT carry in-progress scores (livewp
+// writes them to live_win_prob; the daily `games` refresh only lands finals). Any surface
+// that shows a score must overlay the live path for in-progress games. Returns
+// {game_id: {home_points, away_points, period, clock, live:true}} for games polled in the
+// last ~15 min. Never-cached (live_ prefix), so it is always current.
+async function liveScoreMap(){
+  const since=new Date(Date.now()-15*60e3).toISOString();
+  let rows=[];
+  try{ rows=await api(`live_win_prob?select=game_id,period,clock,status,home_points,away_points,fetched_at&fetched_at=gt.${since}&order=fetched_at.desc&limit=200`); }
+  catch(_e){ return {}; }
+  const m={};
+  rows.forEach(r=>{ if(m[r.game_id]) return;   // newest per game (desc)
+    const final=/final|complete/i.test(r.status||"");
+    m[r.game_id]={home_points:r.home_points, away_points:r.away_points,
+      period:r.period, clock:r.clock, live:!final}; });
+  return m;
 }
 const stOrder = st => st==="postseason" ? 100 : 0;   // regular weeks before bowls/CFP
 const oppColor = id => (teamMeta&&teamMeta[id]) ? hx(teamMeta[id].color) : "#384455";
@@ -2462,21 +2494,27 @@ function scheduleSection(games, teamId, which="both", sosRank=null){
 
 // ---------- scores / schedule view (browse official games by week) ----------
 let scoresSeason = SEASON_SCHED, scoresWeek = null;   // G1: Games opens on the season ahead
+let _liveScores = {};   // U75: game_id -> live overlay, populated by drawScores() before render
 function scGameRow(g){
+  // U75: overlay the live path for an in-progress game — show its live score + clock
+  // instead of the upcoming/market state (the `games` table has no in-progress score).
+  const lv = _liveScores[g.id] && _liveScores[g.id].live ? _liveScores[g.id] : null;
   const done = g.completed && g.home_points!=null && g.away_points!=null;
-  const hw = done && g.home_points>g.away_points, aw = done && g.away_points>g.home_points;
+  const hp = lv ? lv.home_points : g.home_points, ap = lv ? lv.away_points : g.away_points;
+  const showScore = done || lv;
+  const hw = (done||lv) && hp>ap, aw = (done||lv) && ap>hp;
   const meta = g.neutral_site ? "Neutral site" : "";
-  const when = gameTimeLine(g);
+  const when = lv ? `<span class="chip-live" style="margin-right:6px">LIVE</span>Q${lv.period} ${esc(lv.clock||"")}` : gameTimeLine(g);
   const teamLine = (name,id,score,win)=>`<div class="scteam${win?" win":""}"${id?` data-team="${id}"`:""}>
       ${crestEl("scc", name, oppColor(id))}<div class="nm">${esc(name||"TBD")}</div>
-      <div class="pts">${done?score:""}</div></div>`;
+      <div class="pts">${showScore&&score!=null?score:""}</div></div>`;
   const boxLink = (done && g.id) ? `<div class="scbox" data-box="${g.id}" data-bteam="${g.home_team_id}">Box score ›</div>` : "";
-  const mkt = !done ? marketChip(g) : "";
-  return `<div class="scgame" data-game="${g.id||""}">
-    ${when||meta?`<div class="gm"><span>${esc(when)}</span><span>${meta}</span></div>`:""}
-    ${teamLine(g.away_team, g.away_team_id, g.away_points, aw)}
-    ${done?"":`<div class="scvs">${g.neutral_site?"vs":"@"}</div>`}
-    ${teamLine(g.home_team, g.home_team_id, g.home_points, hw)}
+  const mkt = (!done && !lv) ? marketChip(g) : "";
+  return `<div class="scgame${lv?" is-live":""}" data-game="${g.id||""}">
+    ${when||meta?`<div class="gm"><span>${when}</span><span>${meta}</span></div>`:""}
+    ${teamLine(g.away_team, g.away_team_id, ap, aw)}
+    ${showScore?"":`<div class="scvs">${g.neutral_site?"vs":"@"}</div>`}
+    ${teamLine(g.home_team, g.home_team_id, hp, hw)}
     ${mkt?`<div class="mktline">${mkt}</div>`:""}
     ${boxLink}</div>`;
 }
@@ -2490,6 +2528,7 @@ async function openScores(){
 }
 async function drawScores(){
   const games = await fetchSeasonGames(scoresSeason);
+  _liveScores = scoresSeason===SEASON_SCHED ? await liveScoreMap() : {};   // U75: live overlay
   if(scoresSeason===SEASON_SCHED) await loadMarketLines();   // U21 chip data (upcoming games only)
   // U27: lookahead-watch strip — computed BEFORE the template that interpolates
   // it (the first cut declared it mid-function and broke the whole view)
@@ -2547,7 +2586,18 @@ async function drawScores(){
     scoresWeek=b.dataset.wk; drawScores(); window.scrollTo(0,0); } });
   const ls=document.querySelector("[data-go-sig]");
   if(ls) ls.onclick=()=>openSignatureBoard(ls.dataset.goSig);
+  // U75: keep the scoreboard live — re-draw every 60s while any game on THIS view is in
+  // progress; the timer clears itself the moment the Scores view is gone (navPurge removes
+  // the .scgame nodes) so it never outlives the page.
+  if(_scoresLiveTimer){ clearInterval(_scoresLiveTimer); _scoresLiveTimer=null; }
+  if(scoresSeason===SEASON_SCHED && Object.values(_liveScores).some(v=>v.live)){
+    _scoresLiveTimer=setInterval(()=>{
+      if(!document.querySelector(".scgame")){ clearInterval(_scoresLiveTimer); _scoresLiveTimer=null; return; }
+      if(document.visibilityState==="visible") drawScores();
+    }, 60000);
+  }
 }
+let _scoresLiveTimer=null;
 
 // ---------- U37: GAME DETAIL PAGE — one view, pre / live / post off game status ----------
 // Assembled from EXISTING systems: matchup win-prob math + sigma mapping, U21 market chip,
@@ -2602,7 +2652,10 @@ async function openGame(gameId){
     const g=(await api(`games?select=${GAME_SEL}&id=eq.${gameId}`))[0];
     if(!g) throw new Error("game not found");
     const lw=(await api(`live_win_prob?select=fetched_at,status&game_id=eq.${gameId}&order=fetched_at.desc&limit=1`).catch(()=>[]))[0];
-    const liveNow=!g.completed && lw && lw.status==="in_progress"
+    // U75: livewp's detail feed writes the status title-cased ("In Progress"), so the old
+    // exact ==="in_progress" NEVER matched and every live game rendered as a PREVIEW. Match
+    // case/format-insensitively AND require a fresh snapshot (a final snapshot won't match).
+    const liveNow=!g.completed && lw && /in.?progress/i.test(lw.status||"")
       && (Date.now()-new Date(lw.fetched_at).getTime() < 20*60e3);
     _gameCur={id:gameId, live:liveNow};
     if(g.completed) await renderGamePost(g);
@@ -2752,7 +2805,7 @@ function startGamePoll(id){
     try{
       const g=_gameCur.g, bundle=await fetchLiveBundle(id);
       const lastRow=bundle.series[bundle.series.length-1];
-      if(lastRow && lastRow.status!=="in_progress"){ stopGamePoll("final"); openGame(id); return; }
+      if(lastRow && !/in.?progress/i.test(lastRow.status||"")){ stopGamePoll("final"); openGame(id); return; }   // U75: case-insensitive
       host.innerHTML=liveSection(g, bundle);
       cdWire();   // U67: the poll replaces #liveout — re-wire the decision-board button
     }catch(e){}
