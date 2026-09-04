@@ -452,6 +452,84 @@
   .pkconbar i{display:block;height:100%;background:var(--amber);border-radius:4px}
   .pkconlbl{font-size:11px;color:var(--text2);padding-top:3px}
   .pkconlbl small{color:var(--text3)}
+  /* U78: the pick screen — one card, whole lifecycle (OPEN -> PICKED -> LOCKED -> SCORED) */
+  .pkprog{position:sticky;top:var(--pkhdr,0px);z-index:6;background:var(--bg);padding:6px 2px 8px;border-bottom:1px solid var(--line);margin-bottom:2px}
+  .pkprogrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;min-height:30px}
+  .pkprogrow b{font-family:"Barlow Condensed",sans-serif;font-size:17px;color:var(--amber)}
+  .pkprogrow small{color:var(--text3);display:block;font-size:11px}
+  .pkprogbar{height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;margin-top:5px}
+  .pkprogbar i{display:block;height:100%;background:var(--amber);border-radius:3px;transition:width .25s}
+  .pkprog.done .pkprogbar i,.pkprog.done .pkprogrow b{background:#28D17A;color:#28D17A}
+  .pkprogok{display:inline-flex;align-items:center;gap:4px;color:#28D17A;font-weight:700}
+  .pkprogok .ic{width:14px;height:14px}
+  .pkday{position:sticky;top:calc(var(--pkhdr,0px) + var(--pkprogh,50px));z-index:5;background:var(--bg);font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:8px 2px 2px}
+  .pkgame{border:1px solid var(--line);border-radius:12px}
+  .pkgame.st-correct{border-color:rgba(40,209,122,.55)} .pkgame.st-incorrect{border-color:rgba(201,112,95,.55)}
+  .pkgame.st-live{border-color:rgba(255,90,90,.45)}
+  .pkhd{display:flex;align-items:center;justify-content:space-between;gap:8px;font-family:"Barlow Condensed",sans-serif;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:0 0 7px}
+  .pkhdl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+  .pkhd-lock{font-weight:700;color:var(--text2)} .pkhd-cd{color:var(--text3);letter-spacing:0;text-transform:none;font-family:"Barlow",sans-serif;font-size:11px}
+  .pkhd-res{font-weight:800;display:inline-flex;align-items:center;gap:5px} .pkhd-res .ic{width:13px;height:13px}
+  .pkhd-res.ok{color:#28D17A} .pkhd-res.bad{color:#c9705f} .pkhd-res.none{color:var(--text3)} .pkhd-res.lock{color:var(--text2)} .pkhd-res.live{color:var(--live,#ff5a5a)}
+  .pklivedot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;animation:pkpulse 1.2s infinite}
+  @keyframes pkpulse{50%{opacity:.35}}
+  @media(prefers-reduced-motion:reduce){ .pklivedot{animation:none} }
+  .pktiles{display:grid;grid-template-columns:1fr 24px 1fr;gap:6px;align-items:stretch}
+  .pkvs{align-self:center;text-align:center;color:var(--text3);font-size:12px}
+  .pktile{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px 8px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;cursor:pointer;text-align:center;min-height:96px;width:100%}
+  .pktile:disabled{cursor:default}
+  .pktile.picked{border-color:var(--amber);background:var(--amber-tint);box-shadow:inset 0 0 0 1px var(--amber)}
+  .pktile.hit{border-color:#28D17A;background:rgba(40,209,122,.12);box-shadow:inset 0 0 0 1px #28D17A}
+  .pktile.miss{border-color:#c9705f;background:rgba(201,112,95,.12);box-shadow:inset 0 0 0 1px #c9705f}
+  .pktile.lost:not(.miss){opacity:.62}
+  .pkcr{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:12px;flex:none}
+  .pknm{font-weight:700;font-size:13px;line-height:1.15}
+  .pkchip{font-size:10.5px;color:var(--text2)} .pkchip b{color:var(--text)}
+  .pkpct{font-size:10.5px;color:var(--text2)} .pkpct small{color:var(--text3)}
+  .pkbadge{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:#10130c;border:2px solid var(--bg)}
+  .pkbadge.ok{background:#28D17A} .pkbadge.bad{background:#c9705f;color:#fff} .pkbadge .ic{width:12px;height:12px}
+  .pkscore{display:grid;gap:4px;padding:8px 0 2px}
+  .pksb{display:grid;grid-template-columns:40px 1fr 30px;align-items:center;gap:8px;font-size:12px;color:var(--text3);font-family:"Barlow Condensed",sans-serif;font-weight:700}
+  .pksb i{display:block;height:8px;border-radius:4px;background:var(--surface2);position:relative;overflow:hidden}
+  .pksb i::after{content:"";position:absolute;inset:0;width:var(--w,0%);background:var(--text3);border-radius:4px;transition:width .3s}
+  .pksb.win{color:var(--text)} .pksb.win i::after{background:#28D17A}
+  .pksb b{text-align:right;font-family:"IBM Plex Mono",monospace;font-size:13px}
+  .pkconf{flex:none;display:inline-flex;align-items:baseline;gap:3px;border:1px solid var(--amber);color:var(--amber);background:var(--amber-tint);border-radius:9px;padding:3px 9px;font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:15px;cursor:pointer;letter-spacing:0;text-transform:none;line-height:1.1}
+  .pkconf small{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .pkconf:disabled{border-color:var(--line2);color:var(--text2);background:transparent;cursor:default}
+  .pkwks{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:0 2px 8px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+  .pkwks::-webkit-scrollbar{display:none}
+  .pkwk{flex:none;scroll-snap-align:center;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:82px;padding:6px 18px 6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--text2);font-family:"Barlow",sans-serif;cursor:pointer;position:relative;text-align:left}
+  .pkwk.on{border-color:var(--amber);color:var(--text);box-shadow:inset 0 0 0 1px var(--amber)}
+  .pkwkn{font-weight:700;font-size:12.5px} .pkwkd{font-size:10.5px;color:var(--text3);white-space:nowrap}
+  .pkwkdot{position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--amber)}
+  .pkwkdot.locked{background:var(--text3)} .pkwkdot.scored{background:#28D17A}
+  .pkarch{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12.5px;margin:0 2px 8px}
+  .pktools{display:flex;align-items:center;gap:6px;padding:6px 2px 6px;flex-wrap:wrap}
+  .pktools .secsub{flex:1 1 140px}
+  .navbtn.pkpill{flex:none;min-height:30px;padding:3px 11px;font-size:11.5px;border-radius:999px}
+  .navbtn.pkpill.on{background:var(--amber);color:#10130c;border-color:var(--amber)}
+  .pkdense{display:grid;gap:8px;padding:4px 0}
+  .pkdgame{border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+  .pkdgame.st-correct{border-color:rgba(40,209,122,.55)} .pkdgame.st-incorrect{border-color:rgba(201,112,95,.55)}
+  .pkdrow{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .pkdpill{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:9px;border:1.5px solid var(--line);background:var(--surface);color:var(--text);font-family:"Barlow",sans-serif;font-size:12.5px;cursor:pointer;position:relative;text-align:left;min-height:40px}
+  .pkdpill .pkcr{width:24px;height:24px;font-size:9.5px;border-radius:6px}
+  .pkdpill small{color:var(--text3)}
+  .pkdpill.picked{border-color:var(--amber);background:var(--amber-tint)} .pkdpill.hit{border-color:#28D17A;background:rgba(40,209,122,.12)} .pkdpill.miss{border-color:#c9705f;background:rgba(201,112,95,.12)}
+  .pkdpill .pksc{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:12px}
+  .pkdpill.lost .pksc{color:var(--text3)}
+  .pktbq{font-size:13.5px;padding:2px 0 6px} .pktbres{font-size:13px;padding:4px 0} .pktbres small{color:var(--text3)}
+  .authin.pktbin{max-width:120px;font-family:"IBM Plex Mono",monospace;margin:0}
+  .pkcm{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px}
+  .pkcm.hd{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--line2)}
+  .pkcm .pkcmv{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:16px}
+  .pkcm.sel,.pkcm.sel .pkcmv{color:var(--amber)}
+  .pkcm.frozen{color:var(--text3)} .pkcm .ic{width:12px;height:12px;vertical-align:-2px}
+  .pkcm .navbtn{min-height:30px;padding:3px 10px;font-size:11px;flex:none}
+  .pkqp{display:flex;flex-direction:column;gap:6px}
+  .pkqp .navbtn{justify-content:flex-start;text-align:left;padding:10px 12px}
+  .pkqp small{display:block;color:var(--text3);font-weight:500;font-size:11px}
   .pkstand small{color:var(--text3)}
   .pkchamp .sectitle .ic{width:15px;height:15px;color:var(--amber)}
   .tabdot{width:7px;height:7px;border-radius:50%;background:var(--amber);display:inline-block;
@@ -2142,6 +2220,7 @@ async function applySession(session){
   // U72: a pending ?join=TOKEN survives the sign-in detour — resume the join sheet
   if(uid){ try{ if(sessionStorage.getItem("hm_join_token")) setTimeout(()=>{ try{ pkJoinBoot(); }catch(_e){} }, 600); }catch(_e){} }
   if(uid){ try{ maybeOnboardHandle(); }catch(_e){} }   // U74-E
+  if(uid){ try{ if(pkHeldLoad()) setTimeout(()=>{ try{ pkgFlushHeld(); }catch(_e){} }, 900); }catch(_e){} }   // U78 #7 pick-before-auth
 }
 // U74-E: the handle claim moved into onboarding. A NEW account (created minutes ago) gets the
 // required sheet immediately after first sign-in; a legacy handle-less account gets the
@@ -6122,7 +6201,7 @@ async function pkJoinSheet(code, fromBoot){
 }
 
 // ---------------- U72 #3-#5: the group screen (Picks / Standings / Slate) ----------------
-async function openPickemGroup(gid, tab){
+async function openPickemGroup(gid, tab, season){
   window.scrollTo(0,0);
   app.innerHTML=`<div class="loading">Loading group…</div>`;
   try{
@@ -6137,9 +6216,13 @@ async function openPickemGroup(gid, tab){
          drop_n_weeks:2, model_plays:true, commissioner:null, invite_code:null};
     if(!g){ app.innerHTML=backHeader("Pick'em group")+`<div class="list"><div class="err">This group isn't visible to you — it may be private (join via its invite link) or deleted.</div></div>`;
       document.querySelector(".back").onclick=navBack; return; }
-    const sl = authUser
-      ? (await authFetch("GET", `pickem_group_slates?select=season,week,game_id,added_by&group_id=eq.${gid}&season=eq.${pk.season}&order=week.asc`)).data||[]
-      : await api(`pickem_group_slates?select=season,week,game_id,added_by&group_id=eq.${gid}&season=eq.${pk.season}&order=week.asc`).catch(()=>[]);
+    // U78 #6: seasons this group has played (the archive switcher); default = the current season
+    const slQ=`pickem_group_slates?select=season,week,game_id,added_by&group_id=eq.${gid}&order=season.asc,week.asc`;
+    const slAll = authUser ? (await authFetch("GET", slQ)).data||[] : await api(slQ).catch(()=>[]);
+    const seasons=[...new Set(slAll.map(r=>r.season))].sort((a,b)=>a-b);
+    if(!seasons.includes(pk.season)) seasons.push(pk.season);
+    const viewSeason=season&&seasons.includes(season)?season:pk.season;
+    const sl=slAll.filter(r=>r.season===viewSeason);
     const weeks=[...new Set(sl.map(r=>r.week))].sort((a,b)=>a-b);
     const gameIds=[...new Set(sl.map(r=>r.game_id))];
     let games={};
@@ -6152,9 +6235,10 @@ async function openPickemGroup(gid, tab){
     for(const w of weeks){
       if(sl.some(r=>r.week===w && games[r.game_id] && !pkLockedIso(games[r.game_id].start_date))){ wk=w; break; }
     }
-    pkg={gid, g, tab:tab||"picks", week:wk, weeks, sl, games, stage:{}, mine:{}, model:{}, adj:{}, dist:null, stats:null};
+    pkg={gid, g, tab:tab||"picks", season:viewSeason, seasons, week:wk, weeks, sl, games, stage:{}, mine:{}, model:{}, adj:{}, dist:null, stats:null, vdef:{}};
     renderPickemGroupShell();
     pkgLoadTab();
+    if(authUser&&gid===NATIONAL_GID&&pkHeldLoad()) pkgFlushHeld();   // held picks from a signed-out visit
   }catch(e){
     app.innerHTML=backHeader("Pick'em group")+`<div class="list"><div class="err">Couldn't load the group: ${esc(e.message||e)}</div></div>`;
     document.querySelector(".back").onclick=navBack;
@@ -6163,20 +6247,24 @@ async function openPickemGroup(gid, tab){
 function renderPickemGroupShell(){
   const g=pkg.g;
   const canInvite=authUser&&!g.is_system&&g.invite_code;
+  const archive=pkg.season!==pk.season;
   let h=`<div class="cmp">${backHeader("Pick'em group")}<div class="list" style="padding-top:6px">
-    <div class="sectitle" style="padding:0 2px">${esc(g.name)}
+    ${archive?`<div class="pkarch"><span>You're viewing <b>${pkg.season}</b> — a past season, read-only.</span><button class="navbtn pkpill" id="pkarchback">Back to ${pk.season}</button></div>`:""}
+    <div class="sectitle" style="padding:0 2px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><span>${esc(g.name)}
       ${g.is_system?`<span class="fmangle" style="margin-left:6px">NATIONAL</span>`:""}
       <small style="display:block;padding-top:2px">${g.scoring_mode==="confidence"?"Confidence scoring (rank 1..N)":"Straight scoring (1 pt per win)"}
       ${g.drop_n_weeks?` · drops your ${g.drop_n_weeks} lowest week${g.drop_n_weeks>1?"s":""}`:""}
-      ${g.model_plays?` · <span class="u-model">@model plays</span>`:""}</small></div>
+      ${g.model_plays?` · <span class="u-model">@model plays</span>`:""}</small></span>
+      ${pkg.seasons.length>1?`<div id="pkseason" style="flex:none;min-width:88px"></div>`:""}</div>
     <div class="navrow" style="padding:6px 2px">
       ${["picks","grid","standings","slate"].map(t=>`<button class="navbtn ${pkg.tab===t?"primary":""}" data-pktab="${t}">${t==="picks"?"Picks":t==="grid"?"Grid":t==="standings"?"Standings":"Slate"}</button>`).join("")}
       ${canInvite?`<button class="navbtn" id="pkshare2"><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg> Invite</button>`:""}</div>
     <div id="pkgbody"><div class="loading">Loading…</div></div>
     <div class="note"><b>${esc(g.name)}.</b> Per-game kickoff locks — picks stay hidden from the
     group (the Model's too) until each game locks. No auto-picks, ever: a missed game is an honest
-    zero. Results post after the week's games finish and the weekly scoring pass runs. Free
-    forever, no prizes, entertainment only. ${BRAND_LINE}</div></div></div>`;
+    zero. Each game scores the moment it goes final; the weekly winner is decided on points, then
+    the tiebreaker (total points in the week's marquee game). Free forever, no prizes,
+    entertainment only. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=navBack;
   document.querySelectorAll("[data-pktab]").forEach(b=>b.onclick=()=>{ pkg.tab=b.dataset.pktab;
@@ -6184,6 +6272,10 @@ function renderPickemGroupShell(){
     pkgLoadTab(); });
   const sh=document.getElementById("pkshare2");
   if(sh) sh.onclick=()=>pkShareSheet(pkg.g);
+  const ab=document.getElementById("pkarchback"); if(ab) ab.onclick=()=>openPickemGroup(pkg.gid, pkg.tab, pk.season);
+  const ss=document.getElementById("pkseason");
+  if(ss) mountAppSelect(ss, pkg.seasons.slice().reverse().map(y=>({value:y,label:String(y)})), pkg.season,
+    v=>openPickemGroup(pkg.gid, pkg.tab, Number(v)), {slim:true, ariaLabel:"Season"});
 }
 async function pkgLoadTab(){
   const host=document.getElementById("pkgbody");
@@ -6196,31 +6288,118 @@ async function pkgLoadTab(){
     else await pkgRenderSlate(host);
   }catch(e){ host.innerHTML=`<div class="err">Couldn't load: ${esc(e.message||e)}</div>`; }
 }
-function pkgWeekBtns(cur, onPick){
-  return `<div class="navrow" style="flex-wrap:wrap;padding:0 2px 6px">${pkg.weeks.map(w=>
-    `<button class="navbtn${w===cur?" primary":""}" data-pkw="${w}" style="flex:none;min-height:32px;font-size:11px;padding:4px 10px">${w===0?"Opening":"Wk "+w}</button>`).join("")}</div>`;
+// U78 #6: the WEEK CAROUSEL — horizontally scrollable strip with dates ("Wk 1 · Sep 5") and a
+// status dot per week (open amber / locked grey / scored green), current week centered.
+function pkgWeekBtns(cur){
+  return `<div class="pkwks" id="pkwks" role="tablist" aria-label="Week">${pkg.weeks.map(w=>{
+    const gs=pkg.sl.filter(r=>r.week===w).map(r=>pkg.games[r.game_id]).filter(Boolean);
+    const kos=gs.map(g=>g.start_date).filter(Boolean).sort();
+    const d0=kos[0], d1=kos[kos.length-1];
+    const st=gs.length&&gs.every(g=>g.completed)?"scored":gs.length&&gs.every(g=>pkLockedIso(g.start_date))?"locked":"open";
+    const dates=d0?(pkDayKey(d0)===pkDayKey(d1)?pkShortDate(d0):`${pkShortDate(d0)}–${pkShortDate(d1)}`):"";
+    return `<button class="pkwk ${w===cur?"on":""}" role="tab" aria-selected="${w===cur}" data-pkw="${w}" title="${st}">
+      <span class="pkwkn">${w===0?"Opening":"Wk "+w}</span><span class="pkwkd">${esc(dates)}</span><i class="pkwkdot ${st}" aria-hidden="true"></i></button>`; }).join("")}</div>`;
 }
 function pkgWireWeeks(host, fn){
   host.querySelectorAll("[data-pkw]").forEach(b=>b.onclick=()=>{ pkg.week=Number(b.dataset.pkw); fn(); });
+  const strip=host.querySelector("#pkwks"), on=strip&&strip.querySelector(".pkwk.on");
+  if(strip&&on) strip.scrollLeft=Math.max(0, on.offsetLeft-(strip.clientWidth-on.offsetWidth)/2);
 }
 
 // ---- #4: the pick flow (flagship) ----
+// ============================================================================
+// U78 — THE PICK SCREEN: one scrolling slate, one card per game, and each card
+// TRANSFORMS IN PLACE across the week (ESPN's organizing principle, per
+// briefs/research-espn-pickem-deep.md §0.1):
+//   OPEN ("SAT 9/5 · LOCKS @ 1:30 PM", device-localized, + the countdown)
+//   -> PICKED (your tile amber — U49: amber = you; re-tap or tap the other side)
+//   -> LOCKED (lock icon, pick frozen, the Model's pick appears teal, consensus,
+//      live score + clock while in progress via the U75 live overlay)
+//   -> SCORED (CORRECT green / INCORRECT muted red / FINAL grey with no pick;
+//      score bars winner-green / loser-grey; check/X badge on your tile; "+N").
+// Per-tap AUTO-SAVE stays (ESPN's batch Submit loses picks — documented); the
+// sticky "N/10 Picks Made" bar is progress, not a submit gate. Hidden-until-lock
+// stays absolute for group picks (server RLS) — the only pre-lock share shown is
+// the NATIONAL POOL % and only once >= 100 people picked that game (server floor).
+// Pick-before-auth: a signed-out visitor taps picks on the National slate at once;
+// they are held on the device and submitted after the first save's sign-in.
+// ============================================================================
+const PK_HELD_KEY="hm_pk_held";
+const PK_DENSE_KEY="hm_pk_dense";
+const pkChk=`<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>`;
+const pkX=`<svg class="ic" aria-hidden="true"><use href="#i-x"/></svg>`;
+const pkLockIc=`<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>`;
+// "SAT 9/5 · LOCKS @ 1:30 PM" — absolute, rendered in the DEVICE's time zone (ESPN's header)
+function pkLockHdr(iso){
+  const d=new Date(iso);
+  return `${d.toLocaleDateString([], {weekday:"short"}).toUpperCase()} ${d.getMonth()+1}/${d.getDate()} · LOCKS @ ${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}`;
+}
+const pkDayKey = iso => { const d=new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+const pkDayLabel = iso => new Date(iso).toLocaleDateString([], {weekday:"long", month:"short", day:"numeric"});
+const pkShortDate = iso => { const d=new Date(iso); return d.toLocaleDateString([], {month:"short", day:"numeric"}); };
+// held (pick-before-auth) picks — National Pool only, one device, until the first save
+function pkHeldLoad(){ try{ const h=JSON.parse(localStorage.getItem(PK_HELD_KEY)||"null"); return (h&&h.gid===NATIONAL_GID&&h.picks)?h:null; }catch(_e){ return null; } }
+function pkHeldSave(h){ try{ localStorage.setItem(PK_HELD_KEY, JSON.stringify(h)); }catch(_e){} }
+function pkHeldClear(){ try{ localStorage.removeItem(PK_HELD_KEY); }catch(_e){} }
+function pkgWeekRows(){
+  return pkg.sl.filter(r=>r.week===pkg.week).map(r=>pkg.games[r.game_id]).filter(Boolean)
+    .sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
+}
+function pkgMine(gid2){ return pkg.stage[gid2]||pkg.mine[gid2]||{}; }
+function pkgMyTeam(gid2){ const m=pkgMine(gid2); return m.team||m.pick_team||null; }
+function pkgCanPick(){ return !!authUser || !!(pkg.g&&pkg.g.is_system); }   // signed-out: National only (held)
+
+// ---- confidence value map: values 1..N; saved/staged values first, then defaults
+// (open, unpicked games take the lowest free values in kickoff order — ESPN's 1..N
+// slate-order default); values held by LOCKED picks are frozen. A value above N or
+// a duplicate (after a slate change) is dropped and re-ranged by the defaults.
+function pkgValueMap(rows){
+  const N=rows.length, byVal={}, byGame={}, frozen=new Set();
+  rows.forEach(g=>{ const m=pkgMine(g.id); const v=Number(m.conf||m.confidence)||0;
+    if(v>=1&&v<=N&&!byVal[v]){ byVal[v]=g.id; byGame[g.id]=v; if(pkLockedIso(g.start_date)) frozen.add(v); } });
+  const pref=(pkg.vdef&&pkg.vdef[pkg.week])||{};
+  rows.forEach(g=>{ if(byGame[g.id]!=null||pkLockedIso(g.start_date)) return;   // client-side order preference (a shift before any pick)
+    const v=pref[g.id]; if(v>=1&&v<=N&&!byVal[v]){ byVal[v]=g.id; byGame[g.id]=v; } });
+  const free=[]; for(let v=1; v<=N; v++) if(!byVal[v]) free.push(v);
+  rows.forEach(g=>{ if(byGame[g.id]!=null||pkLockedIso(g.start_date)) return; const v=free.shift(); if(v){ byVal[v]=g.id; byGame[g.id]=v; } });
+  return {N, byVal, byGame, frozen};
+}
+// INSERT-AND-SHIFT (ESPN "Move here" semantics, observed): moving a game to value v
+// slides the games between old and new positions by one; frozen (locked) values are
+// skipped over, never touched; no value is ever duplicated.
+function pkgShift(vm, gameId, toVal){
+  const vals=[]; for(let v=1; v<=vm.N; v++) if(!vm.frozen.has(v)) vals.push(v);
+  const items=vals.map(v=>vm.byVal[v]||null);
+  const from=items.indexOf(gameId), to=vals.indexOf(toVal);
+  if(to<0||from<0) return null;
+  items.splice(from,1); items.splice(to,0,gameId);
+  const out={};
+  vals.forEach((v,i)=>{ if(items[i]) out[items[i]]=v; });
+  vm.frozen.forEach(v=>{ if(vm.byVal[v]) out[vm.byVal[v]]=v; });
+  return out;
+}
+
 async function pkgRenderPicks(host){
   const g=pkg.g, wk=pkg.week;
   if(wk==null){ host.innerHTML=`<div class="secsub">No slate yet — the weekly slate seeds from the Model's board when it publishes.</div>`; return; }
-  const rows=pkg.sl.filter(r=>r.week===wk).map(r=>pkg.games[r.game_id]).filter(Boolean)
-    .sort((a,b)=>(a.start_date||"").localeCompare(b.start_date||""));
-  const N=rows.length;
+  const rows=pkgWeekRows();
   // my picks + the Model's revealed picks + post-lock group distribution
   pkg.mine={}; pkg.model={}; let allPicks=[];
   if(authUser){
-    const r=await authFetch("GET", `pickem_group_picks?select=game_id,user_id,pick_team,confidence&group_id=eq.${pkg.gid}&season=eq.${pk.season}&week=eq.${wk}`);
+    const r=await authFetch("GET", `pickem_group_picks?select=game_id,user_id,pick_team,confidence&group_id=eq.${pkg.gid}&season=eq.${pkg.season}&week=eq.${wk}`);
     allPicks=r.data||[];
     allPicks.forEach(p=>{ if(p.user_id===authUser.id) pkg.mine[p.game_id]={pick_team:p.pick_team, confidence:p.confidence}; });
+  } else if(g.is_system){
+    // pick-before-auth: held picks render as PICKED until the first save signs them in
+    const held=pkHeldLoad();
+    if(held&&held.season===pkg.season&&held.week===wk){
+      Object.entries(held.picks).forEach(([gid2,p])=>{ const game=pkg.games[gid2]; if(game&&!pkLockedIso(game.start_date)) pkg.stage[gid2]={team:p.team, conf:p.conf}; });
+      if(held.tb!=null) pkg.tbHeld=held.tb;
+    }
   }
   if(g.model_plays){
     if(g.is_system){
-      try{ (await pkAnonRpc("pickem_model_reveal",{p_season:pk.season, p_week:wk})).forEach(r=>{
+      try{ (await pkAnonRpc("pickem_model_reveal",{p_season:pkg.season, p_week:wk})).forEach(r=>{
         if(r.model_pick_team) pkg.model[r.game_id]={pick_team:r.model_pick_team, confidence:r.model_conf}; }); }catch(_e){}
     } else {
       allPicks.forEach(p=>{ if(p.user_id===MODEL_UID) pkg.model[p.game_id]={pick_team:p.pick_team, confidence:p.confidence}; });
@@ -6229,7 +6408,7 @@ async function pkgRenderPicks(host){
   // post-lock pick distribution: National = server crowd %, custom = visible locked picks
   pkg.dist={};
   if(g.is_system){
-    try{ (await api(`pickem_slate_games?select=game_id,crowd_home_pct&season=eq.${pk.season}&week=eq.${wk}`))
+    try{ (await api(`pickem_slate_games?select=game_id,crowd_home_pct&season=eq.${pkg.season}&week=eq.${wk}`))
       .forEach(r=>{ if(r.crowd_home_pct!=null) pkg.dist[r.game_id]={homePct:Math.round(r.crowd_home_pct)}; }); }catch(_e){}
   } else {
     const byGame={};
@@ -6243,132 +6422,282 @@ async function pkgRenderPicks(host){
       pkg.dist[gid2]={homePct:Math.round(100*hp/ps.length), m:ps.length,
         n:homeMaj?hp:ps.length-hp, teamId:homeMaj?game.home_team_id:game.away_team_id}; });
   }
+  // U78 #8: NATIONAL POOL % pre-lock — the server returns a game only at >= 100 real
+  // pickers (owner decision: default ON at >= 100), so nothing here can leak a person.
+  pkg.nat={};
+  if(g.is_system){ try{ (await pkAnonRpc("pickem_national_pct",{p_season:pkg.season, p_week:wk})).forEach(r=>{ pkg.nat[r.game_id]={n:r.n, home_pct:r.home_pct}; }); }catch(_e){} }
+  // U78 #3: the tiebreaker rides the week's MARQUEE game (server-resolved: the Hashmark
+  // slate's tiebreak game when it's on this slate, else this group's highest-interest game)
   pkg.tb=null; pkg.tbMine=null;
-  if(g.is_system){
-    try{ const trow=(await api(`pickem_slates?select=tiebreak_game_id&season=eq.${pk.season}&week=eq.${wk}&status=neq.draft`))[0];
-      pkg.tb=trow&&trow.tiebreak_game_id;
-      if(pkg.tb&&authUser){
-        const r=await authFetch("GET", `pickem_tiebreaks?select=total_points_guess&season=eq.${pk.season}&week=eq.${wk}&user_id=eq.${authUser.id}`);
-        pkg.tbMine=r.data&&r.data[0]&&r.data[0].total_points_guess; }
-    }catch(_e){}
+  try{ pkg.tb=await pkAnonRpc("pickem_group_tiebreak_game",{gid:pkg.gid, p_season:pkg.season, p_week:wk}); }catch(_e){}
+  if(pkg.tb&&authUser){
+    try{ const r=await authFetch("GET", `pickem_group_tiebreaks?select=total_points_guess&group_id=eq.${pkg.gid}&season=eq.${pkg.season}&week=eq.${wk}&user_id=eq.${authUser.id}`);
+      pkg.tbMine=r.data&&r.data[0]?r.data[0].total_points_guess:null; }catch(_e){}
   }
   if(!pkg.stats) pkg.stats=await pkLoadStats(rows.map(r=>({home_team_id:r.home_team_id, away_team_id:r.away_team_id})));
   if(!pkg.ap){ pkg.ap={};
-    try{ (await api(`poll_rankings?select=team_id,rank&season=eq.${pk.season}&poll=eq.AP%20Top%2025`)).forEach(r=>pkg.ap[r.team_id]=r.rank); }catch(_e){}
+    try{ (await api(`poll_rankings?select=team_id,rank&season=eq.${pkg.season}&poll=eq.AP%20Top%2025`)).forEach(r=>pkg.ap[r.team_id]=r.rank); }catch(_e){}
   }
   if(!pkg.rec){ pkg.rec={};
-    try{ const gs=await fetchSeasonGames(SEASON_SCHED);
+    try{ const gs=await fetchSeasonGames(pkg.season);
       gs.filter(x=>x.completed&&x.home_points!=null).forEach(x=>{
         const hw=x.home_points>x.away_points;
         [[x.home_team_id,hw],[x.away_team_id,!hw]].forEach(([id,won])=>{
           const r=pkg.rec[id]=pkg.rec[id]||{w:0,l:0}; if(won) r.w++; else r.l++; }); });
     }catch(_e){}
   }
-  const usedConf=new Set(Object.entries(pkg.mine).map(([gid2,p])=>p.confidence).filter(Boolean));
-  Object.entries(pkg.stage).forEach(([gid2,s])=>{ if(s.conf) usedConf.add(s.conf); });
-  let h=pkgWeekBtns(wk);
-  if(!authUser) h+=`<div class="sec"><div class="secsub">Viewing only — sign in to make picks.</div>
+  // live overlay (U75): in-progress scores live in live_win_prob, never in games
+  pkg.live={};
+  if(rows.some(x=>pkLockedIso(x.start_date)&&!x.completed)){ try{ pkg.live=await liveScoreMap(); }catch(_e){} }
+  pkg.dense=(()=>{ try{ return localStorage.getItem(PK_DENSE_KEY)==="1"; }catch(_e){ return false; } })();
+  pkg.host=host;
+  // a slate change can leave a saved value out of range — re-rank once, then paint
+  if(authUser&&g.scoring_mode==="confidence") await pkgNormalizeConf(rows);
+  pkgPaint();
+}
+// values out of range / duplicated after a slate edit -> the defaults re-range them;
+// persist that quietly so the server and the cards agree (the "voided game re-ranges")
+async function pkgNormalizeConf(rows){
+  const vm=pkgValueMap(rows);
+  const fix=rows.filter(g=>!pkLockedIso(g.start_date)&&pkg.mine[g.id]&&pkg.mine[g.id].confidence!==vm.byGame[g.id]&&vm.byGame[g.id]);
+  if(!fix.length) return;
+  try{
+    const vals=rows.filter(g=>!pkLockedIso(g.start_date)&&pkg.mine[g.id]).map(g=>({game_id:g.id, conf:vm.byGame[g.id]}));
+    await predRpc("pickem_set_confidences",{gid:pkg.gid, p_week:pkg.week, p_vals:vals});
+    vals.forEach(v=>{ pkg.mine[v.game_id].confidence=v.conf; });
+    pkg.note="Point values re-ranged after a slate change — every value 1–"+vm.N+" is used once.";
+  }catch(_e){}
+}
+
+// ---- paint (no fetching): progress bar, tools, day-grouped cards, tiebreaker ----
+function pkgPaint(){
+  const host=pkg.host; if(!host) return;
+  const g=pkg.g, rows=pkgWeekRows(), N=rows.length;
+  const conf=g.scoring_mode==="confidence";
+  const vm=conf?pkgValueMap(rows):null;
+  const ctx={g, N, vm, dense:pkg.dense};
+  let h=pkgWeekBtns(pkg.week);
+     // archive banner lives in the shell (renderPickemGroupShell)
+  h+=pkgProgressHTML(rows, vm);
+  if(!authUser&&!g.is_system) h+=`<div class="sec"><div class="secsub">Viewing only — sign in to make picks in this group.</div>
     <div class="navrow"><button class="navbtn primary" data-acct="signin">Sign in</button></div></div>`;
-  else if(g.scoring_mode==="confidence")
-    h+=`<div class="secsub" style="padding:0 2px 6px">Rank your confidence 1–${N} (${N} = most sure);
-      each number once. Correct picks score their rank. Picks save instantly, per game.</div>`;
-  else h+=`<div class="secsub" style="padding:0 2px 6px">Tap a team — every correct pick scores 1 point. Picks save instantly, per game.</div>`;
-  rows.forEach(game=>{
-    const locked=pkLockedIso(game.start_date);
-    const mine=pkg.stage[game.id]||pkg.mine[game.id]||{};
-    const myTeam=mine.pick_team||mine.team;
-    const model=pkg.model[game.id];
-    const dist=pkg.dist[game.id];
-    const res = game.completed&&game.home_points!=null&&game.home_points!==game.away_points
-      ? (game.home_points>game.away_points?game.home_team_id:game.away_team_id) : null;
-    const chip=id=>{ const parts=[];
-      if(pkg.ap[id]) parts.push(`#${pkg.ap[id]} AP`);
-      const r=pkg.rec[id]; if(r&&(r.w||r.l)) parts.push(`${r.w}-${r.l}`);
-      return parts.join(" · "); };
-    const chipA=chip(game.away_team_id), chipH=chip(game.home_team_id);
-    const myHit = res&&myTeam ? (myTeam===res?" · <b>you got it</b>":" · missed") : "";
-    h+=`<div class="sec pkgame" style="padding:8px 10px;margin:6px 0">
-      <div class="secsub" style="padding:0 0 6px">${new Date(game.start_date).toLocaleString([], {weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}
-        · ${locked?`<svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg> locked`:`<span data-pkcd="${esc(game.start_date)}">${pkCdTxt(game.start_date)}</span>`}
-        ${res?` · <b>${esc(res===game.home_team_id?game.home_team:game.away_team)} won</b>${myHit}`:""}</div>
-      ${(chipA||chipH)?`<div class="pkchips"><span>${chipA||"&nbsp;"}</span><span>${chipH||"&nbsp;"}</span></div>`:""}
-      ${dist&&locked?(()=>{   // U75 #3: per-game consensus — post-lock ONLY (the card's `locked` gate + the server RLS both enforce it)
-        const pct=Math.max(dist.homePct,100-dist.homePct);
-        const majTeam = dist.teamId!=null ? dist.teamId : (dist.homePct>=50?game.home_team_id:game.away_team_id);
-        const majNm = majTeam===game.home_team_id?game.home_team:game.away_team;
-        const majN = dist.n!=null ? dist.n : null, majM = dist.m!=null ? dist.m : null;
-        const label = majN!=null ? `${majN} of ${majM} took ${esc(majNm)}`
-                                  : `${pct}% took ${esc(majNm)}`;
-        return `<div class="pkconsensus"><div class="pkconbar"><i style="width:${pct}%"></i></div>
-          <div class="pkconlbl">${label} <small>· your group</small></div></div>`;
-      })():""}
-      <div class="navrow">
-        <button class="navbtn ${myTeam===game.away_team_id?"primary":""}" data-pkgpick="${game.id}" data-pkteam="${game.away_team_id}" ${locked||!authUser?"disabled":""}>${esc(game.away_team)}</button>
-        <span style="align-self:center;color:var(--text2)">${game.neutral_site?"vs":"@"}</span>
-        <button class="navbtn ${myTeam===game.home_team_id?"primary":""}" data-pkgpick="${game.id}" data-pkteam="${game.home_team_id}" ${locked||!authUser?"disabled":""}>${esc(game.home_team)}</button>
-        ${g.scoring_mode==="confidence"?`<div data-pkgconf="${game.id}"></div>`:""}</div>
-      ${g.model_plays?(model
-        ?`<div class="secsub" style="padding:4px 0 0"><span class="u-model"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg> Model: ${esc(model.pick_team===game.home_team_id?game.home_team:game.away_team)}${model.confidence?` · #${model.confidence} confidence`:""}</span>${res?(model.pick_team===res?" · got it":" · missed"):""}</div>`
-        :(locked?"":`<div class="secsub" style="padding:4px 0 0;color:var(--text3)">The Model's pick reveals at kickoff.</div>`)):""}
-      ${g.is_system&&pkg.tb===game.id&&authUser?`<div class="navrow" style="padding-top:4px">
-        <input class="authin" style="max-width:210px" id="tbguess" type="number" min="0" max="200"
-          placeholder="Tiebreak: total points" value="${pkg.tbMine!=null?pkg.tbMine:""}" ${locked?"disabled":""}></div>`:""}
-      <div class="authmsg" id="pkm-${game.id}"></div>
-      <div class="pkcmprow">
-        <button class="pkcmpbtn" data-pkcmp="${game.id}" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-vs"/></svg> Compare teams <svg class="ic chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
-        <button class="pkcmpbtn" data-pkgp="${game.id}" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg> Game page <svg class="ic chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
-      </div>
-      <div class="pkdrawer" id="pkdrawer-${game.id}" hidden></div>
-      <div class="pkdrawer" id="pkgpdrawer-${game.id}" hidden></div>
-    </div>`;
+  const anyOpen=rows.some(x=>!pkLockedIso(x.start_date));
+  h+=`<div class="pktools">
+    ${anyOpen&&pkgCanPick()?`<button class="navbtn pkpill" id="pkquick"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg> Quick pick</button>`:""}
+    <button class="navbtn pkpill ${pkg.dense?"on":""}" id="pkdense" aria-pressed="${pkg.dense}"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg> Dense</button>
+    <span class="secsub" style="margin:0;flex:1;min-width:120px">${conf
+      ?`Tap the <b>pts</b> chip to change a game's value (1–${N}, each once). Correct picks score their value.`
+      :`Tap a team to pick — every correct pick scores 1. Picks save instantly, per game.`}</span></div>`;
+  if(pkg.note){ h+=`<div class="secsub" style="padding:0 2px 6px;color:var(--amber)">${esc(pkg.note)}</div>`; pkg.note=null; }
+  // confidence mode re-sorts ascending by value (ESPN); straight mode groups by day
+  let list=rows.slice();
+  if(conf) list.sort((a,b)=>(vm.byGame[a.id]||99)-(vm.byGame[b.id]||99)||(a.start_date||"").localeCompare(b.start_date||""));
+  let lastDay=null;
+  if(pkg.dense) h+=`<div class="pkdense">`;
+  list.forEach(game=>{
+    if(!conf&&!pkg.dense){ const dk=pkDayKey(game.start_date); if(dk!==lastDay){ lastDay=dk; h+=`<div class="pkday">${esc(pkDayLabel(game.start_date))}</div>`; } }
+    h+=pkg.dense?pkgDensePill(game, ctx):pkgCard(game, ctx);
   });
+  if(pkg.dense) h+=`</div>`;
   if(!rows.length) h+=`<div class="secsub">No games on this week's slate.</div>`;
+  if(pkg.tb&&pkg.games[pkg.tb]) h+=pkgTiebreakCard(pkg.games[pkg.tb]);
   host.innerHTML=h;
   pkTickArm();
+  pkgBind(host);
+  pkgStickyOffsets(host);
+}
+// the sticky progress bar sits under the (sticky) page header; day headers sit under the bar
+function pkgStickyOffsets(host){
+  try{ const hd=document.querySelector(".cmptop"); host.style.setProperty("--pkhdr", (hd?hd.offsetHeight:0)+"px");
+    const pr=host.querySelector("#pkprog"); host.style.setProperty("--pkprogh", (pr?pr.offsetHeight:0)+"px"); }catch(_e){}
+}
+function pkgProgressHTML(rows, vm){
+  const N=rows.length; let made=0, lockedNoPick=0, nextLock=null;
+  rows.forEach(g=>{ const has=!!pkgMyTeam(g.id), locked=pkLockedIso(g.start_date);
+    if(has) made++; else if(locked) lockedNoPick++;
+    if(!locked&&(!nextLock||g.start_date<nextLock)) nextLock=g.start_date; });
+  const done=N>0&&made===N, nothingLeft=N>0&&made+lockedNoPick===N;
+  const held=!authUser&&Object.keys(pkg.stage).length>0;
+  let side="";
+  if(held) side=`<button class="navbtn pkpill" data-acct="signin" style="border-color:var(--amber);color:var(--amber)">Sign in to save</button>`;
+  else if(done) side=`<span class="pkprogok">${pkChk} All picks in</span>`;
+  else if(nextLock) side=`<small>next: <span data-pkcd="${esc(nextLock)}">${pkCdTxt(nextLock)}</span></small>`;
+  const under = lockedNoPick ? `<small>${lockedNoPick} game${lockedNoPick===1?"":"s"} locked without a pick</small>`
+    : held ? `<small>held on this device — not saved yet</small>` : "";
+  return `<div class="pkprog ${done?"done":""} ${nothingLeft&&!done?"closed":""}" id="pkprog">
+    <div class="pkprogrow"><span><b>${made}/${N}</b> Picks Made ${under}</span>${side}</div>
+    <div class="pkprogbar"><i style="width:${N?Math.round(100*made/N):0}%"></i></div></div>`;
+}
+function pkgTeamChip(id){
+  const parts=[];
+  if(pkg.ap&&pkg.ap[id]) parts.push(`<b>#${pkg.ap[id]}</b>`);
+  const r=pkg.rec&&pkg.rec[id]; if(r&&(r.w||r.l)) parts.push(`${r.w}-${r.l}`);
+  return parts.join(" · ");
+}
+function pkgCardState(game){
+  const locked=pkLockedIso(game.start_date), myTeam=pkgMyTeam(game.id);
+  const final=!!(game.completed&&game.home_points!=null&&game.away_points!=null);
+  const res=final&&game.home_points!==game.away_points?(game.home_points>game.away_points?game.home_team_id:game.away_team_id):null;
+  const lv=pkg.live&&pkg.live[game.id];
+  const inProg=!final&&locked&&lv&&lv.live&&lv.home_points!=null;
+  const hp=final?game.home_points:(inProg?lv.home_points:null), ap=final?game.away_points:(inProg?lv.away_points:null);
+  const state=final?(myTeam?(res==null?"final":(myTeam===res?"correct":"incorrect")):"final"):locked?(inProg?"live":"locked"):(myTeam?"picked":"open");
+  return {locked, myTeam, final, res, tie:final&&res==null, inProg, lv, hp, ap, state};
+}
+function pkgHeader(game, st, ctx){
+  let hdr;
+  if(st.state==="correct"){ const pts=ctx.g.scoring_mode==="confidence"?(pkgMine(game.id).confidence||pkgMine(game.id).conf||0):1;
+    hdr=`<span class="pkhd-res ok">${pkChk} CORRECT · +${pts}</span>`; }
+  else if(st.state==="incorrect") hdr=`<span class="pkhd-res bad">${pkX} INCORRECT</span>`;
+  else if(st.state==="final") hdr=`<span class="pkhd-res none">FINAL${st.tie?" · TIE (no score)":""}</span>`;
+  else if(st.state==="live") hdr=`<span class="pkhd-res live"><i class="pklivedot"></i> LIVE${st.lv.period?` · ${st.lv.period<=4?"Q"+st.lv.period:"OT"}`:""}${st.lv.clock?` ${esc(st.lv.clock)}`:""}</span>`;
+  else if(st.state==="locked") hdr=`<span class="pkhd-res lock">${pkLockIc} LOCKED · ${esc(pkShortDate(game.start_date))} ${new Date(game.start_date).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}</span>`;
+  else hdr=`<span class="pkhd-lock">${esc(pkLockHdr(game.start_date))}</span><span class="pkhd-cd" data-pkcd="${esc(game.start_date)}">${pkCdTxt(game.start_date)}</span>`;
+  const conf=ctx.vm?ctx.vm.byGame[game.id]:null;
+  // the pts chip rides the card until the game is final (the CORRECT header then carries the "+N")
+  const chip=ctx.vm&&!st.final?`<button class="pkconf" data-pkconf="${game.id}" ${st.locked||!pkgCanPick()?"disabled":""} title="Points for win">${conf!=null?conf:"—"}<small>pts</small></button>`:"";
+  return `<div class="pkhd"><span class="pkhdl">${hdr}</span>${chip}</div>`;
+}
+function pkgCard(game, ctx){
+  const st=pkgCardState(game), g=ctx.g;
+  const nmA=game.away_team, nmH=game.home_team;
+  const tile=(id,name,isHome)=>{
+    const t=teamMeta[id]||{}; const picked=st.myTeam===id;
+    const cls=["pktile", picked?"picked":"", st.res!=null?(id===st.res?"won":"lost"):"",
+      picked&&st.state==="correct"?"hit":"", picked&&st.state==="incorrect"?"miss":""].filter(Boolean).join(" ");
+    const chip=pkgTeamChip(id);
+    const nat=pkg.nat&&pkg.nat[game.id];
+    const pct=nat&&!st.locked?(isHome?nat.home_pct:100-nat.home_pct):null;
+    return `<button class="${cls}" data-pkgpick="${game.id}" data-pkteam="${id}" ${st.locked||!pkgCanPick()?"disabled":""} aria-pressed="${picked}">
+      ${crestEl("pkcr", t.school||name, oppColor(id))}
+      <span class="pknm">${esc(name)}</span>
+      ${chip?`<span class="pkchip">${chip}</span>`:""}
+      ${pct!=null?`<span class="pkpct">${pct}% picked <small>· National Pool</small></span>`:""}
+      ${picked&&(st.state==="correct"||st.state==="incorrect")?`<span class="pkbadge ${st.state==="correct"?"ok":"bad"}">${st.state==="correct"?pkChk:pkX}</span>`:""}
+    </button>`; };
+  let bars="";
+  if(st.hp!=null&&st.ap!=null){
+    const tot=Math.max(1, st.hp+st.ap);
+    const bar=(id,name,pts)=>`<div class="pksb ${st.res===id?"win":(st.res?"lose":"")}"><span>${esc(monogram((teamMeta[id]||{}).school||name))}</span><i style="--w:${Math.round(100*pts/tot)}%"></i><b>${pts}</b></div>`;
+    bars=`<div class="pkscore">${bar(game.away_team_id, nmA, st.ap)}${bar(game.home_team_id, nmH, st.hp)}</div>`;
+  }
+  const model=pkg.model[game.id], dist=pkg.dist[game.id];
+  let consensus="";
+  if(dist&&st.locked){   // U75 #3: per-game consensus — post-lock ONLY (the card's `locked` gate + the server RLS both enforce it)
+    const pct=Math.max(dist.homePct,100-dist.homePct);
+    const majTeam=dist.teamId!=null?dist.teamId:(dist.homePct>=50?game.home_team_id:game.away_team_id);
+    const majNm=majTeam===game.home_team_id?game.home_team:game.away_team;
+    const label=dist.n!=null?`${dist.n} of ${dist.m} took ${esc(majNm)}`:`${pct}% took ${esc(majNm)}`;
+    consensus=`<div class="pkconsensus"><div class="pkconbar"><i style="width:${pct}%"></i></div>
+      <div class="pkconlbl">${label} <small>· ${g.is_system?"National Pool":"your group"}</small></div></div>`;
+  }
+  const modelLine=g.model_plays?(model
+    ?`<div class="secsub" style="padding:4px 0 0;margin:0"><span class="u-model"><svg class="ic" aria-hidden="true"><use href="#i-bot"/></svg> Model: ${esc(model.pick_team===game.home_team_id?game.home_team:game.away_team)}${model.confidence?` · ${model.confidence} pts`:""}</span>${st.res?(model.pick_team===st.res?" · got it":" · missed"):""}</div>`
+    :(st.locked?"":`<div class="secsub" style="padding:4px 0 0;margin:0;color:var(--text3)">The Model's pick reveals at kickoff.</div>`)):"";
+  return `<div class="sec pkgame st-${st.state}" data-pkcard="${game.id}" style="padding:8px 10px;margin:6px 0">
+    ${pkgHeader(game, st, ctx)}
+    <div class="pktiles">${tile(game.away_team_id, nmA, false)}<span class="pkvs">${game.neutral_site?"vs":"@"}</span>${tile(game.home_team_id, nmH, true)}</div>
+    ${bars}${consensus}${modelLine}
+    <div class="authmsg" id="pkm-${game.id}"></div>
+    <div class="pkcmprow">
+      <button class="pkcmpbtn" data-pkcmp="${game.id}" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-vs"/></svg> Compare teams <svg class="ic chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+      <button class="pkcmpbtn" data-pkgp="${game.id}" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-cal"/></svg> Game page <svg class="ic chev" aria-hidden="true"><use href="#i-chev-r"/></svg></button>
+    </div>
+    <div class="pkdrawer" id="pkdrawer-${game.id}" hidden></div>
+    <div class="pkdrawer" id="pkgpdrawer-${game.id}" hidden></div>
+  </div>`;
+}
+// Dense view (ESPN §6.2): compact pills — monogram, abbreviation, record, score end-cap, badge
+function pkgDensePill(game, ctx){
+  const st=pkgCardState(game);
+  const pill=(id,name,pts)=>{ const t=teamMeta[id]||{}; const picked=st.myTeam===id;
+    const cls=["pkdpill", picked?"picked":"", st.res!=null?(id===st.res?"won":"lost"):"", picked&&st.state==="correct"?"hit":"", picked&&st.state==="incorrect"?"miss":""].filter(Boolean).join(" ");
+    const r=pkg.rec&&pkg.rec[id];
+    return `<button class="${cls}" data-pkgpick="${game.id}" data-pkteam="${id}" ${st.locked||!pkgCanPick()?"disabled":""} aria-pressed="${picked}">
+      ${crestEl("pkcr", t.school||name, oppColor(id))}<span><b>${pkg.ap&&pkg.ap[id]?`#${pkg.ap[id]} `:""}${esc(t.school||name)}</b>${r&&(r.w||r.l)?` <small>${r.w}-${r.l}</small>`:""}</span>
+      ${pts!=null?`<span class="pksc">${pts}</span>`:""}
+      ${picked&&(st.state==="correct"||st.state==="incorrect")?`<span class="pkbadge ${st.state==="correct"?"ok":"bad"}">${st.state==="correct"?pkChk:pkX}</span>`:""}</button>`; };
+  return `<div class="pkdgame st-${st.state}" data-pkcard="${game.id}">${pkgHeader(game, st, ctx)}
+    <div class="pkdrow">${pill(game.away_team_id, game.away_team, st.ap)}${pill(game.home_team_id, game.home_team, st.hp)}</div>
+    <div class="authmsg" id="pkm-${game.id}"></div></div>`;
+}
+function pkgTiebreakCard(tbGame){
+  const st=pkgCardState(tbGame);
+  const tot=st.final?tbGame.home_points+tbGame.away_points:null;
+  const guess=authUser?pkg.tbMine:(pkg.tbHeld!=null?pkg.tbHeld:null);
+  const matchup=`${esc(tbGame.away_team)} ${tbGame.neutral_site?"vs":"@"} ${esc(tbGame.home_team)}`;
+  let hdr=st.final?`<span class="pkhd-res none">TIEBREAKER · FINAL</span>`
+    :st.locked?`<span class="pkhd-res lock">TIEBREAKER · ${pkLockIc} LOCKED</span>`
+    :`<span class="pkhd-lock">TIEBREAKER · ${esc(pkLockHdr(tbGame.start_date))}</span><span class="pkhd-cd" data-pkcd="${esc(tbGame.start_date)}">${pkCdTxt(tbGame.start_date)}</span>`;
+  let body;
+  if(st.final) body=`<div class="pktbres">Final · <b>${tot}</b>${guess!=null?` · you said <b>${guess}</b> <small>(off by ${Math.abs(guess-tot)})</small>`:` · you left it blank <small>(counts as 0 · off by ${tot})</small>`}</div>`;
+  else body=`<div class="navrow" style="align-items:center">
+      <input class="authin pktbin" id="tbguess" type="number" inputmode="numeric" min="0" max="200" placeholder="e.g. 52" value="${guess!=null?guess:""}" ${st.locked||!pkgCanPick()?"disabled":""} aria-label="Tiebreaker: total points">
+      ${st.locked?`<span class="secsub" style="margin:0">${guess!=null?"your guess is locked":"no guess — counts as 0"}</span>`:`<span class="secsub" style="margin:0;flex:1">Breaks weekly ties · blank counts as 0 · locks at this game's kickoff.</span>`}</div>`;
+  return `<div class="sec pkgame pktb st-${st.state}" style="padding:8px 10px;margin:10px 0 6px"><div class="pkhd"><span class="pkhdl">${hdr}</span></div>
+    <div class="pktbq">Tiebreaker: total points in <b>${matchup}</b></div>${body}<div class="authmsg" id="pkm-tb"></div></div>`;
+}
+function pkgBind(host){
   host.querySelectorAll("[data-pkgpick]").forEach(b=>b.onclick=()=>{
     const gid2=Number(b.dataset.pkgpick);
     const st=pkg.stage[gid2]=pkg.stage[gid2]||{};
     st.team=Number(b.dataset.pkteam);
     pkgSaveGame(gid2);
   });
-  host.querySelectorAll("[data-pkgconf]").forEach(el=>{
-    const gid2=Number(el.dataset.pkgconf);
-    const game=pkg.games[gid2];
-    const locked=game?pkLockedIso(game.start_date):true;
-    const cur=(pkg.stage[gid2]&&pkg.stage[gid2].conf)||(pkg.mine[gid2]&&pkg.mine[gid2].confidence)||"";
-    const opts=[{value:"",label:"rank"}];
-    for(let v=N; v>=1; v--){
-      if(usedConf.has(v)&&v!==cur) continue;      // each number once — free it by changing that pick
-      opts.push({value:v,label:String(v)});
-    }
-    mountAppSelect(el, opts, cur, v=>{
-      const st=pkg.stage[gid2]=pkg.stage[gid2]||{};
-      st.conf=Number(v)||undefined;
-      pkgSaveGame(gid2);
-    }, {slim:true, ariaLabel:"Confidence rank", disabled:locked||!authUser});
-  });
+  host.querySelectorAll("[data-pkconf]").forEach(b=>b.onclick=()=>pkgConfModal(Number(b.dataset.pkconf)));
   host.querySelectorAll("[data-pkcmp]").forEach(b=>b.onclick=()=>pkgToggleDrawer(Number(b.dataset.pkcmp),"cmp"));
   host.querySelectorAll("[data-pkgp]").forEach(b=>b.onclick=()=>pkgToggleDrawer(Number(b.dataset.pkgp),"gp"));
+  const q=host.querySelector("#pkquick"); if(q) q.onclick=pkgQuickPickSheet;
+  const d=host.querySelector("#pkdense"); if(d) d.onclick=()=>{ pkg.dense=!pkg.dense; try{ localStorage.setItem(PK_DENSE_KEY, pkg.dense?"1":"0"); }catch(_e){} pkgPaint(); };
   const tbIn=host.querySelector("#tbguess");
-  if(tbIn) tbIn.onchange=async()=>{
-    const v=Number(tbIn.value);
-    if(!(v>=0&&v<=200)||!authUser) return;
-    await authFetch("POST","pickem_tiebreaks?on_conflict=season,week,user_id",
-      {season:pk.season, week:pkg.week, user_id:authUser.id, total_points_guess:v});
-  };
+  if(tbIn) tbIn.onchange=()=>pkgSaveTiebreak(Number(tbIn.value));
   pkgWireWeeks(host, ()=>{ pkg.stats=null; pkgLoadTab(); });
 }
-async function pkgSaveGame(gid2){
+// re-paint ONE card in place (the lifecycle transform) + the progress bar; drawers untouched
+function pkgPaintCard(gid2){
+  const game=pkg.games[gid2], host=pkg.host; if(!game||!host) return;
+  const rows=pkgWeekRows(), g=pkg.g;
+  const ctx={g, N:rows.length, vm:g.scoring_mode==="confidence"?pkgValueMap(rows):null, dense:pkg.dense};
+  const el=host.querySelector(`[data-pkcard="${gid2}"]`);
+  if(el){
+    const openCmp=!!(el.querySelector(`#pkdrawer-${gid2}`)&&!el.querySelector(`#pkdrawer-${gid2}`).hidden);
+    const openGp=!!(el.querySelector(`#pkgpdrawer-${gid2}`)&&!el.querySelector(`#pkgpdrawer-${gid2}`).hidden);
+    const dCmp=el.querySelector(`#pkdrawer-${gid2}`), dGp=el.querySelector(`#pkgpdrawer-${gid2}`);
+    const tmp=document.createElement("div"); tmp.innerHTML=pkg.dense?pkgDensePill(game, ctx):pkgCard(game, ctx);
+    const fresh=tmp.firstElementChild;
+    if(dCmp&&openCmp){ const nd=fresh.querySelector(`#pkdrawer-${gid2}`); if(nd){ nd.replaceWith(dCmp); const b=fresh.querySelector("[data-pkcmp]"); if(b){ b.classList.add("open"); b.setAttribute("aria-expanded","true"); } } }
+    if(dGp&&openGp){ const nd=fresh.querySelector(`#pkgpdrawer-${gid2}`); if(nd){ nd.replaceWith(dGp); const b=fresh.querySelector("[data-pkgp]"); if(b){ b.classList.add("open"); b.setAttribute("aria-expanded","true"); } } }
+    el.replaceWith(fresh);
+    pkgBind(fresh);
+  }
+  const pr=host.querySelector("#pkprog");
+  if(pr){ const tmp=document.createElement("div"); tmp.innerHTML=pkgProgressHTML(rows, ctx.vm); pr.replaceWith(tmp.firstElementChild); }
+  pkgStickyOffsets(host);
+  pkTickArm();
+}
+async function pkgSaveGame(gid2, opts={}){
   const g=pkg.g, game=pkg.games[gid2];
   const msgEl=document.getElementById("pkm-"+gid2);
-  const say=(t,cls)=>{ if(msgEl){ msgEl.textContent=t; msgEl.className="authmsg "+(cls||""); } };
-  if(!game||pkLockedIso(game.start_date)){ say("This game is locked.","err"); return; }
+  const say=(t,cls)=>{ if(msgEl&&!opts.quiet){ msgEl.textContent=t; msgEl.className="authmsg "+(cls||""); } };
+  if(!game||pkLockedIso(game.start_date)){ say("This game is locked.","err"); return false; }
   const st=pkg.stage[gid2]||{};
   const team=st.team||(pkg.mine[gid2]&&pkg.mine[gid2].pick_team);
-  const conf=g.scoring_mode==="confidence" ? (st.conf||(pkg.mine[gid2]&&pkg.mine[gid2].confidence)) : null;
-  if(!team) return;
-  if(g.scoring_mode==="confidence" && !conf){ say("Pick a confidence number to save."); pkgRefreshButtons(gid2, team); return; }
-  if(!(await pkRequireHandle())) return;
+  if(!team) return false;
+  const rows=pkgWeekRows();
+  const conf=g.scoring_mode==="confidence"?pkgValueMap(rows).byGame[gid2]:null;
+  if(!authUser){
+    if(!g.is_system){ openAuthModal(); return false; }
+    // U78 #7 pick-before-auth: hold the pick on this device, show it PICKED, ask to save
+    const held=pkHeldLoad()||{gid:NATIONAL_GID, season:pkg.season, week:pkg.week, picks:{}};
+    if(held.season!==pkg.season||held.week!==pkg.week){ held.season=pkg.season; held.week=pkg.week; held.picks={}; held.tb=null; }
+    held.picks[gid2]={team, conf};
+    pkHeldSave(held);
+    pkg.stage[gid2]={team, conf};
+    pkgPaintCard(gid2);
+    if(!opts.quiet) pkSavePrompt();
+    return true;
+  }
+  if(!(await pkRequireHandle())) return false;
   say("saving…");
   try{
     if(g.is_system){
@@ -6376,21 +6705,194 @@ async function pkgSaveGame(gid2){
       // the single source that keeps both scoreboards identical — flipping this write
       // to the group RPC would fork them)
       const r=await authFetch("POST","pickem_picks?on_conflict=season,week,game_id,user_id",
-        {season:pk.season, week:pkg.week, game_id:gid2, user_id:authUser.id, pick_team:team, confidence:conf});
-      if(r.error) throw new Error(r.status===409?"That confidence number is on another of your picks.":"Save failed — try again.");
+        {season:pkg.season, week:pkg.week, game_id:gid2, user_id:authUser.id, pick_team:team, confidence:conf});
+      if(r.error) throw new Error(r.status===409?"That point value is on another of your picks — reload and try again.":"Save failed — try again.");
     } else {
       await predRpc("group_pick",{gid:pkg.gid, p_week:pkg.week, p_game:gid2, p_pick:team, p_conf:conf});
     }
     pkg.mine[gid2]={pick_team:team, confidence:conf};
     delete pkg.stage[gid2];
-    say("Saved — you can change it until kickoff.","ok");
+    if(pkg.vdef&&pkg.vdef[pkg.week]) delete pkg.vdef[pkg.week][gid2];
+    pkgPaintCard(gid2);
+    say("Saved — change it until kickoff.","ok");
     try{ track("pickem_pick", String(gid2)); }catch(_e){}
-    pkgRefreshButtons(gid2, team);
-  }catch(e){ say(e.message||"save failed","err"); }
+    return true;
+  }catch(e){ say(e.message||"save failed","err"); return false; }
 }
-function pkgRefreshButtons(gid2, team){
-  document.querySelectorAll(`[data-pkgpick="${gid2}"]`).forEach(b=>
-    b.classList.toggle("primary", Number(b.dataset.pkteam)===team));
+async function pkgSaveTiebreak(v){
+  const el=document.getElementById("pkm-tb");
+  const say=(t,cls)=>{ if(el){ el.textContent=t; el.className="authmsg "+(cls||""); } };
+  if(!(v>=0&&v<=200)){ say("Enter a total between 0 and 200.","err"); return; }
+  if(!authUser){
+    if(!pkg.g.is_system){ openAuthModal(); return; }
+    const held=pkHeldLoad()||{gid:NATIONAL_GID, season:pkg.season, week:pkg.week, picks:{}};
+    held.tb=v; pkHeldSave(held); pkg.tbHeld=v; pkSavePrompt(); return;
+  }
+  if(!(await pkRequireHandle())) return;
+  try{ await predRpc("group_tiebreak",{gid:pkg.gid, p_week:pkg.week, p_guess:v}); pkg.tbMine=v; say("Tiebreaker saved.","ok"); }
+  catch(e){ say(e.message||"couldn't save","err"); }
+}
+// pick-before-auth: the save prompt appears on the FIRST held pick (once per session), never before a tap
+let _pkSavePrompted=false;
+function pkSavePrompt(){
+  if(_pkSavePrompted||authUser) return;
+  _pkSavePrompted=true;
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="pksaveov";
+  const n=Object.keys(pkg.stage).length;
+  ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Save your picks — takes 10 seconds</div>
+    <button class="pickx" data-sx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="authsub">${n===1?"Your pick is":`Your ${n} picks are`} held on this device. Sign in (or create a free account) and
+      they're saved to the National Pool the moment you're in — keep tapping first if you like.</div>
+    <button class="authprimary" id="pksavego">Sign in and save</button>
+    <div class="navrow" style="padding-top:8px"><button class="navbtn" data-sx>Keep picking</button></div></div>`;
+  document.body.appendChild(ov);
+  navOverlay(ov);
+  ov.querySelectorAll("[data-sx]").forEach(b=>b.onclick=ovDismiss);
+  ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
+  ov.querySelector("#pksavego").onclick=()=>{ ovClose(ov); openAuthModal(); };
+}
+// after sign-in: submit the held picks (open games only), then show them saved
+let _pkFlushing=false;
+async function pkgFlushHeld(){
+  const held=pkHeldLoad();
+  if(!held||!authUser||_pkFlushing) return;
+  _pkFlushing=true;
+  try{
+    if(!pkHandle()){
+      if(document.getElementById("pkclaimov")) await new Promise(r=>{ const iv=setInterval(()=>{ if(!document.getElementById("pkclaimov")){ clearInterval(iv); r(); } }, 400); });
+      if(!pkHandle()&&!(await pkClaimSheet())) return;
+    }
+    const gids=Object.keys(held.picks).map(Number);
+    if(!gids.length&&held.tb==null){ pkHeldClear(); return; }
+    const games=gids.length?await api(`games?select=id,start_date,home_team_id,away_team_id&id=in.(${gids.join(",")})`):[];
+    const byId={}; games.forEach(g=>byId[g.id]=g);
+    // existing values (a returning account) so held values never collide
+    const ex=await authFetch("GET",`pickem_picks?select=game_id,confidence&season=eq.${held.season}&week=eq.${held.week}&user_id=eq.${authUser.id}`);
+    const used=new Set((ex.data||[]).filter(p=>!gids.includes(p.game_id)).map(p=>p.confidence));
+    const order=gids.filter(id=>byId[id]&&!pkLockedIso(byId[id].start_date)).sort((a,b)=>(held.picks[a].conf||99)-(held.picks[b].conf||99));
+    let free=[]; for(let v=1; v<=10; v++) if(!used.has(v)) free.push(v);
+    let saved=0, skipped=gids.length-order.length;
+    for(const id of order){
+      let conf=held.picks[id].conf;
+      if(!conf||used.has(conf)) conf=free.find(v=>!used.has(v));
+      if(!conf){ skipped++; continue; }
+      const r=await authFetch("POST","pickem_picks?on_conflict=season,week,game_id,user_id",
+        {season:held.season, week:held.week, game_id:id, user_id:authUser.id, pick_team:held.picks[id].team, confidence:conf});
+      if(r.error) skipped++; else { saved++; used.add(conf); }
+    }
+    if(held.tb!=null){ try{ await predRpc("group_tiebreak",{gid:NATIONAL_GID, p_week:held.week, p_guess:held.tb}); }catch(_e){} }
+    pkHeldClear();
+    try{ track("pickem_held_saved", String(saved)); }catch(_e){}
+    if(pkg&&pkg.gid===NATIONAL_GID&&pkg.tab==="picks"&&document.getElementById("pkgbody")){ pkg.stage={}; pkg.note=`${saved} pick${saved===1?"":"s"} saved${skipped?` · ${skipped} skipped (locked)`:""}.`; await pkgLoadTab(); }
+    else { pkg=pkg||null; openPickemGroup(NATIONAL_GID, "picks"); }
+  }catch(_e){}
+  finally{ _pkFlushing=false; }
+}
+
+// ---- U78 #4: "Change matchup point value" — PTS · MATCHUP · Move here (insert-and-shift) ----
+function pkgConfModal(gid2){
+  const rows=pkgWeekRows(), vm=pkgValueMap(rows), game=pkg.games[gid2];
+  if(!game||pkLockedIso(game.start_date)) return;
+  const cur=vm.byGame[gid2];
+  const abbr=id=>monogram((teamMeta[id]||{}).school||"?");
+  const label=g2=>g2?`${abbr(g2.away_team_id)} ${g2.neutral_site?"vs":"@"} ${abbr(g2.home_team_id)}`:"";
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="pkconfov";
+  let list=`<div class="pkcm hd"><span>Pts</span><span>Matchup</span><span></span></div>`;
+  for(let v=vm.N; v>=1; v--){
+    const holder=vm.byVal[v], hg=holder?pkg.games[holder]:null;
+    const frozen=vm.frozen.has(v), sel=v===cur;
+    list+=`<div class="pkcm ${sel?"sel":""} ${frozen?"frozen":""}"><span class="pkcmv">${v}</span>
+      <span>${hg?esc(label(hg)):`<small style="color:var(--text3)">open</small>`}${frozen?` ${pkLockIc}`:""}${hg&&!pkgMyTeam(hg.id)&&!frozen?` <small style="color:var(--text3)">· no pick yet</small>`:""}</span>
+      <span>${sel?`<span class="fmangle">SELECTED</span>`:frozen?`<small style="color:var(--text3)">locked</small>`:`<button class="navbtn" data-mv="${v}">Move here</button>`}</span></div>`;
+  }
+  ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Change matchup point value</div>
+    <button class="pickx" data-cx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="authsub"><b>${esc(label(game))}</b> is worth <b>${cur}</b>. Moving it slides the games in between by one — locked games keep their value.</div>
+    <div style="max-height:52dvh;overflow:auto">${list}</div><div class="authmsg" id="pkcmmsg"></div></div>`;
+  document.body.appendChild(ov);
+  navOverlay(ov);
+  ov.querySelector("[data-cx]").onclick=ovDismiss;
+  ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
+  ov.querySelectorAll("[data-mv]").forEach(b=>b.onclick=async()=>{
+    const next=pkgShift(vm, gid2, Number(b.dataset.mv));
+    if(!next) return;
+    const msg=ov.querySelector("#pkcmmsg");
+    // client preference for still-unpicked games (values live on picks server-side)
+    pkg.vdef=pkg.vdef||{}; pkg.vdef[pkg.week]={};
+    rows.forEach(g2=>{ if(next[g2.id]) pkg.vdef[pkg.week][g2.id]=next[g2.id]; });
+    const vals=rows.filter(g2=>!pkLockedIso(g2.start_date)&&pkg.mine[g2.id]&&next[g2.id]).map(g2=>({game_id:g2.id, conf:next[g2.id]}));
+    if(authUser&&vals.length){
+      msg.textContent="saving…"; msg.className="authmsg";
+      try{ await predRpc("pickem_set_confidences",{gid:pkg.gid, p_week:pkg.week, p_vals:vals});
+        vals.forEach(v=>{ pkg.mine[v.game_id].confidence=v.conf; }); }
+      catch(e){ msg.textContent=e.message||"couldn't save"; msg.className="authmsg err"; return; }
+    } else if(!authUser&&pkg.g.is_system){
+      const held=pkHeldLoad(); if(held){ Object.keys(held.picks).forEach(id=>{ if(next[id]) held.picks[id].conf=next[id]; }); pkHeldSave(held); }
+      Object.keys(pkg.stage).forEach(id=>{ if(next[id]) pkg.stage[id].conf=next[id]; });
+    }
+    ovClose(ov);
+    pkgPaint();
+  });
+}
+
+// ---- U78 #5: Quick pick — gambling-free helpers, fill ONLY open + unpicked games ----
+// Home teams · Higher-ranked (AP) · Random · Copy from my other group. NEVER a Model-based
+// fill before lock (it would leak the Model's hidden picks).
+async function pkgQuickPickSheet(){
+  const rows=pkgWeekRows();
+  const open=rows.filter(g=>!pkLockedIso(g.start_date)&&!pkgMyTeam(g.id));
+  if(authUser&&!(pk.groups||[]).length){   // deep-linked straight into a group: load the copy sources
+    try{ const [m,g]=await Promise.all([authFetch("GET", `pickem_members?select=group_id&user_id=eq.${authUser.id}`),
+        authFetch("GET", `pickem_groups?select=id,name,is_system&order=created_at.asc`)]);
+      pk.members=new Set((m.data||[]).map(r=>r.group_id)); pk.groups=g.data||[]; }catch(_e){}
+  }
+  const others=(pk.groups||[]).filter(g2=>g2.id!==pkg.gid&&(pk.members&&pk.members.has(g2.id)||g2.is_system)).slice(0,4);
+  const ov=document.createElement("div"); ov.className="authov"; ov.id="pkqpov";
+  ov.innerHTML=`<div class="authsheet"><div class="authhd"><div class="authttl">Quick pick</div>
+    <button class="pickx" data-qx><svg class="ic" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="authsub">Fills only the <b>${open.length}</b> open game${open.length===1?"":"s"} you haven't picked — your existing picks stay, and you can change any game until it kicks off.</div>
+    <div class="pkqp">
+      <button class="navbtn" data-qp="home"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg><span>Home teams<small>Neutral-site games are left open</small></span></button>
+      ${Object.keys(pkg.ap||{}).length
+        ?`<button class="navbtn" data-qp="ranked"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg><span>Higher-ranked<small>AP Top 25 rank; games with no ranked team are left open</small></span></button>`
+        :`<button class="navbtn" disabled><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg><span>Higher-ranked<small>Available once this season's AP Top 25 is published</small></span></button>`}
+      <button class="navbtn" data-qp="random"><svg class="ic" aria-hidden="true"><use href="#i-dice"/></svg><span>Random<small>Leave it to chance</small></span></button>
+      ${authUser?others.map(g2=>`<button class="navbtn" data-qp="copy" data-src="${g2.id}"><svg class="ic" aria-hidden="true"><use href="#i-swap"/></svg><span>Copy from ${esc(g2.name)}<small>Your picks there, on the games both slates share</small></span></button>`).join(""):""}
+    </div><div class="authmsg" id="pkqpmsg"></div></div>`;
+  document.body.appendChild(ov);
+  navOverlay(ov);
+  ov.querySelector("[data-qx]").onclick=ovDismiss;
+  ov.onclick=e=>{ if(e.target===ov) ovDismiss(); };
+  ov.querySelectorAll("[data-qp]").forEach(b=>b.onclick=async()=>{
+    if(!open.length){ ov.querySelector("#pkqpmsg").textContent="Nothing to fill — every open game already has your pick."; return; }
+    if(authUser&&!(await pkRequireHandle())) return;
+    ov.querySelector("#pkqpmsg").textContent="filling…";
+    const res=await pkgAutofill(b.dataset.qp, b.dataset.src, open);
+    ovClose(ov);
+    pkg.note=`Quick pick: ${res.filled} game${res.filled===1?"":"s"} filled${res.skipped?` · ${res.skipped} left open (${res.why})`:""}.`;
+    pkgPaint();
+  });
+}
+async function pkgAutofill(kind, srcGid, open){
+  const choose={}; let why="";
+  if(kind==="home"){ open.forEach(g=>{ choose[g.id]=g.neutral_site?null:g.home_team_id; }); why="neutral site"; }
+  else if(kind==="ranked"){ open.forEach(g=>{ const ra=pkg.ap[g.away_team_id], rh=pkg.ap[g.home_team_id];
+      choose[g.id]=ra&&rh?(ra<rh?g.away_team_id:g.home_team_id):ra?g.away_team_id:rh?g.home_team_id:null; }); why="no ranked team"; }
+  else if(kind==="random"){ open.forEach(g=>{ choose[g.id]=Math.random()<0.5?g.home_team_id:g.away_team_id; }); }
+  else if(kind==="copy"){
+    const src={};
+    try{ const r=await authFetch("GET",`pickem_group_picks?select=game_id,pick_team&group_id=eq.${srcGid}&season=eq.${pkg.season}&week=eq.${pkg.week}&user_id=eq.${authUser.id}`);
+      (r.data||[]).forEach(p=>src[p.game_id]=p.pick_team); }catch(_e){}
+    open.forEach(g=>{ choose[g.id]=src[g.id]||null; }); why="no pick there";
+  }
+  let filled=0, skipped=0;
+  for(const g of open){
+    const t=choose[g.id]; if(!t){ skipped++; continue; }
+    pkg.stage[g.id]=Object.assign(pkg.stage[g.id]||{}, {team:t});
+    if(await pkgSaveGame(g.id, {quiet:true})) filled++; else skipped++;
+  }
+  if(!authUser&&pkg.g.is_system) _pkSavePrompted=false, pkSavePrompt();
+  return {filled, skipped, why};
 }
 // U74-C: one drawer open per card — opening either expander collapses the other; both
 // re-tap to collapse; chevron + amber .open state mirror the drawer.
@@ -6417,7 +6919,7 @@ async function pkgLoadCompare(gid2, d){
     const a=game.away_team_id, hm=game.home_team_id;
     const lo=Math.min(a,hm), hi=Math.max(a,hm);
     const [adjRows]=await Promise.all([
-      api(`matchup_adjusted?select=payload&season=eq.${pk.season}&team_a=eq.${lo}&team_b=eq.${hi}`).catch(()=>[]),
+      api(`matchup_adjusted?select=payload&season=eq.${pkg.season}&team_a=eq.${lo}&team_b=eq.${hi}`).catch(()=>[]),
       loadMarketLines(), ensureCatalog()]);
     const adj=(adjRows&&adjRows[0])?adjRows[0].payload:null;
     const chip=marketChip(game);
@@ -6480,12 +6982,12 @@ async function pkgRenderGrid(host){
   // all visible picks for the week (RLS already hides pre-lock other-member picks)
   let picks=[];
   if(authUser){
-    const r=await authFetch("GET", `pickem_group_picks?select=game_id,user_id,pick_team&group_id=eq.${pkg.gid}&season=eq.${pk.season}&week=eq.${wk}`);
+    const r=await authFetch("GET", `pickem_group_picks?select=game_id,user_id,pick_team&group_id=eq.${pkg.gid}&season=eq.${pkg.season}&week=eq.${wk}`);
     picks=r.data||[];
   }
   // the Model's picks (system group reveals via RPC post-kickoff; custom groups carry them in picks)
   if(g.model_plays && g.is_system){
-    try{ (await pkAnonRpc("pickem_model_reveal",{p_season:pk.season, p_week:wk})).forEach(r=>{
+    try{ (await pkAnonRpc("pickem_model_reveal",{p_season:pkg.season, p_week:wk})).forEach(r=>{
       if(r.model_pick_team) picks.push({game_id:r.game_id, user_id:MODEL_UID, pick_team:r.model_pick_team}); }); }catch(_e){}
   }
   const pickOf={};
@@ -6532,7 +7034,7 @@ async function pkgRenderStandings(host){
     ? authFetch("GET", q).then(r=>r.data||[])
     : api(q).catch(()=>[]);
   const [board, champs]=await Promise.all([
-    get(`pickem_group_board?select=user_id,handle,display_name,total_points,counted_points,dropped_points,weeks_played,weekly_wins,best_week,correct_ct,picked_ct&group_id=eq.${pkg.gid}&season=eq.${pk.season}&order=counted_points.desc,total_points.desc`),
+    get(`pickem_group_board?select=user_id,handle,display_name,total_points,counted_points,dropped_points,weeks_played,weekly_wins,best_week,correct_ct,picked_ct&group_id=eq.${pkg.gid}&season=eq.${pkg.season}&order=counted_points.desc,total_points.desc`),
     get(`pickem_group_champions?select=season,user_id,handle,display_name,total_points,decided_by&group_id=eq.${pkg.gid}&order=season.desc`)]);
   const cur=board;
   let h="";
@@ -6552,7 +7054,7 @@ async function pkgRenderStandings(host){
     }
   }
   const drops=g.drop_n_weeks>0;
-  h+=`<div class="sec"><div class="sectitle">${pk.season} season</div>`;
+  h+=`<div class="sec"><div class="sectitle">${pkg.season} season</div>`;
   if(!cur.length){
     // U74-D: an unscored group is NOT empty — every member lists at 0 immediately,
     // sorted by join order; the honest results-timing note stays.
@@ -6615,14 +7117,16 @@ async function pkgWeekScores(){
   const el=document.getElementById("pkwkscores");
   if(!el) return;
   document.querySelectorAll("[data-pkw]").forEach(b=>b.classList.toggle("primary", Number(b.dataset.pkw)===pkg.week));
-  const q=`pickem_group_week_scores?select=user_id,handle,display_name,points,correct_ct,picked_ct,is_week_winner&group_id=eq.${pkg.gid}&season=eq.${pk.season}&week=eq.${pkg.week}&order=points.desc`;
+  const q=`pickem_group_week_scores?select=user_id,handle,display_name,points,correct_ct,picked_ct,is_week_winner,tb_guess,tb_diff&group_id=eq.${pkg.gid}&season=eq.${pkg.season}&week=eq.${pkg.week}&order=points.desc,tb_diff.asc.nullslast`;
   const rows=authUser?(await authFetch("GET",q)).data||[]:await api(q).catch(()=>[]);
   if(!rows.length){ el.innerHTML=`<div class="secsub">No scores for this week yet — they post after
     the week's games finish and the weekly scoring pass runs.</div>`; return; }
   el.innerHTML=rows.map(r=>`<div class="boxrow${r.user_id===MODEL_UID?" is-model":""}${authUser&&r.user_id===authUser.id?" is-me":""}">
     <div class="bva">${r.is_week_winner?`<svg class="ic" aria-hidden="true"><use href="#i-trophy"/></svg> `:""}${pkName(r.user_id,r.handle,r.display_name)}</div>
-    <div class="bk">${r.correct_ct} of ${r.picked_ct} right</div>
-    <div class="bvb">${r.points}</div></div>`).join("");
+    <div class="bk">${r.correct_ct} of ${r.picked_ct} right${r.tb_diff!=null?` · <small>tiebreak off by ${r.tb_diff}${r.tb_guess==null?" (blank)":""}</small>`:""}</div>
+    <div class="bvb">${r.points}</div></div>`).join("")
+    + (rows.some(r=>r.tb_diff!=null&&r.is_week_winner)&&rows.filter(r=>r.points===rows[0].points).length>1
+        ?`<div class="secsub" style="padding-top:4px">Tied on points — the crown went to the closest tiebreaker guess (total points in the week's marquee game; blank counts as 0).</div>`:"");
 }
 
 // ---- #3: the commissioner slate editor + the visible change log ----
@@ -6631,7 +7135,7 @@ async function pkgRenderSlate(host){
   const isComm=authUser&&g.commissioner===authUser.id&&!g.is_system;
   const rows=pkg.sl.filter(r=>r.week===wk).map(r=>({...r, game:pkg.games[r.game_id]}))
     .filter(r=>r.game).sort((a,b)=>(a.game.start_date||"").localeCompare(b.game.start_date||""));
-  const logQ=`pickem_slate_log?select=id,week,game_id,action,actor,detail,at&group_id=eq.${pkg.gid}&season=eq.${pk.season}&order=id.desc&limit=40`;
+  const logQ=`pickem_slate_log?select=id,week,game_id,action,actor,detail,at&group_id=eq.${pkg.gid}&season=eq.${pkg.season}&order=id.desc&limit=40`;
   const log=authUser?(await authFetch("GET",logQ)).data||[]:await api(logQ).catch(()=>[]);
   const actorIds=[...new Set(log.map(l=>l.actor).filter(Boolean))];
   const actors={};
@@ -6689,7 +7193,7 @@ async function pkgRenderSlate(host){
   if(ad) ad.onclick=()=>pkgAddPicker(wk, say);
 }
 async function pkgReloadSlates(){
-  const r=await authFetch("GET", `pickem_group_slates?select=season,week,game_id,added_by&group_id=eq.${pkg.gid}&season=eq.${pk.season}&order=week.asc`);
+  const r=await authFetch("GET", `pickem_group_slates?select=season,week,game_id,added_by&group_id=eq.${pkg.gid}&season=eq.${pkg.season}&order=week.asc`);
   pkg.sl=r.data||[];
   const missing=[...new Set(pkg.sl.map(x=>x.game_id).filter(id=>!pkg.games[id]))];
   if(missing.length)
@@ -6703,7 +7207,7 @@ async function pkgAddPicker(wk, say){
   host.innerHTML=`<div class="loading">Loading the week's schedule…</div>`;
   try{
     // the same window rule the server enforces: the global slate's span ±2 days
-    const glob=await api(`pickem_slate_games?select=game_id,kickoff&season=eq.${pk.season}&week=eq.${wk}`);
+    const glob=await api(`pickem_slate_games?select=game_id,kickoff&season=eq.${pkg.season}&week=eq.${wk}`);
     const kos=glob.map(r=>new Date(r.kickoff).getTime());
     const lo=Math.min(...kos)-2*864e5, hi=Math.max(...kos)+2*864e5;
     const onSlate=new Set(pkg.sl.filter(r=>r.week===wk).map(r=>r.game_id));
