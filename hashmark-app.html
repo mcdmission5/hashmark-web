@@ -13787,6 +13787,26 @@ function loopDeadBannerHTML(h, compact){
     ${compact?`<div class="ldw" style="color:var(--text2)">Tap for the owner console.</div>`:`<div class="ldw" style="color:var(--text2)">Mac: launchctl list | grep hashmark · read loop.launchd.log + loop.log. The livewp agent escalates a daily push until this heals.</div>`}
   </div>`;
 }
+// U80: "no pick'em slate exists for the current week" must be impossible to miss. The
+// Sep-2026 incident ran FOUR DAYS with no week-2 slate and nothing on any surface said so.
+// Reads the same pickem_overdue() signal the 5-minute self-heal lane uses, so the console
+// and the healer can never disagree.
+async function pickemOverdueBannerHTML(){
+  try{
+    const r=await pkAnonRpc("pickem_overdue",{p_season:SEASON_SCHED});
+    const od=Array.isArray(r)?r[0]:r;
+    if(!od||od.week==null) return "";
+    const since=od.since?new Date(od.since):null;
+    const hrs=since?Math.max(0,Math.round((Date.now()-since.getTime())/36e5)):null;
+    return `<div class="loopdead" id="pkoverduebanner" role="alert">
+      <div class="ldt">NO PICK'EM SLATE — WEEK ${esc(od.week)}</div>
+      <div class="ldw">Members cannot pick this week.${hrs!=null?` Overdue ${hrs}h.`:""}
+        First kickoff ${od.first_kickoff?new Date(od.first_kickoff).toLocaleString([], {weekday:"short", hour:"numeric", minute:"2-digit"}):"unknown"}.</div>
+      <div class="ldw" style="color:var(--text2)">The 5-minute livewp lane publishes this automatically on its next successful tick.
+        If it persists, the Mac cannot reach the database: check livewp_last_run.json.</div>
+    </div>`;
+  }catch(_e){ return ""; }
+}
 // admin-only home strip — cached probe, one heartbeat read, renders on app open (no push
 // needed). Admin-only + alarm-only, so the layout shift it causes is accepted ops UX.
 let _isAdminCache=null;
@@ -13799,7 +13819,7 @@ async function injectLoopHealth(){
     }
     if(!_isAdminCache) return;
     const hb=await api(`loop_heartbeat?select=*&order=id`);
-    const html=loopDeadBannerHTML(loopHealth(hb), true);
+    const html=(await pickemOverdueBannerHTML()) + loopDeadBannerHTML(loopHealth(hb), true);
     if(!html) return;
     const list=app.querySelector(".list");
     if(!list || document.getElementById("loopdeadbanner")) return;
@@ -13849,6 +13869,7 @@ async function openAdmin(){
   const feats=sum7("features"), fun=sum7("funnel"), use=sum7("usage");
   const tops=g("top_teams",last)||{}, srch=g("top_searches",last)||{};
   let h=`<div class="cmp">${backHeader("Owner console")}<div class="list" style="padding-top:6px">
+    <div id="pkoverdueslot"></div>
     ${loopDeadBannerHTML(hbHealth)}
     <div class="sec"><div class="sectitle">Loop health <small>heartbeats · judged per agent · RUNNING / STALLED / DEAD</small></div>
       ${hbHealth.map(x=>`<div class="histrow"><div style="flex:1">${esc(x.name)} <small>id=${x.id}</small></div>
@@ -13931,6 +13952,7 @@ async function openAdmin(){
     <div class="note"><b>Owner console.</b> Privacy-respecting by construction: no PII, no IP, no user agent stored; anonymous visitors are a random key. ${BRAND_LINE}</div></div></div>`;
   app.innerHTML=h;
   document.querySelector(".back").onclick=navBack;
+  pickemOverdueBannerHTML().then(b=>{ const slot=document.getElementById("pkoverdueslot"); if(slot&&b) slot.innerHTML=b; });
   const tp=document.getElementById("testpush");
   if(tp) tp.onclick=async()=>{
     const out=document.getElementById("testpushout");
